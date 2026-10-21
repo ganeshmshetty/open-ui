@@ -1,5 +1,13 @@
 # Spec changelog
 
+## 2026-10-22 — End-to-end checks (§12.7, §14.1)
+
+- Add §12.7: `tree` and `replay` CLI commands, scripted GPUI interaction tests,
+  the gallery app with a screenshot review loop, and the real-model loop. The
+  conformance suite proves the core but nothing checked that the whole system
+  works and looks right before M8.
+- M6, M7 and M8 done criteria now include these checks.
+
 ## 2026-10-21 — M1 syntax and recovery contract (§2.2–2.5, §2.8–2.9, §12)
 
 - Specify one-token recovery for overlong names, underscore conversion and null

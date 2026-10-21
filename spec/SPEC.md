@@ -1774,6 +1774,18 @@ For every chunking it checks:
 
 ---
 
+### 12.7 End-to-end checks (behaviour and visuals)
+
+Conformance fixtures prove the core. These checks prove the whole system works and looks right, and they run from the milestone listed.
+
+| Check | From | What it is |
+| --- | --- | --- |
+| `genui-cli tree <file.ui>` | M2 | Prints the validated IR as an indented tree (kind, key props, NodeId path) plus diagnostics. The quickest way to see whether a program does what it should. |
+| `genui-cli replay <file.ui> [--chunk N]` | M3 | Streams the file in N-byte chunks and prints each patch batch and the tree after each chunk. Shows how the UI grows and catches flicker or churn. |
+| Scripted GPUI interaction tests | M7 | Headless GPUI tests (the gpui test context) that load a program, simulate clicks, typing, selection, submit and focus changes, and assert the exact `UiEvent`s, state and resulting patches. Behaviour is tested here, not by looking at screenshots. |
+| Gallery app and screenshot loop | M6 | A demo binary renders every `examples/*.ui` and a per-component state sheet (all states from DESIGN.md §7) in light and dark. `--screenshot <dir>` writes one PNG per example and mode. At the end of M6, M7 and M8, the screenshot set is reviewed against DESIGN.md; each finding is fixed or logged in PROGRESS.md with a reason. Screenshots are not golden-compared in phase 1. |
+| Real-model loop | M8 | The sample host streams a live model reply into the UI. The run is recorded as a transcript (prompt, chunks with timing, events) and replayed deterministically. Screenshots are taken at 25%, 50%, 75% and 100% of the stream to check that partial UIs look intentional. |
+
 ## 13. Public Rust API sketch
 
 This sketch is illustrative, not final. Every type it names is defined in this document or in Appendix D.
@@ -1850,9 +1862,9 @@ pub fn render_event(ev: &ModelEvent) -> String;
 | M3 | Streaming parser: tail closing, sealing, held-back bytes, provisional diagnostics, dirty tracking, patches | `streaming` and `patches` pass under every chunking; stream equals batch on 100k generated programs. |
 | M4 | Runtime: values, builtins, provenance, state, forms, actions, queries, refs | `numbers`, `expr`, `iteration`, `state`, `forms`, `actions`, `queries`, `refs` and `provenance` pass in both tiers. |
 | M5 | Prompt generator, feedback, stored messages, events | `prompt`, `feedback` and `message` pass; prompt bytes identical on macOS and Linux CI. |
-| M6 | GPUI skeleton: pins, `UiView` queue, retained tree, cached child views, layout and text components, theming | A fixture streams live in a demo window; recorded patch streams replay without panic; frame and memory numbers recorded. |
-| M7 | GPUI inputs and forms, focus, input sync rule, gating, accessibility roles | The form demo emits a `ui-event`; typed text survives rebuilds; a keyboard-only run of the demo succeeds; accessibility coverage measured. |
-| M8 | GPUI data components (List, Table, Tabs, Chart, Image), panic containment, sample host with a real model | A 50k-row table scrolls; the panic-injection test shows a placeholder; 20 recorded model transcripts replay; the security checklist (11) is reviewed; v0.1 tagged. |
+| M6 | GPUI skeleton: pins, `UiView` queue, retained tree, cached child views, layout and text components, theming | A fixture streams live in a demo window; recorded patch streams replay without panic; frame and memory numbers recorded; the gallery app (12.7) renders every implemented component's examples in light and dark, and the screenshot set has been reviewed against DESIGN.md with every finding fixed or logged in PROGRESS.md. |
+| M7 | GPUI inputs and forms, focus, input sync rule, gating, accessibility roles | The form demo emits a `ui-event`; typed text survives rebuilds; a keyboard-only run of the demo succeeds; accessibility coverage measured; scripted GPUI interaction tests (12.7) cover click, type, select, submit and focus for every input component; gallery screenshots reviewed as in M6. |
+| M8 | GPUI data components (List, Table, Tabs, Chart, Image), panic containment, sample host with a real model | A 50k-row table scrolls; the panic-injection test shows a placeholder; 20 recorded model transcripts replay; the real-model loop (12.7) has run with mid-stream screenshots reviewed; every `examples/*.ui` renders in the gallery; the security checklist (11) is reviewed; v0.1 tagged. |
 
 ### 14.2 Open questions
 

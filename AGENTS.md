@@ -10,6 +10,9 @@ A clean-room Rust generative-UI system. A language model writes a compact UI pro
 
 - `spec/SPEC.md` (draft 0.2) is the contract. Read the sections relevant to your task before writing code.
 - `spec/REVIEW.md` holds the review that 0.2 resolved. Background only.
+- `spec/DESIGN.md` is the visual design language (tokens, layout rules, component anatomy). All renderer visuals come from it. (Draft 0.1. Re-read it before M6.)
+- `ROADMAP.md` lists work that is not in the spec yet and the milestone each item is due by. Check it at the start of each milestone.
+- `PROGRESS.md` is the running state. Read it first in every new session.
 - `research/reports/*.md` holds the prior-art studies. Background only.
 
 ## Clean-room rule (hard)
@@ -54,6 +57,17 @@ The spike is throwaway code that answers those questions.
 5. **Safety.** No `unsafe` in core (`#![forbid(unsafe_code)]`). No panics on model input. Every recovery emits exactly one diagnostic (§4).
 6. **Pins.** Use exactly the set in §10.9: `gpui-kit`, `gpui-component` and `gpui-base` at `=0.8.0`, and `gpui-pre` at `=0.3.9`. Commit `Cargo.lock`. Bump pins only in a dedicated change that follows §10.9.
 7. **Keep changes small.** One milestone, or part of one, per branch or PR. Commit messages say which spec sections they implement.
+8. **Keep `PROGRESS.md` current.** After each milestone (and before stopping mid-milestone): status, evidence, next step, open issues, spec changes.
+
+## Quality bar (no sloppy work)
+
+- "Done" never includes stubs: no `todo!()`, `unimplemented!()`, placeholder returns, or `#[ignore]`d tests to get CI green. If something is out of scope, say so in `PROGRESS.md`.
+- Never edit a `want.*` fixture just to make a failing test pass. Either the code is wrong, or the spec is (then rule 2 applies).
+- Tests assert behavior and exact outputs, not only "does not panic".
+- No `unwrap()`/`expect()` on any path that model input can reach in the core.
+- Don't invent APIs. Before using any gpui / gpui-kit item, check it exists in the pinned version on docs.rs (`gpui-component 0.8.0`, `gpui-pre 0.3.9`). Record surprises in `PINS.md`.
+- Renderer code uses theme tokens from `spec/DESIGN.md` only: no hard-coded colors, pixel sizes, or font sizes outside the theme module.
+- When the spec is silent, don't guess silently: pick the simplest option, write it into the spec with a changelog line, or ask.
 
 ## Conventions
 

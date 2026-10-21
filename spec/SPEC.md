@@ -1156,6 +1156,24 @@ Events that leave the process become `ModelEvent`s once the host lets them throu
 - **Size.** Events are capped at `max_event_bytes` (`limit.event`).
 - **Sending.** The host turns the event into a synthetic user turn (9.3) and MUST show it in the transcript exactly as sent. The core never sends anything itself.
 
+### 7.9 Conversations: one session per message
+
+A chat has many assistant messages. Each one gets its own `Session` and its own `UiView`.
+
+- **State and identity are per message.** `$state`, queries, refs, node IDs and action plans belong to one message's session. Messages never read each other's state. Data that a later turn needs travels through the model, in a `ui-event` `ctx` or in the host's own turn text. Cross-message references are not supported (14.2 question 7).
+- **Lifecycle.** Each message moves through these states:
+
+  | State | Entered by | Behavior |
+  | --- | --- | --- |
+  | `Streaming` | first `push` | Live patches. Actions disabled (7.4). |
+  | `Live` | `finish()` | Fully interactive. Queries may run. |
+  | `Frozen` | host calls `Session::freeze()` | The session is dropped. The view keeps its last tree, read-only: inputs and buttons render disabled, and no queries or actions run. |
+
+- **Freezing.** `freeze(self) -> FrozenMessage { snapshot: PatchBatch, state: StateSnapshot, fallback_text: String }`. Hosts SHOULD keep at most `max_live_sessions` sessions live (host default 3, the most recent messages) and freeze older ones.
+- **Thawing.** `Session::restore(stored: &StoredMessage, opts: SessionOptions) -> Session` re-parses the stored program with the batch path, restores the state snapshot, and returns a `Live` session. Its queries are re-requested and go through host policy again. The result MUST equal the original session after `finish()`, plus the restored state.
+- **Regenerate** calls `reset()` on that message's session only (6.3 G8). Other messages are untouched.
+- **Events from older messages.** A `ModelEvent` from any live message is sent with that message's id: the host adds `"msg": "<id>"` to the `ui-event` block, so the model knows which earlier UI the user interacted with.
+
 ---
 
 ## 8. Component library and schema
@@ -1231,6 +1249,7 @@ The Library Spec is a JSON document generated from the Rust definitions. It hold
 | `text` | string |
 | `int`, `float`, `number` | numbers (`number` accepts either) |
 | `bool` | boolean |
+| `scalar` | a number or a string (formatted by `format` when it is a number) |
 | `named{name}` | an enum or token type from `types` |
 | `list{of}` | list of a type |
 | `map{of}` | map with values of a type |
@@ -1296,7 +1315,7 @@ Signatures use the catalog format of 9.1:
 | `button_tone` | `"primary" \| "secondary" \| "ghost" \| "danger"` |
 | `text_size` | `"sm" \| "md" \| "lg"` |
 | `input_kind` | `"text" \| "email" \| "url" \| "number" \| "integer"` |
-| `col_format` | `"text" \| "number" \| "percent" \| "date"` |
+| `col_format` | `"text" \| "number" \| "compact" \| "currency" \| "percent" \| "delta" \| "date"` (rendering rules: DESIGN.md §6.12) |
 | `chart_kind` | `"bar" \| "line"` |
 
 **Layout**
@@ -1306,7 +1325,7 @@ Signatures use the catalog format of 9.1:
 | `Column(children: [node]; gap: space = 2, align: align = "stretch", padding: space = 0)` | group | children, one per line | |
 | `Row(children: [node]; gap: space = 2, align: align = "center", wrap: bool = false)` | group | children joined by " · " | |
 | `Grid(children: [node]; cols: int 1..4 = 2, gap: space = 2)` | group | children, one per line | |
-| `Card(children: [node]; title: text, padding: space = 3)` | region | `**{title}**` then children | |
+| `Card(children: [node]; title: text, padding: space = 4)` | region | `**{title}**` then children | |
 | `Divider()` | separator | `---` | |
 
 **Text and content**
@@ -1341,12 +1360,14 @@ Signatures use the catalog format of 9.1:
 | --- | --- | --- | --- |
 | `List(items: [node]; ordered: bool = false)` | list | `- item` or `1. item` | Each child becomes a list item. Virtualized above 100 items. |
 | `Table(columns: [TableColumn], rows: data; empty: text = "No data")` | table | pipe table | Virtualized above 100 rows. Each cell shows the row's `field` value as text. |
-| `TableColumn(header: text, field: text; align: "start" \| "end" = "start", format: col_format = "text")` | (structural) | | Valid only in `Table.columns` (`schema.slot_kind` elsewhere). |
+| `TableColumn(header: text, field: text; align: "start" \| "end" = "start", format: col_format = "text", currency: text = "USD")` | (structural) | | Valid only in `Table.columns` (`schema.slot_kind` elsewhere). |
+| `Stat(label: text, value: scalar; delta: number, good: "up" \| "down" = "up", format: col_format = "number", currency: text = "USD", caption: text)` | group | `**{label}:** {value}` plus ` ({delta})` when present | A KPI: label, large value, optional change badge colored by whether `delta`'s direction is `good`. Use inside Card or Grid. |
+| `Facts(items: data; columns: int 1..2 = 1)` | list | `- **{label}:** {value}` per item | Key-value details. Each item is a map with `label` and `value`; extra keys are ignored. At most 50 items (`limit.list_len` beyond). |
 | `Chart(kind: chart_kind, data: data, x: text, y: text; title: text, summary: text)` | chart | `{summary}` plus a pipe table | requires `charts`. One series. `x` and `y` are field names. |
 | `Tabs(tabs: [Tab]; bind: binding<text>)` | tab_list | each tab's label followed by its children | Without `bind`, the selection is renderer-local and invisible to expressions. |
 | `Tab(label: text, children: [node]; value: text)` | tab_panel | | Valid only in `Tabs.tabs`. `value` defaults to `label`. |
 
-That is 26 entries: 24 components plus the structural helpers `TableColumn` and `Tab`. Deferred components are listed in Appendix A.
+That is 28 entries: 26 components plus the structural helpers `TableColumn` and `Tab`. Deferred components are listed in Appendix A.
 
 **Slot minimums.** `Tabs.tabs` and `Table.columns` have `min_items: 1`. All other slots allow zero items.
 
@@ -1503,6 +1524,8 @@ These names were checked on docs.rs for `gpui-component 0.8.0` and `gpui-pre 0.3
 | `Switch` | `switch::Switch` | Not `button::Toggle`, which is a toggle button. |
 | `List` | `v_flex` of children. Above 100 items, `list::List` with a `ListDelegate` adapter over IR children. | |
 | `Table` | `table::DataTable` over `Entity<TableState<D>>` with a `TableDelegate` adapter | Rows are text cells only. |
+| `Stat` | `v_flex` of a caption `Label`, a styled value `div`, and a `tag::Tag` for the delta | Layout per DESIGN.md §7. |
+| `Facts` | `div().grid()` with two columns per fact (label, value) | Label `muted_foreground`, value `foreground`. |
 | `Chart` | `chart::BarChart` / `chart::LineChart` | Kit charts use band and value mappers: `x` maps to the band, `y` to the value. No legend in phase 1, since the chart is single-series. Tooltips are on. |
 | `Tabs`, `Tab` | `tab::TabBar` and `tab::Tab` for the bar | Panel switching is built by the renderer, because the kit has no tab panel. Only the selected `Tab`'s children are rendered. |
 
@@ -1522,6 +1545,8 @@ These names were checked on docs.rs for `gpui-component 0.8.0` and `gpui-pre 0.3
   - `Enter` in a single-line field submits only when the form has exactly one `submit: true` button.
 
 ### 10.5 Theming
+
+The full visual design language (tokens, layout rules, component anatomy, streaming visuals) is `spec/DESIGN.md`, which is normative for this renderer. The theme is built on gpui-base `SemanticThemeTokens`, not the legacy `ThemeColor`. Where this section and DESIGN.md differ, DESIGN.md wins.
 
 - **Tokens.** `UiTheme` maps design tokens onto the active gpui-kit theme:
   - spacing 0–8 on a 4 px base;
@@ -1595,6 +1620,15 @@ Phase 1 maps IR roles to `gpui::Role` for `Heading`, `Button`, `TextInput`, `Che
 ### 10.11 Overlays
 
 The phase-1 library has no modals and no free-positioned overlays: no dialogs, sheets or notifications. The only overlays are the popovers that kit widgets anchor themselves (the `Select` menu and tooltips). They render in the kit `Root` layer next to their anchor. This is accepted because the model cannot position them.
+
+### 10.12 Prose segments
+
+A message can contain prose before the program, and prose that becomes `Segment::Markdown` (2.9). The prose is not part of the IR or the patch stream.
+
+- **Core side.** `Update` carries `prose: Vec<ProseDelta>`, where `ProseDelta { segment: u32, append: String }` appends text to the markdown segment with that index. A new index starts a new segment. The program's position in the message is the `Segment::Program` slot.
+- **Sanitizing.** Prose goes through the same character stripping as model text props (11): bidi controls and zero-width characters are removed. Raw HTML is shown as text. Markdown images are rendered as their alt text with a link. Links follow URL policy (7.6) with `Model` provenance.
+- **GPUI side.** `UiView` renders the whole message in segment order. Each markdown segment is a kit `TextView` over an `Entity<TextViewState>`, grown with `push_str` as deltas arrive. The program's tree mounts at its segment position.
+- **Fallback text** (4.7) includes the prose segments in order.
 
 ---
 
@@ -1767,6 +1801,10 @@ impl Session {
     pub fn feedback(&self) -> Option<String>;                // 4.6, after finish
     pub fn fallback_text(&self) -> String;
     pub fn stored_message(&self) -> StoredMessage;
+
+    // Conversations (7.9)
+    pub fn freeze(self) -> FrozenMessage;
+    pub fn restore(stored: &StoredMessage, opts: SessionOptions) -> Session;
 }
 
 pub struct Update {
@@ -1774,6 +1812,7 @@ pub struct Update {
     pub diagnostics: Vec<Diagnostic>,        // new since the last update
     pub requests: Vec<HostRequest>,
     pub model_events: Vec<ModelEvent>,
+    pub prose: Vec<ProseDelta>,              // 10.12
     pub phase: SessionPhase,                 // Waiting | Streaming | Done | Rejected
 }
 
@@ -1846,6 +1885,7 @@ pub fn render_event(ev: &ModelEvent) -> String;
 | Component-to-component fallback chains | GPUI renders everything | `to_text` fallback exists (8.6). |
 | Multiple programs per message | Simplicity and determinism (review M6) | |
 | Components: Spacer, Icon, Link, Collapsible, Progress, Slider, DatePicker, Dialog | Scope | Each needs a 10.3 row and fixtures when added. |
+| Table density, chart height tiers, structured list items (DESIGN.md Appendix A, P4–P6) | Each adds a choice the model can get wrong; defaults work for chat | Add when recorded model output shows the need. |
 | Multi-series charts, legends, area and pie | No kit legend; scope | |
 | Responsive grids | No CSS-like media queries in GPUI | Measure bounds and pick `cols`. |
 | Visual snapshot tests, gating performance budgets, 24-hour fuzz gate | Phase-1 cost | Reported, not gating. |
@@ -1941,6 +1981,8 @@ Surface similarity note: with `=`, `$state` and `root`, a program can look super
 | `UrlPolicy` (schemes, hosts) | 7.6 |
 | `RefCatalog` (entries: id, kind, description, shape), `RefId` | 7.7 |
 | `UiEvent`, `ModelEvent` | 7.8 |
+| `FrozenMessage`, `StateSnapshot` | 7.9 |
+| `ProseDelta` | 10.12 |
 | `StoredMessage`, `Segment`, `LibRef`, `StateSnapshot` | 9.2 |
 | `Prompt`, `PromptOptions` | 9.1 |
 | `ParseResult` (IR and diagnostics), `Limits` (7.1 table) | 13, 7.1 |

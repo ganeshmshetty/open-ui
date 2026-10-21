@@ -1,0 +1,8 @@
+{
+  "title": "missing unicode closer",
+  "tier": "core",
+  "tags": [
+    "lex"
+  ],
+  "notes": "SPEC \u00a72.2: stop malformed Unicode escape before a quote, newline, or EOF."
+}

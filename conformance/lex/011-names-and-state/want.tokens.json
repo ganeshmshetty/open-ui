@@ -1,0 +1,38 @@
+[
+  {
+    "kind": "Name",
+    "text": "query"
+  },
+  {
+    "kind": "Name",
+    "text": "tool"
+  },
+  {
+    "kind": "Name",
+    "text": "photoUrl"
+  },
+  {
+    "kind": "Name",
+    "text": "_private"
+  },
+  {
+    "kind": "State",
+    "text": "range"
+  },
+  {
+    "kind": "State",
+    "text": "_x"
+  },
+  {
+    "kind": "True",
+    "text": "true"
+  },
+  {
+    "kind": "False",
+    "text": "false"
+  },
+  {
+    "kind": "Null",
+    "text": "null"
+  }
+]

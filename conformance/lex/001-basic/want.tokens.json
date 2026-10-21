@@ -1,0 +1,30 @@
+[
+  {
+    "kind": "Name",
+    "text": "root"
+  },
+  {
+    "kind": "Assign",
+    "text": "="
+  },
+  {
+    "kind": "Name",
+    "text": "Text"
+  },
+  {
+    "kind": "LParen",
+    "text": "("
+  },
+  {
+    "kind": "String",
+    "text": "hello"
+  },
+  {
+    "kind": "RParen",
+    "text": ")"
+  },
+  {
+    "kind": "Nl",
+    "text": "\n"
+  }
+]

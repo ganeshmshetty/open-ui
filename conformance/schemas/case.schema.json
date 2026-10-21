@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "title",
+    "tier",
+    "tags",
+    "notes"
+  ],
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tier": {
+      "enum": [
+        "core",
+        "interactive",
+        "gpui-smoke"
+      ]
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "notes": {
+      "type": "string"
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_program_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_stmt_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_stmt_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_bracket_depth": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_expr_depth": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_ir_depth": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_nodes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fuel_per_prop": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_list_len": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "each_max_items": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_string_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_state_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_queries": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_concurrent_requests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_ref_resolutions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_resolved_data_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_event_bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

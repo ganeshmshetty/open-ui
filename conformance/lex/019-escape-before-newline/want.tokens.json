@@ -1,0 +1,14 @@
+[
+  {
+    "kind": "String",
+    "text": "end"
+  },
+  {
+    "kind": "Nl",
+    "text": "\n"
+  },
+  {
+    "kind": "Name",
+    "text": "next"
+  }
+]

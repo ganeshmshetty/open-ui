@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Rust (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Unit tests and conformance
+        run: cargo test --workspace --locked
+      - name: All fixture chunkings
+        run: cargo run --locked -p genui-cli -- fixtures
+      - name: Specification examples
+        run: cargo run --locked -p genui-cli -- spec-check
+      - name: Fuzz scaffold format
+        run: cargo fmt --manifest-path fuzz/Cargo.toml -- --check
+      - name: Fuzz scaffold build
+        run: cargo check --manifest-path fuzz/Cargo.toml --bins --locked

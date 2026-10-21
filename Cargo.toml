@@ -1,0 +1,21 @@
+[workspace]
+members = ["crates/genui-core", "crates/genui-std", "crates/genui-prompt", "crates/genui-gpui", "crates/genui-conformance", "crates/genui-cli"]
+exclude = ["fuzz"]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace.dependencies]
+genui-core = { path = "crates/genui-core" }
+genui-std = { path = "crates/genui-std" }
+genui-prompt = { path = "crates/genui-prompt" }
+genui-conformance = { path = "crates/genui-conformance" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+gpui-kit = "=0.8.0"
+gpui-component = "=0.8.0"
+gpui-base = "=0.8.0"
+gpui-pre = "=0.3.9"

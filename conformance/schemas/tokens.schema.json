@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "kind",
+      "text"
+    ],
+    "properties": {
+      "kind": {
+        "enum": [
+          "Name",
+          "State",
+          "Int",
+          "Float",
+          "String",
+          "True",
+          "False",
+          "Null",
+          "Nl",
+          "Assign",
+          "Bind",
+          "Eq",
+          "Ne",
+          "Lt",
+          "Le",
+          "Gt",
+          "Ge",
+          "Plus",
+          "Minus",
+          "Star",
+          "Slash",
+          "Percent",
+          "And",
+          "Or",
+          "Not",
+          "Pipe",
+          "Colon",
+          "Dot",
+          "Comma",
+          "LParen",
+          "RParen",
+          "LBracket",
+          "RBracket",
+          "LBrace",
+          "RBrace"
+        ]
+      },
+      "text": {
+        "type": "string"
+      }
+    }
+  }
+}

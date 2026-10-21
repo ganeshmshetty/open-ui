@@ -1,0 +1,26 @@
+[
+  {
+    "kind": "Name",
+    "text": "root"
+  },
+  {
+    "kind": "Nl",
+    "text": "\n"
+  },
+  {
+    "kind": "Assign",
+    "text": "="
+  },
+  {
+    "kind": "Nl",
+    "text": "\n"
+  },
+  {
+    "kind": "String",
+    "text": "é"
+  },
+  {
+    "kind": "Nl",
+    "text": "\n"
+  }
+]

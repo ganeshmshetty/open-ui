@@ -1,0 +1,13 @@
+[package]
+name = "genui-conformance"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+genui-core.workspace = true
+genui-std.workspace = true
+genui-prompt.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+jsonschema = { version = "0.33", default-features = false }

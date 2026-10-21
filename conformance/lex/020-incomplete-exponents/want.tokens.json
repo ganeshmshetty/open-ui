@@ -1,0 +1,42 @@
+[
+  {
+    "kind": "Int",
+    "text": "1"
+  },
+  {
+    "kind": "Name",
+    "text": "e"
+  },
+  {
+    "kind": "Int",
+    "text": "2"
+  },
+  {
+    "kind": "Name",
+    "text": "e"
+  },
+  {
+    "kind": "Plus",
+    "text": "+"
+  },
+  {
+    "kind": "Int",
+    "text": "3"
+  },
+  {
+    "kind": "Dot",
+    "text": "."
+  },
+  {
+    "kind": "Int",
+    "text": "4"
+  },
+  {
+    "kind": "Dot",
+    "text": "."
+  },
+  {
+    "kind": "Name",
+    "text": "e2"
+  }
+]

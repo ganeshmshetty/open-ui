@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "code",
+      "stmt",
+      "path",
+      "recovery"
+    ],
+    "properties": {
+      "code": {
+        "enum": [
+          "syntax.bad_utf8",
+          "syntax.bad_char",
+          "syntax.bad_escape",
+          "syntax.unterminated_string"
+        ]
+      },
+      "stmt": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "path": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "recovery": {
+        "enum": [
+          "Skipped",
+          "Replaced",
+          "ClosedImplicitly"
+        ]
+      }
+    }
+  }
+}

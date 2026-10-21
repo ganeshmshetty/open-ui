@@ -1,0 +1,8 @@
+[
+  {
+    "code": "syntax.unterminated_string",
+    "stmt": null,
+    "path": null,
+    "recovery": "ClosedImplicitly"
+  }
+]

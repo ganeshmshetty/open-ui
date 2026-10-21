@@ -1,0 +1,68 @@
+[package]
+name = "genui-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+genui-core = { path = "../crates/genui-core" }
+
+[[bin]]
+name = "lexer"
+path = "fuzz_targets/lexer.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "splitter"
+path = "fuzz_targets/splitter.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "extractor"
+path = "fuzz_targets/extractor.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "parser"
+path = "fuzz_targets/parser.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "validator"
+path = "fuzz_targets/validator.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "evaluator"
+path = "fuzz_targets/evaluator.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "prompt"
+path = "fuzz_targets/prompt.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "renderer"
+path = "fuzz_targets/renderer.rs"
+test = false
+doc = false
+bench = false

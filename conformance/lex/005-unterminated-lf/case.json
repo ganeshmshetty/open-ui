@@ -1,0 +1,8 @@
+{
+  "title": "unterminated lf",
+  "tier": "core",
+  "tags": [
+    "lex"
+  ],
+  "notes": "SPEC §2.2; M0 lexical bootstrap."
+}

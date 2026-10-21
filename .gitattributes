@@ -1,0 +1,4 @@
+# Fixtures include intentional CR LF, tabs, and malformed UTF-8. Preserve bytes.
+conformance/**/input.ui -text whitespace=-trailing-space,-blank-at-eof
+# Preserve the pre-existing archived specification verbatim.
+spec/archive/** whitespace=-trailing-space

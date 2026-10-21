@@ -1,0 +1,20 @@
+[
+  {
+    "code": "syntax.bad_char",
+    "stmt": null,
+    "path": null,
+    "recovery": "Skipped"
+  },
+  {
+    "code": "syntax.bad_char",
+    "stmt": null,
+    "path": null,
+    "recovery": "Skipped"
+  },
+  {
+    "code": "syntax.bad_char",
+    "stmt": null,
+    "path": null,
+    "recovery": "Skipped"
+  }
+]

@@ -1,0 +1,106 @@
+[
+  {
+    "kind": "Assign",
+    "text": "="
+  },
+  {
+    "kind": "Bind",
+    "text": ":="
+  },
+  {
+    "kind": "Eq",
+    "text": "=="
+  },
+  {
+    "kind": "Ne",
+    "text": "!="
+  },
+  {
+    "kind": "Lt",
+    "text": "<"
+  },
+  {
+    "kind": "Le",
+    "text": "<="
+  },
+  {
+    "kind": "Gt",
+    "text": ">"
+  },
+  {
+    "kind": "Ge",
+    "text": ">="
+  },
+  {
+    "kind": "Plus",
+    "text": "+"
+  },
+  {
+    "kind": "Minus",
+    "text": "-"
+  },
+  {
+    "kind": "Star",
+    "text": "*"
+  },
+  {
+    "kind": "Slash",
+    "text": "/"
+  },
+  {
+    "kind": "Percent",
+    "text": "%"
+  },
+  {
+    "kind": "And",
+    "text": "&&"
+  },
+  {
+    "kind": "Or",
+    "text": "||"
+  },
+  {
+    "kind": "Not",
+    "text": "!"
+  },
+  {
+    "kind": "Pipe",
+    "text": "|"
+  },
+  {
+    "kind": "Colon",
+    "text": ":"
+  },
+  {
+    "kind": "Dot",
+    "text": "."
+  },
+  {
+    "kind": "Comma",
+    "text": ","
+  },
+  {
+    "kind": "LParen",
+    "text": "("
+  },
+  {
+    "kind": "RParen",
+    "text": ")"
+  },
+  {
+    "kind": "LBracket",
+    "text": "["
+  },
+  {
+    "kind": "RBracket",
+    "text": "]"
+  },
+  {
+    "kind": "LBrace",
+    "text": "{"
+  },
+  {
+    "kind": "RBrace",
+    "text": "}"
+  }
+]

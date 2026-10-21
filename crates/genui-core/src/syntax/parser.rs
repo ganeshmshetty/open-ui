@@ -235,10 +235,7 @@ impl ExpressionParser<'_> {
         let mut used_eq = false;
         let mut used_cmp = false;
         let mut previous_precedence = None;
-        loop {
-            let Some((op, precedence)) = self.peek().and_then(operator) else {
-                break;
-            };
+        while let Some((op, precedence)) = self.peek().and_then(operator) {
             if previous_precedence.is_some_and(|previous| precedence > previous)
                 || precedence < minimum
                 || (precedence == 3 && used_eq)

@@ -112,6 +112,10 @@ lexical bound recoveries; RHS/name-claim/namespace/count rules; forced-boundary
 recovery cardinality and size/depth/string behavior; fence/version/prose edge
 cases; strict AST/segment goldens; M1 spec-check and round-trip budget rules.
 
+The first hosted run found one Rust 1.99 Clippy style lint (`while_let_loop`)
+that Rust 1.94 did not report. The equivalent loop was rewritten without a
+behavior change; timed acceptance campaigns will use that final source.
+
 Remaining acceptance gates: finish all four clean campaigns and verify hosted
 Linux/macOS CI. No known unresolved syntax issue. Semantic library resolution,
 constant-state validation, general builtin/type checking, IR, provisional tails,

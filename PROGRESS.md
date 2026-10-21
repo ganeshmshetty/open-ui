@@ -6,7 +6,7 @@ A milestone is complete only after its acceptance checks pass and CI is green.
 
 | Milestone | Status | Evidence / next gate |
 | --- | --- | --- |
-| M0 — Workspace and verification scaffolding | Awaiting CI | Local gates pass; Linux and macOS GitHub Actions pending. |
+| M0 — Workspace and verification scaffolding | Complete | 21 lex fixtures / 4,743 chunkings; 7 spec examples; Linux and macOS CI green. |
 | M1 — Batch syntax | Not started | Lexer completion, splitter, extractor, AST/parser, round trip, 10-minute fuzz run. |
 | M2 — Library, validation, IR and limits | Not started | Category fixtures, diagnostic coverage, full spec validation. |
 | M3 — Streaming and patches | Not started | Live invariant checks, patch replay, 100k generated programs. |
@@ -42,4 +42,12 @@ Local gates passed:
 - `cargo check --manifest-path fuzz/Cargo.toml --bins`: all 8 scaffolds compile.
 - `cargo tree -p genui-core --edges normal`: only serde and its derive dependencies.
 
-Hosted CI: awaiting first push to the private `ganeshmshetty/open-ui` repository.
+Hosted CI: [M0 acceptance run](https://github.com/ganeshmshetty/open-ui/actions/runs/39634933301)
+passed on Linux and macOS for implementation commit `69e959f`. All eight workflow
+checks passed on both platforms. The repository is private.
+
+Additional negative checks confirmed that changed token/diagnostic goldens,
+unknown metadata fields, and an explicit stream that does not reproduce its
+input all exit nonzero.
+
+M0 is complete. M1 is the next milestone; no M1 implementation is claimed here.

@@ -1,0 +1,19 @@
+{
+  "statements": [
+    {
+      "kind": "Bind",
+      "name": "root",
+      "value": {
+        "kind": "Unary",
+        "op": "Not",
+        "expr": {
+          "kind": "Unary",
+          "op": "Not",
+          "expr": {
+            "kind": "Null"
+          }
+        }
+      }
+    }
+  ]
+}

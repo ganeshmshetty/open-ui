@@ -1,0 +1,14 @@
+[
+  {
+    "code": "limit.stmt_count",
+    "stmt": "b",
+    "path": null,
+    "recovery": "StatementDropped"
+  },
+  {
+    "code": "limit.stmt_count",
+    "stmt": "root",
+    "path": null,
+    "recovery": "StatementDropped"
+  }
+]

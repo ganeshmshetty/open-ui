@@ -1,0 +1,14 @@
+[
+  {
+    "code": "syntax.trailing_operator",
+    "stmt": "a",
+    "path": null,
+    "recovery": "ClosedImplicitly"
+  },
+  {
+    "code": "syntax.unclosed_bracket",
+    "stmt": "a",
+    "path": null,
+    "recovery": "ClosedImplicitly"
+  }
+]

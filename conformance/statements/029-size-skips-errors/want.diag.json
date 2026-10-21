@@ -1,0 +1,8 @@
+[
+  {
+    "code": "limit.stmt_size",
+    "stmt": "a",
+    "path": null,
+    "recovery": "Truncated"
+  }
+]

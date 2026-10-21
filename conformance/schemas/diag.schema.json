@@ -13,10 +13,32 @@
     "properties": {
       "code": {
         "enum": [
-          "syntax.bad_utf8",
           "syntax.bad_char",
           "syntax.bad_escape",
-          "syntax.unterminated_string"
+          "syntax.bad_utf8",
+          "syntax.unterminated_string",
+          "syntax.unclosed_bracket",
+          "syntax.trailing_operator",
+          "syntax.stray_closer",
+          "syntax.missing_comma",
+          "syntax.trailing",
+          "syntax.stmt_shape",
+          "syntax.bare_component",
+          "syntax.dup_key",
+          "name.duplicate",
+          "name.reserved",
+          "extract.version",
+          "extract.extra_program",
+          "expr.overflow",
+          "expr.non_finite",
+          "expr.lambda_misuse",
+          "expr.unknown_fn",
+          "schema.positional_after_named",
+          "limit.stmt_size",
+          "limit.program_size",
+          "limit.depth",
+          "limit.stmt_count",
+          "limit.string"
         ]
       },
       "stmt": {
@@ -33,9 +55,16 @@
       },
       "recovery": {
         "enum": [
-          "Skipped",
+          "ArgOmitted",
+          "ClosedImplicitly",
+          "CommaInserted",
+          "Ignored",
+          "ProgramRejected",
           "Replaced",
-          "ClosedImplicitly"
+          "Skipped",
+          "StatementDropped",
+          "Truncated",
+          "ValueNulled"
         ]
       }
     }

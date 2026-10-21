@@ -38,31 +38,3 @@ path = "fuzz_targets/parser.rs"
 test = false
 doc = false
 bench = false
-
-[[bin]]
-name = "validator"
-path = "fuzz_targets/validator.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "evaluator"
-path = "fuzz_targets/evaluator.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "prompt"
-path = "fuzz_targets/prompt.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "renderer"
-path = "fuzz_targets/renderer.rs"
-test = false
-doc = false
-bench = false

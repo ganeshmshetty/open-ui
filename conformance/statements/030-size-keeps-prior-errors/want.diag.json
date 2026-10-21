@@ -1,0 +1,14 @@
+[
+  {
+    "code": "syntax.bad_escape",
+    "stmt": null,
+    "path": null,
+    "recovery": "Replaced"
+  },
+  {
+    "code": "limit.stmt_size",
+    "stmt": "a",
+    "path": null,
+    "recovery": "Truncated"
+  }
+]

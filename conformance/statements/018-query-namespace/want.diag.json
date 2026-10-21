@@ -1,0 +1,8 @@
+[
+  {
+    "code": "name.duplicate",
+    "stmt": "q",
+    "path": null,
+    "recovery": "StatementDropped"
+  }
+]

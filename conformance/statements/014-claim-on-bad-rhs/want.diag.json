@@ -1,0 +1,20 @@
+[
+  {
+    "code": "syntax.trailing_operator",
+    "stmt": "a",
+    "path": null,
+    "recovery": "ClosedImplicitly"
+  },
+  {
+    "code": "syntax.stmt_shape",
+    "stmt": "a",
+    "path": null,
+    "recovery": "StatementDropped"
+  },
+  {
+    "code": "name.duplicate",
+    "stmt": "a",
+    "path": null,
+    "recovery": "StatementDropped"
+  }
+]

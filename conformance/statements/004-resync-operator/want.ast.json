@@ -1,0 +1,29 @@
+{
+  "statements": [
+    {
+      "kind": "Bind",
+      "name": "a",
+      "value": {
+        "kind": "Int",
+        "value": 1
+      }
+    },
+    {
+      "kind": "Bind",
+      "name": "root",
+      "value": {
+        "kind": "Call",
+        "name": "Text",
+        "args": [
+          {
+            "name": null,
+            "value": {
+              "kind": "String",
+              "value": "ok"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

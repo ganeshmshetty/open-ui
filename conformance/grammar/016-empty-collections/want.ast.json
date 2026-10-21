@@ -1,0 +1,26 @@
+{
+  "statements": [
+    {
+      "kind": "Bind",
+      "name": "root",
+      "value": {
+        "kind": "List",
+        "items": [
+          {
+            "kind": "Map",
+            "entries": []
+          },
+          {
+            "kind": "List",
+            "items": []
+          },
+          {
+            "kind": "Call",
+            "name": "Foo",
+            "args": []
+          }
+        ]
+      }
+    }
+  ]
+}

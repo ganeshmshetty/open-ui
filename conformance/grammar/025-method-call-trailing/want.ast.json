@@ -1,0 +1,16 @@
+{
+  "statements": [
+    {
+      "kind": "Bind",
+      "name": "root",
+      "value": {
+        "kind": "Member",
+        "base": {
+          "kind": "Name",
+          "name": "a"
+        },
+        "key": "b"
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "statements": [
+    {
+      "kind": "Bind",
+      "name": "root",
+      "value": {
+        "kind": "List",
+        "items": [
+          {
+            "kind": "Binary",
+            "op": "Eq",
+            "left": {
+              "kind": "Name",
+              "name": "x"
+            },
+            "right": {
+              "kind": "Name",
+              "name": "y"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

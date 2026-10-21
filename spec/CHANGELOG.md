@@ -1,5 +1,26 @@
 # Spec changelog
 
+## 2026-10-21 — M1 syntax and recovery contract (§2.2–2.5, §2.8–2.9, §12)
+
+- Specify one-token recovery for overlong names, underscore conversion and null
+  replacement for out-of-range/non-finite numeric literals; the prior lexical
+  bounds had no recovery behavior.
+- Define unrecoverable RHS drops, name-claim retention, the state/name namespaces,
+  reserved checks and statement-budget counting so duplicate and bad-input
+  behavior is deterministic without a library model.
+- Specify per-bracket recovery, one dangling-suffix recovery, both diagnostics
+  on combined resync, normalized statement-byte measurement, UTF-8 cutoffs and
+  suppression of errors induced solely by a size cutoff. Define null depth
+  placeholders and bounded expression/string behavior for safe batch parsing.
+- Generalize fences to matching backtick/tilde widths, define malformed/optional
+  version words, open-fence EOF, normalized prose, empty programs and later prose.
+  The original extraction text left these edge cases unspecified.
+- Clarify that recovered-AST round trips reparse with syntax-limit ceilings: a
+  bare component at the bracket ceiling prints as a call and needs another pair.
+  Record the minimized fuzz case as a structural regression.
+- Define strict AST/segment goldens and the M1 parse-level spec-check gate; keep
+  library validation and live IR/patch invariants assigned to M2 and M3.
+
 ## 2026-10-21 — Stat, Facts and number formats (§8.8, §10.3, Appendix A)
 
 - Add `Stat` (KPI) and `Facts` (key-value list) components and the `compact`,

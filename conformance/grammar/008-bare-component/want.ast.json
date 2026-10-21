@@ -1,0 +1,13 @@
+{
+  "statements": [
+    {
+      "kind": "Bind",
+      "name": "root",
+      "value": {
+        "kind": "Call",
+        "name": "Divider",
+        "args": []
+      }
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "statements": [
+    {
+      "kind": "Bind",
+      "name": "a",
+      "value": {
+        "kind": "Int",
+        "value": 1
+      }
+    },
+    {
+      "kind": "State",
+      "name": "s",
+      "value": {
+        "kind": "List",
+        "items": []
+      }
+    },
+    {
+      "kind": "Query",
+      "name": "q",
+      "value": {
+        "kind": "Call",
+        "name": "tool",
+        "args": [
+          {
+            "name": null,
+            "value": {
+              "kind": "String",
+              "value": "x"
+            }
+          },
+          {
+            "name": null,
+            "value": {
+              "kind": "Map",
+              "entries": [
+                {
+                  "key": "q",
+                  "value": {
+                    "kind": "State",
+                    "name": "s"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "default",
+            "value": {
+              "kind": "List",
+              "items": []
+            }
+          }
+        ]
+      }
+    },
+    {
+      "kind": "Bind",
+      "name": "root",
+      "value": {
+        "kind": "Name",
+        "name": "a"
+      }
+    }
+  ]
+}

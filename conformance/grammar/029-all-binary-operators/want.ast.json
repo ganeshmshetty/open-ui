@@ -1,0 +1,61 @@
+{
+  "statements": [
+    {
+      "kind": "Bind",
+      "name": "root",
+      "value": {
+        "kind": "List",
+        "items": [
+          {
+            "kind": "Binary",
+            "op": "Le",
+            "left": {
+              "kind": "Name",
+              "name": "a"
+            },
+            "right": {
+              "kind": "Name",
+              "name": "b"
+            }
+          },
+          {
+            "kind": "Binary",
+            "op": "Ge",
+            "left": {
+              "kind": "Name",
+              "name": "a"
+            },
+            "right": {
+              "kind": "Name",
+              "name": "b"
+            }
+          },
+          {
+            "kind": "Binary",
+            "op": "Gt",
+            "left": {
+              "kind": "Name",
+              "name": "a"
+            },
+            "right": {
+              "kind": "Name",
+              "name": "b"
+            }
+          },
+          {
+            "kind": "Binary",
+            "op": "Ne",
+            "left": {
+              "kind": "Name",
+              "name": "a"
+            },
+            "right": {
+              "kind": "Name",
+              "name": "b"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

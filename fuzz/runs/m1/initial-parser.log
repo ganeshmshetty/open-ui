@@ -1,0 +1,77 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on shared package cache
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.03s
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.03s
+     Running `fuzz/target/aarch64-apple-darwin/release/parser -artifact_prefix=/Users/ganesh/dev/open-ui/fuzz/artifacts/parser/ -max_total_time=600 -max_len=32768 -seed=20261021 -dict=fuzz/syntax.dict -print_final_stats=1 /Users/ganesh/dev/open-ui/fuzz/corpus/parser`
+Dictionary: 22 entries
+INFO: Running with entropic power schedule (0xFF, 100).
+INFO: Seed: 20261021
+INFO: Loaded 1 modules   (10108 inline 8-bit counters): 10108 [0x1049ae120, 0x1049b089c),
+[Intermediate coverage updates omitted; full log SHA-256 in adjacent JSON.]
+    #4 0x000186faf8d4 in pthread_kill+0x124 (libsystem_pthread.dylib:arm64e+0x68d4)
+    #5 0x000186eb5974 in abort+0x90 (libsystem_c.dylib:arm64e+0x78974)
+    #6 0x00010496cb2c in _RNvNtNtNtCsizPJRoAZpyg_3std3sys3pal4unix14abort_internal+0x8 (parser:arm64+0x1000f0b2c)
+    #7 0x00010496c8a0 in _RNvNtCsizPJRoAZpyg_3std7process5abort+0x8 (parser:arm64+0x1000f08a0)
+    #8 0x0001049663e4 in _RNCNvCs2Puorew5Mde_13libfuzzer_sys10initialize0B3_+0xb8 (parser:arm64+0x1000ea3e4)
+    #9 0x000104949760 in _RNvNtCsizPJRoAZpyg_3std9panicking15panic_with_hook+0x26c (parser:arm64+0x1000cd760)
+    #10 0x00010493bd38 in _RNCNvNtCsizPJRoAZpyg_3std9panicking13panic_handler0B5_+0x40 (parser:arm64+0x1000bfd38)
+    #11 0x000104935980 in _RINvNtNtCsizPJRoAZpyg_3std3sys9backtrace26___rust_end_short_backtraceNCNvNtB6_9panicking13panic_handler0zEB6_+0x8 (parser:arm64+0x1000b9980)
+    #12 0x00010493c324 in _RNvCseTBOuNxBJBZ_7___rustc17rust_begin_unwind+0x1c (parser:arm64+0x1000c0324)
+    #13 0x00010496d3d4 in _RNvNtCs7rJgpMQJsBb_4core9panicking9panic_fmt+0x24 (parser:arm64+0x1000f13d4)
+    #14 0x00010496d2f8 in _RNvNtCs7rJgpMQJsBb_4core9panicking19assert_failed_inner+0xb8 (parser:arm64+0x1000f12f8)
+    #15 0x000104965fa0 in _RINvNtCs7rJgpMQJsBb_4core9panicking13assert_failedNtNtNtCsaTu1BmroMNe_10genui_core6syntax3ast7ProgramBM_ECseJE0rrDciqn_6parser panicking.rs:407
+    #16 0x0001048872a4 in _RNvNvCseJE0rrDciqn_6parser1__19___libfuzzer_sys_run parser.rs:21
+    #17 0x00010488ff90 in rust_fuzzer_test_input lib.rs:276
+    #18 0x000104890e78 in _RINvNvNtCsizPJRoAZpyg_3std9panicking12catch_unwind7do_callNCNvCs2Puorew5Mde_13libfuzzer_sys15test_input_wrap0lEBY_+0xc4 (parser:arm64+0x100014e78)
+    #19 0x000104891ab0 in __rust_try+0x18 (parser:arm64+0x100015ab0)
+    #20 0x000104890748 in LLVMFuzzerTestOneInput+0x16c (parser:arm64+0x100014748)
+    #21 0x0001048940d8 in fuzzer::Fuzzer::ExecuteCallback(unsigned char const*, unsigned long)+0x158 (parser:arm64+0x1000180d8)
+    #22 0x00010489377c in fuzzer::Fuzzer::RunOne(unsigned char const*, unsigned long, bool, fuzzer::InputInfo*, bool, bool*)+0x48 (parser:arm64+0x10001777c)
+    #23 0x00010489503c in fuzzer::Fuzzer::MutateAndTestOne()+0x22c (parser:arm64+0x10001903c)
+    #24 0x000104895d9c in fuzzer::Fuzzer::Loop(std::__1::vector<fuzzer::SizedFile, std::__1::allocator<fuzzer::SizedFile>>&)+0x354 (parser:arm64+0x100019d9c)
+    #25 0x0001048b4d00 in fuzzer::FuzzerDriver(int*, char***, int (*)(unsigned char const*, unsigned long))+0x1aa8 (parser:arm64+0x100038d00)
+    #26 0x0001048c2424 in main+0x24 (parser:arm64+0x100046424)
+    #27 0x000186be44e0 in start+0x1b4c (dyld:arm64e+0x204e0)
+
+NOTE: libFuzzer has rudimentary signal handlers.
+      Combine libFuzzer with AddressSanitizer or similar for better crash reports.
+SUMMARY: libFuzzer: deadly signal
+MS: 2 InsertByte-ChangeBit-; base unit: 5e3f35bca44e4cf08524d621d3dbef2f26ccd7a3
+0x64,0x65,0x3d,0x31,0x36,0x36,0x36,0x36,0x36,0x36,0x36,0x36,0x36,0x36,0x36,0x7,0x5b,0x0,0x5b,0x5b,0x5b,0x5b,0x5b,0x5b,0x5b,0x5b,0x5b,0x5b,0x5b,0x5b,0x5b,0x5b,0x5b,0x5b,0x5b,0x5b,0x5b,0x5b,0x5b,0x5b,0x5b,0x5b,0x5b,0x5b,0x5b,0x5b,0x5b,0x2d,0x33,0x33,0x33,0x33,0x33,0x33,0x41,0x33,0x33,0x33,0x5b,0x5b,0x53,0x5b,0x5b,0x5b,0xa,0xa1,0x2d,0x5f,0x33,0x3e,0x21,0x0,0x33,0x33,
+de=166666666666\007[\000[[[[[[[[[[[[[[[[[[[[[[[[[[[[[-333333A333[[S[[[\012\241-_3>!\00033
+artifact_prefix='/Users/ganesh/dev/open-ui/fuzz/artifacts/parser/'; Test unit written to /Users/ganesh/dev/open-ui/fuzz/artifacts/parser/crash-9ab09260b304027bc04f5e4cde2c61a9af835ef2
+Base64: ZGU9MTY2NjY2NjY2NjY2B1sAW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1stMzMzMzMzQTMzM1tbU1tbWwqhLV8zPiEAMzM=
+stat::number_of_executed_units: 46338
+stat::average_exec_per_sec:     5792
+stat::new_units_added:          528
+stat::slowest_unit_time_sec:    0
+stat::peak_rss_mb:              503
+
+────────────────────────────────────────────────────────────────────────────────
+
+Failing input:
+
+	fuzz/artifacts/parser/crash-9ab09260b304027bc04f5e4cde2c61a9af835ef2
+
+Output of `std::fmt::Debug`:
+
+	[100, 101, 61, 49, 54, 54, 54, 54, 54, 54, 54, 54, 54, 54, 54, 7, 91, 0, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 45, 51, 51, 51, 51, 51, 51, 65, 51, 51, 51, 91, 91, 83, 91, 91, 91, 10, 161, 45, 95, 51, 62, 33, 0, 51, 51]
+
+Reproduce with:
+
+	cargo fuzz run parser fuzz/artifacts/parser/crash-9ab09260b304027bc04f5e4cde2c61a9af835ef2
+
+Minimize test case with:
+
+	cargo fuzz tmin parser fuzz/artifacts/parser/crash-9ab09260b304027bc04f5e4cde2c61a9af835ef2
+
+────────────────────────────────────────────────────────────────────────────────
+
+Error: Fuzz target exited with exit status: 77

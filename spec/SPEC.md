@@ -172,6 +172,7 @@ Rules:
 - A string with no closing quote ends at the raw LF, with `syntax.unterminated_string`. Its value is what was read.
 - An unknown escape `\x` drops the backslash and keeps `x` (`syntax.bad_escape`). A `\u{…}` above U+10FFFF or in the surrogate range becomes U+FFFD (`syntax.bad_escape`).
 - A malformed `\u{…}` (empty, non-hex, over six digits, or missing `}`) also becomes U+FFFD with one `syntax.bad_escape`. It consumes through `}` when present, stopping before a quote, raw LF or EOF. A final backslash before LF or EOF is consumed as part of the implicitly closed string and adds no separate escape diagnostic.
+- An overlong `NAME` (including the name part of `STATE`) is skipped as one token with one `syntax.bad_char`; it is never split into shorter names. All underscores in numeric tokens are ignored when converting their value. An integer literal outside i64 becomes `null` with `expr.overflow`; a non-finite float literal becomes `null` with `expr.non_finite`. These checks happen in the lexer. The preceding minus remains a separate operator, so it does not enlarge the positive literal range.
 - Unary minus is always an operator, never part of a number literal.
 - Words in key position are plain `NAME`s. That covers member access after `.`, map keys and named-argument names, and it includes reserved and contextual words and camelCase. So `p.photoUrl`, `{query: $q}` and `Chart(..., title: "x")` all work.
 - Statement names MUST be `LNAME`s. Statement names starting with `__` are reserved (`name.reserved`). `root` is special (it is the entry) but not reserved.
@@ -188,7 +189,8 @@ Rules:
 - `query` is a keyword only at the start of a statement and only when followed by an `LNAME` and a binder. `query = ...` binds a statement named `query`.
 - `tool(...)` is valid only as the whole right side of a query statement. Anywhere else it is `expr.unknown_fn`, with a hint pointing to the query form.
 - Duplicate names: the first definition wins, and later ones are dropped with `name.duplicate`. A statement claims its name as soon as its left side (`name =`) has been parsed, even if its right side is later dropped. This keeps sealed statements permanently stable.
-- A line that is not a recognized statement form is dropped with `syntax.stmt_shape`.
+- A line that is not a recognized statement form is dropped with `syntax.stmt_shape`. A recognized left side with an unrecoverable RHS (missing expression, map colon, member key, lambda parameter, or required query shape) is also dropped with exactly one `syntax.stmt_shape`; its name remains claimed. Earlier independent recoveries, such as removal of a trailing operator, retain their own diagnostics.
+- State names (`$x`) and ordinary/query names (`x`) have separate namespaces. Ordinary bindings and queries share one namespace. The `__` reservation applies to both namespaces. Duplicate/reserved checks precede RHS parsing. The statement-count budget counts every recognized left side, including dropped and duplicate statements; each statement past the budget gets one `limit.stmt_count`.
 
 ### 2.4 Statement boundaries: the splitter
 
@@ -213,6 +215,8 @@ Strings never cross an LF, so they cannot keep a statement open.
 
 **Resync rule.** A line that starts at column 0 and matches the statement-start pattern ends the previous statement *whenever that statement is open, for any reason*. The open statement is closed implicitly (`syntax.unclosed_bracket` if brackets were open, `syntax.trailing_operator` if it ended on an operator) and a new statement begins at that line. Models are told to indent continuation lines (9.1). A column-0 continuation line that does not match the pattern, such as `]`, `Text("a"),` or `x == y`, does not resync.
 
+**Recovery cardinality.** Each implicitly closed retained bracket emits one `syntax.unclosed_bracket`. An outer matching closer may therefore emit several diagnostics. A trailing suffix of dangling operators/punctuation is removed in one recovery (`syntax.trailing_operator`), before bracket closing; a binder is retained internally so that the name is still claimed. A forced boundary with both an open bracket and a dangling suffix emits both kinds of diagnostic. Blank and comment-only lines do not alter the last significant token.
+
 **Lookahead in streaming.** While a statement is open, the splitter cannot decide on an LF until it has seen enough of the next line to apply the resync test: the first two tokens, the first three when the line starts with `query`, or that line's own LF. This lookahead is at most one line.
 
 **Closers.**
@@ -220,9 +224,9 @@ Strings never cross an LF, so they cannot keep a statement open.
 - A closer that matches the innermost open bracket pops it.
 - A closer that matches a bracket further out pops to that bracket and implicitly closes the inner ones (`syntax.unclosed_bracket`).
 - A closer that matches nothing is ignored (`syntax.stray_closer`).
-- Brackets deeper than `max_bracket_depth` are still counted, but their contents are skipped, and the statement gets `limit.depth`.
+- Brackets deeper than `max_bracket_depth` are still counted, but their contents are skipped, and the statement gets one `limit.depth`. Each outermost skipped subtree is represented as `null` in the AST; nested skipped brackets produce no extra diagnostics.
 
-**Size.** A statement longer than `max_stmt_bytes` is cut at that size (`limit.stmt_size`) and closed implicitly. Its remaining lines are skipped until the next statement start at column 0.
+**Size.** A statement longer than `max_stmt_bytes` is cut at that size (`limit.stmt_size`) and closed implicitly. Its remaining lines are skipped until the next statement start at column 0. Statement size is measured in normalized UTF-8 bytes from the physical line start (including indentation), excluding its terminating LF but including internal LFs. If a byte cutoff falls inside a scalar, back up to its start. A header already recognized before the size recovery retains its name claim even if the cutoff shortens its left side. The retained prefix is lexed and closed for parsing; diagnostics caused solely by that artificial cutoff (unterminated strings, trailing operators or open brackets) are subsumed by the single `limit.stmt_size` diagnostic. Independent errors already encountered in the retained text remain diagnostics.
 
 **Chunk edges.** A CR at the end of a chunk is held back until the next byte or `finish()`, so a CR LF split across chunks normalizes the same way as in batch.
 
@@ -274,7 +278,7 @@ Rules enforced after parsing:
 - **Trailing tokens.** Tokens left over after a complete statement expression are skipped (`syntax.trailing`, warning). The statement keeps the complete expression. This covers `a < b < c` (it keeps `a < b`) and `x = Foo() Bar()` (it keeps `Foo()`).
 - **Missing commas.** Inside a list, a map or an argument list, two adjacent complete elements with no comma get one inserted (`syntax.missing_comma`). Example: `[a b]`.
 - **Duplicate map keys.** In a map literal the first key wins (`syntax.dup_key`).
-- **Expression depth** is at most `max_expr_depth` (`limit.depth`).
+- **Expression depth** is at most `max_expr_depth` (`limit.depth`, once per statement). At the recursive boundary, the omitted expression becomes `null`; a growing left-associated or postfix chain keeps its bounded prefix and skips the rest of that expression. Recursive syntax nesting, including parentheses, is bounded too. Literal strings above `max_string_bytes` are truncated at a UTF-8 boundary with one `limit.string`. Program size is measured in incoming program bytes before normalization, with one `limit.program_size` on truncation.
 - **Method calls.** `a.b(` is not a call, because there are no methods. It parses as member access followed by a stray `(`, which gives `syntax.trailing`.
 
 ### 2.6 Values and operators
@@ -323,7 +327,7 @@ Semantics:
 
 - The program's language major version is carried in the fence info string: ```` ```ui ```` means "the current major", and ```` ```ui v1 ```` means major 1. No header line exists inside the program.
 - A fence naming an unsupported major (```` ```ui v2 ```` on a v1 parser) is `extract.version` (fatal). Nothing renders, and the derived fallback text is shown instead.
-- Unknown words after the version in the info string are ignored silently.
+- The optional version is the first word after `ui`, written `v` followed by a positive decimal major with no leading zeros. A word starting with `v` that is malformed is also `extract.version`. If the first word does not start with `v`, all info words are ignored; otherwise unknown words after the version are ignored silently.
 - The library id, version and hash are not in the program. The host records them in the stored message (9.2), because the host generated the prompt and already knows them.
 - Within a major, existing programs MUST keep their meaning. New syntax must be a strict superset whose old interpretation was already an error.
 
@@ -339,7 +343,8 @@ The extractor runs before the lexer. It is a line-based state machine:
    - In a fenced program, a column-0 ```` ``` ```` line ends the program and returns to `Prose`.
    - An unfenced program runs to the end of the stream. Any trailing prose lines in it become `syntax.stmt_shape` drops.
 3. **One program per message.** Once the program has ended, a later ```` ```ui ```` fence is shown as a prose code block (`extract.extra_program`, info).
-4. Fence detection is line-based at column 0 only. Strings never end a fence.
+4. Fence detection is line-based at column 0 only. A fence uses three or more backticks or tildes. Its closing fence uses the same character, at least the opening width, and only trailing whitespace. This applies to both program and other-language prose fences, so nested shorter fences stay inside their enclosing prose fence. A program fence with no closing line extends to EOF without an extraction diagnostic. Strings never end a fence. Only a `ui` info word selects a model-output program; `ui-fragment` and `ui-invalid` are documentation tags handled by `spec-check`.
+   Source normalization (UTF-8 replacement, BOM removal, CR handling) also applies to prose segments. A message with invalid UTF-8 emits `syntax.bad_utf8` once, without re-emitting it when its normalized program is lexed. A completed program's fences are excluded from segments; a later program's whole code block stays prose. An empty fenced program still emits a `Program("")` segment. Later unfenced text stays prose after a fenced program has ended.
 5. **Streaming.** A partial fence or a partial statement-start line at the end of a chunk is held back until its LF, or until enough tokens arrive to decide (the 2.4 lookahead).
 
 The extractor's output is an ordered list of `Segment::Markdown(String)` and at most one `Segment::Program`.
@@ -1678,6 +1683,8 @@ conformance/
     stream.json               optional explicit chunking (array of strings)
     script.json               interactive tier: events, deliveries, clock advances
     want.tokens.json          ordered lexical tokens (category lex only)
+    want.ast.json             structural AST (M1 syntax categories and fuzz-regress)
+    want.segments.json        ordered Markdown/Program text segments (category extract)
     want.ir.json              canonical IR
     want.diag.json            expected diagnostics
     want.patches.json         exact batches (category patches only)
@@ -1690,7 +1697,8 @@ If an implementation and a fixture disagree, the disagreement is treated as a sp
 
 ### 12.2 Comparison rules
 
-- **Lexical tokens** are compared as an ordered array of `{kind, text}` in `want.tokens.json`. String text is decoded, state text omits `$`, newlines use LF, and other tokens retain their source spelling. Source locations are not compared. In `lex`, `want.diag.json` contains only the four diagnostic comparison fields below; `stmt` and `path` are null until parsing exists. Lexical fixtures do not require IR or patches. Strict schemas live in `conformance/schemas/`.
+- **Lexical tokens** are compared as an ordered array of `{kind, text}` in `want.tokens.json`. String text is decoded, state text omits `$`, newlines use LF, and other tokens retain their source spelling. Source locations are not compared. In `lex`, `want.diag.json` contains only the four diagnostic comparison fields below; `stmt` and `path` are null for standalone lexical scans. Lexical fixtures do not require IR or patches. Strict schemas live in `conformance/schemas/`.
+- **AST** is compared structurally as strict JSON (schemas in `conformance/schemas/ast.schema.json`), excluding source locations and diagnostics. `grammar`, `statements`, `extract` and syntax `fuzz-regress` fixtures use AST goldens until IR exists in M2. `extract` also compares the ordered `{kind, text}` segment array exactly. M1 fixtures do not require IR or patches.
 - **IR** is compared as canonical JSON: sorted keys, `{id, kind, role, props, children}`, absent props omitted, encoded as in 6.5.
 - **Diagnostics** are compared as a multiset of `(code, stmt, path, recovery)`. `message` and `hint` are not compared, except in category `feedback`, which compares the rendered `ui-diag` text byte for byte.
 - **Patches** are compared exactly in category `patches`. Elsewhere they are checked by replay: applying them to an empty tree must give `want.ir.json` or `want.resolved.json`.
@@ -1756,10 +1764,10 @@ For every chunking it checks:
 
 - A new diagnostic code, builtin, grammar rule or component needs fixtures in the same change.
 - `<name>-cli spec-check` extracts every ```` ```ui ```` block from SPEC.md and validates it against `<name>-std` with zero diagnostics at Warning or above. Blocks fenced as ```` ```ui-fragment ```` are partial programs, validated the same way except that `name.no_root`, `name.unresolved`, `name.orphan` and `state.undeclared` are allowed. Blocks fenced as ```` ```ui-invalid ```` are expected to produce diagnostics. CI runs it.
-- **M0 bootstrap.** Before the parser and library exist, `spec-check` requires every `ui` and `ui-fragment` block to lex without diagnostics. It recognizes `ui-invalid` blocks but does not yet assert semantic rejection. At M2 the full validation rule above replaces this lexical-only gate. The M0 chunking harness checks finish-only lexical equality using a byte accumulator; the live streaming invariants in 12.3 become mandatory with M3.
+- **M0 bootstrap.** Before the parser and library exist, `spec-check` requires every `ui` and `ui-fragment` block to lex without diagnostics. It recognizes `ui-invalid` blocks but does not yet assert semantic rejection. At M2 the full validation rule above replaces this lexical-only gate. The M0 chunking harness checks finish-only lexical equality using a byte accumulator. At M1, `ui` and `ui-fragment` must parse without syntax diagnostics, and each `ui-invalid` must produce diagnostics. Every syntax fixture runs through resumable scanners under all 12.3 chunkings and compares final tokens/AST, segments and diagnostics. All entry points use the single 2.4 splitter. The live IR/patch/provisional invariants in 12.3 become mandatory with M3.
 - Fuzz targets: lexer, splitter, extractor, parser, validator, evaluator, prompt generator options, and renderer patch application. Crashes become `fuzz-regress` fixtures.
 - Property tests:
-  - print-then-parse round trip;
+  - print-then-parse round trip of the structural AST (locations and recovery diagnostics are excluded). Reparse canonical output with syntax-limit ceilings: printing recovered bare components and inserted punctuation can enlarge the source or add bracket pairs. Generated valid programs within default budgets also round-trip without diagnostics;
   - stream equals batch on generated programs;
   - patch replay equality;
   - permutation invariance.

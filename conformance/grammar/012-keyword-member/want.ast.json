@@ -1,0 +1,24 @@
+{
+  "statements": [
+    {
+      "kind": "Bind",
+      "name": "root",
+      "value": {
+        "kind": "Member",
+        "base": {
+          "kind": "Member",
+          "base": {
+            "kind": "Member",
+            "base": {
+              "kind": "Name",
+              "name": "data"
+            },
+            "key": "photoUrl"
+          },
+          "key": "true"
+        },
+        "key": "tool"
+      }
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "title": "bad statement shape",
+  "tier": "core",
+  "tags": [
+    "statements"
+  ],
+  "notes": "SPEC §§2.2–2.5, 2.9; M1 syntax acceptance."
+}

@@ -1,0 +1,48 @@
+{
+  "statements": [
+    {
+      "kind": "Bind",
+      "name": "root",
+      "value": {
+        "kind": "Binary",
+        "op": "Or",
+        "left": {
+          "kind": "Unary",
+          "op": "Not",
+          "expr": {
+            "kind": "Bool",
+            "value": false
+          }
+        },
+        "right": {
+          "kind": "Binary",
+          "op": "And",
+          "left": {
+            "kind": "Bool",
+            "value": true
+          },
+          "right": {
+            "kind": "Binary",
+            "op": "Eq",
+            "left": {
+              "kind": "Int",
+              "value": 1
+            },
+            "right": {
+              "kind": "Binary",
+              "op": "Lt",
+              "left": {
+                "kind": "Int",
+                "value": 2
+              },
+              "right": {
+                "kind": "Int",
+                "value": 3
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

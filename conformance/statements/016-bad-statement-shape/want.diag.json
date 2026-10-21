@@ -1,0 +1,14 @@
+[
+  {
+    "code": "syntax.stmt_shape",
+    "stmt": null,
+    "path": null,
+    "recovery": "StatementDropped"
+  },
+  {
+    "code": "syntax.stmt_shape",
+    "stmt": null,
+    "path": null,
+    "recovery": "StatementDropped"
+  }
+]

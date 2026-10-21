@@ -1,0 +1,55 @@
+{
+  "statements": [
+    {
+      "kind": "Bind",
+      "name": "root",
+      "value": {
+        "kind": "Map",
+        "entries": [
+          {
+            "key": "true",
+            "value": {
+              "kind": "Int",
+              "value": 1
+            }
+          },
+          {
+            "key": "false",
+            "value": {
+              "kind": "Int",
+              "value": 2
+            }
+          },
+          {
+            "key": "null",
+            "value": {
+              "kind": "Int",
+              "value": 3
+            }
+          },
+          {
+            "key": "query",
+            "value": {
+              "kind": "Int",
+              "value": 4
+            }
+          },
+          {
+            "key": "tool",
+            "value": {
+              "kind": "Int",
+              "value": 5
+            }
+          },
+          {
+            "key": "photoUrl",
+            "value": {
+              "kind": "Int",
+              "value": 6
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

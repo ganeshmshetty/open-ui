@@ -1,0 +1,35 @@
+{
+  "statements": [
+    {
+      "kind": "Bind",
+      "name": "root",
+      "value": {
+        "kind": "Call",
+        "name": "Chart",
+        "args": [
+          {
+            "name": null,
+            "value": {
+              "kind": "String",
+              "value": "bar"
+            }
+          },
+          {
+            "name": null,
+            "value": {
+              "kind": "Name",
+              "name": "rows"
+            }
+          },
+          {
+            "name": "title",
+            "value": {
+              "kind": "String",
+              "value": "x"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

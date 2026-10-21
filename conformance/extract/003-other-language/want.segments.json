@@ -1,0 +1,10 @@
+[
+  {
+    "kind": "Markdown",
+    "text": "```rust\nroot=2\n```\n"
+  },
+  {
+    "kind": "Program",
+    "text": "root=1\n"
+  }
+]

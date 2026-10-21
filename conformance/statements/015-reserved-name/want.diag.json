@@ -1,0 +1,8 @@
+[
+  {
+    "code": "name.reserved",
+    "stmt": "__x",
+    "path": null,
+    "recovery": "StatementDropped"
+  }
+]

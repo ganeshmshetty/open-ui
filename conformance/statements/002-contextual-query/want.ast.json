@@ -1,0 +1,28 @@
+{
+  "statements": [
+    {
+      "kind": "Bind",
+      "name": "query",
+      "value": {
+        "kind": "Int",
+        "value": 1
+      }
+    },
+    {
+      "kind": "Bind",
+      "name": "tool",
+      "value": {
+        "kind": "Name",
+        "name": "query"
+      }
+    },
+    {
+      "kind": "Bind",
+      "name": "root",
+      "value": {
+        "kind": "Name",
+        "name": "tool"
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+[
+  {
+    "kind": "Markdown",
+    "text": "before\n"
+  },
+  {
+    "kind": "Program",
+    "text": "root=1\n"
+  },
+  {
+    "kind": "Markdown",
+    "text": "after\n"
+  }
+]

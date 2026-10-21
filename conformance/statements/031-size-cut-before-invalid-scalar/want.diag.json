@@ -1,0 +1,14 @@
+[
+  {
+    "code": "limit.stmt_size",
+    "stmt": "r",
+    "path": null,
+    "recovery": "Truncated"
+  },
+  {
+    "code": "syntax.stmt_shape",
+    "stmt": "r",
+    "path": null,
+    "recovery": "StatementDropped"
+  }
+]

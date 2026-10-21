@@ -1,0 +1,49 @@
+{
+  "statements": [
+    {
+      "kind": "Bind",
+      "name": "root",
+      "value": {
+        "kind": "Call",
+        "name": "map",
+        "args": [
+          {
+            "name": null,
+            "value": {
+              "kind": "Name",
+              "name": "xs"
+            }
+          },
+          {
+            "name": null,
+            "value": {
+              "kind": "Lambda",
+              "params": [
+                "p"
+              ],
+              "body": {
+                "kind": "Call",
+                "name": "map",
+                "args": [
+                  {
+                    "name": null,
+                    "value": {
+                      "kind": "Name",
+                      "name": "p"
+                    }
+                  },
+                  {
+                    "name": null,
+                    "value": {
+                      "kind": "Null"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

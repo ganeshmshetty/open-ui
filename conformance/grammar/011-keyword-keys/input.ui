@@ -1,0 +1,1 @@
+root = {true: 1, false: 2, null: 3, query: 4, tool: 5, photoUrl: 6}

@@ -1,0 +1,8 @@
+{
+  "title": "nonassociative order",
+  "tier": "core",
+  "tags": [
+    "grammar"
+  ],
+  "notes": "SPEC §§2.2–2.5, 2.9; M1 syntax acceptance."
+}

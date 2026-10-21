@@ -1,0 +1,11 @@
+{
+  "title": "printer bracket budget",
+  "tier": "core",
+  "tags": [
+    "fuzz-regress"
+  ],
+  "notes": "Minimized form of parser fuzz property failure: canonical S() adds a bracket pair. Round-trip checks use adequate output budgets, not the input's smaller recovery budget.",
+  "limits": {
+    "max_bracket_depth": 1
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "title": "root bracket depth zero",
+  "tier": "core",
+  "tags": [
+    "statements"
+  ],
+  "notes": "SPEC §§2.2–2.5, 2.9; M1 syntax acceptance.",
+  "limits": {
+    "max_bracket_depth": 0
+  }
+}

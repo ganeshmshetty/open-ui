@@ -20,7 +20,7 @@ fn run(args: Vec<String>) -> Result<(), String> {
                 .unwrap_or_else(|| root.join("conformance"));
             let report = run_suite(&path)?;
             println!(
-                "PASS: {} lex fixtures, {} chunkings (M0 finish-only lexical checks).",
+                "PASS: {} syntax fixtures, {} chunkings (M1 resumable scanners).",
                 report.fixtures, report.chunkings
             );
         }
@@ -31,13 +31,13 @@ fn run(args: Vec<String>) -> Result<(), String> {
                 .unwrap_or_else(|| root.join("spec/SPEC.md"));
             let report = spec_check::check_file(&path)?;
             println!(
-                "PASS: {} ui programs and {} ui fragments lex without diagnostics; {} ui-invalid blocks recognized (M0 lexical checks; semantic validation begins in M2).",
+                "PASS: {} ui programs and {} ui fragments parse without diagnostics; {} ui-invalid blocks recognized (M1 syntax checks; semantic validation begins in M2).",
                 report.programs, report.fragments, report.invalid
             );
         }
         _ => {
             return Err(format!(
-                "unknown command {command:?}; M0 supports fixtures and spec-check"
+                "unknown command {command:?}; M1 supports fixtures and spec-check"
             ));
         }
     }

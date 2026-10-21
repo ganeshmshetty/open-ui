@@ -1,0 +1,3 @@
+a=1 +
+query q=tool("x", {})
+root=q

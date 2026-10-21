@@ -1,0 +1,52 @@
+{
+  "statements": [
+    {
+      "kind": "Bind",
+      "name": "root",
+      "value": {
+        "kind": "Binary",
+        "op": "Sub",
+        "left": {
+          "kind": "Binary",
+          "op": "Add",
+          "left": {
+            "kind": "Int",
+            "value": 1
+          },
+          "right": {
+            "kind": "Binary",
+            "op": "Mul",
+            "left": {
+              "kind": "Int",
+              "value": 2
+            },
+            "right": {
+              "kind": "Int",
+              "value": 3
+            }
+          }
+        },
+        "right": {
+          "kind": "Binary",
+          "op": "Rem",
+          "left": {
+            "kind": "Binary",
+            "op": "Div",
+            "left": {
+              "kind": "Int",
+              "value": 4
+            },
+            "right": {
+              "kind": "Int",
+              "value": 2
+            }
+          },
+          "right": {
+            "kind": "Int",
+            "value": 2
+          }
+        }
+      }
+    }
+  ]
+}

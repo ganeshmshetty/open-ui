@@ -1,0 +1,4 @@
+a=1
+$s:=[]
+query q:=tool("x", {q:$s}, default: [])
+root=a

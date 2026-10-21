@@ -1,0 +1,8 @@
+{
+  "title": "name boundary",
+  "tier": "core",
+  "tags": [
+    "lex"
+  ],
+  "notes": "SPEC §§2.2–2.5, 2.9; M1 syntax acceptance."
+}

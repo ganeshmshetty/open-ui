@@ -1,0 +1,35 @@
+{
+  "statements": [
+    {
+      "kind": "Bind",
+      "name": "root",
+      "value": {
+        "kind": "Call",
+        "name": "Foo",
+        "args": [
+          {
+            "name": "true",
+            "value": {
+              "kind": "Int",
+              "value": 1
+            }
+          },
+          {
+            "name": "query",
+            "value": {
+              "kind": "Int",
+              "value": 2
+            }
+          },
+          {
+            "name": "photoUrl",
+            "value": {
+              "kind": "Int",
+              "value": 3
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

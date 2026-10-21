@@ -1,0 +1,16 @@
+{
+  "title": "zero program budget",
+  "tier": "core",
+  "tags": [
+    "statements"
+  ],
+  "notes": "SPEC §§2.2–2.5, 2.9; M1 syntax acceptance.",
+  "limits": {
+    "max_program_bytes": 0,
+    "max_stmt_bytes": 0,
+    "max_stmt_count": 0,
+    "max_expr_depth": 0,
+    "max_bracket_depth": 0,
+    "max_string_bytes": 0
+  }
+}

@@ -1,0 +1,8 @@
+[
+  {
+    "code": "syntax.unclosed_bracket",
+    "stmt": "root",
+    "path": null,
+    "recovery": "ClosedImplicitly"
+  }
+]

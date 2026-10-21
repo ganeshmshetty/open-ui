@@ -1,0 +1,10 @@
+[
+  {
+    "kind": "Markdown",
+    "text": "  ```ui\n"
+  },
+  {
+    "kind": "Program",
+    "text": "root=1\n```"
+  }
+]

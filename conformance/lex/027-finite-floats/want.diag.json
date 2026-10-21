@@ -1,0 +1,8 @@
+[
+  {
+    "code": "expr.non_finite",
+    "stmt": null,
+    "path": null,
+    "recovery": "ValueNulled"
+  }
+]

@@ -1,0 +1,20 @@
+{
+  "statements": [
+    {
+      "kind": "Bind",
+      "name": "root",
+      "value": {
+        "kind": "Map",
+        "entries": [
+          {
+            "key": "a",
+            "value": {
+              "kind": "Int",
+              "value": 1
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "target": "parser",
+  "command": [
+    "cargo",
+    "+nightly",
+    "fuzz",
+    "run",
+    "parser",
+    "--",
+    "-max_total_time=600",
+    "-max_len=32768",
+    "-seed=20261021",
+    "-dict=fuzz/syntax.dict",
+    "-print_final_stats=1"
+  ],
+  "seed": 20261021,
+  "time_limit_seconds": 600,
+  "max_len": 32768,
+  "elapsed_seconds": 9.33,
+  "exit_code": 1,
+  "executions": null,
+  "engine_seconds": null,
+  "source_sha256": "758e642457c2b7464b54867528d174467c09ed33c295462d0a4a084097131c3c",
+  "full_log_sha256": "374308c9674294e4b8b4e3ce9bae72c7d434d479929d97303eb32978d30bef41",
+  "full_log_local_path": null,
+  "rustc": "rustc 1.101.0-nightly (19833af72 2026-10-20)",
+  "cargo_fuzz": "cargo-fuzz 0.13.2",
+  "note": "Initial interrupted/failed campaign, not acceptance evidence. Full initial log was replaced by the final campaign; the startup/failure excerpt and minimized artifact are preserved alongside this JSON."
+}

@@ -1,0 +1,11 @@
+{
+  "title": "size and resync",
+  "tier": "core",
+  "tags": [
+    "statements"
+  ],
+  "notes": "SPEC §§2.2–2.5, 2.9; M1 syntax acceptance.",
+  "limits": {
+    "max_stmt_bytes": 12
+  }
+}

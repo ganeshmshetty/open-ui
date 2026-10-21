@@ -1,0 +1,14 @@
+[
+  {
+    "code": "syntax.missing_comma",
+    "stmt": "root",
+    "path": null,
+    "recovery": "CommaInserted"
+  },
+  {
+    "code": "syntax.missing_comma",
+    "stmt": "root",
+    "path": null,
+    "recovery": "CommaInserted"
+  }
+]

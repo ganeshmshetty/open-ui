@@ -1,0 +1,65 @@
+{
+  "statements": [
+    {
+      "kind": "Bind",
+      "name": "root",
+      "value": {
+        "kind": "Call",
+        "name": "each",
+        "args": [
+          {
+            "name": null,
+            "value": {
+              "kind": "Name",
+              "name": "rows"
+            }
+          },
+          {
+            "name": null,
+            "value": {
+              "kind": "Lambda",
+              "params": [
+                "p",
+                "i"
+              ],
+              "body": {
+                "kind": "Call",
+                "name": "Text",
+                "args": [
+                  {
+                    "name": null,
+                    "value": {
+                      "kind": "Member",
+                      "base": {
+                        "kind": "Name",
+                        "name": "p"
+                      },
+                      "key": "name"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "name": "key",
+            "value": {
+              "kind": "Lambda",
+              "params": [
+                "p"
+              ],
+              "body": {
+                "kind": "Member",
+                "base": {
+                  "kind": "Name",
+                  "name": "p"
+                },
+                "key": "id"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

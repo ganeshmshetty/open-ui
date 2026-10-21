@@ -1,0 +1,14 @@
+[
+  {
+    "code": "syntax.stray_closer",
+    "stmt": "root",
+    "path": null,
+    "recovery": "Ignored"
+  },
+  {
+    "code": "syntax.stray_closer",
+    "stmt": "root",
+    "path": null,
+    "recovery": "Ignored"
+  }
+]

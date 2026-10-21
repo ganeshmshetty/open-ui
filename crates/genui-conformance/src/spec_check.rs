@@ -1,6 +1,6 @@
-//! Markdown example extraction for SPEC §12.6. Validation is lexical until M2.
+//! Markdown example extraction for SPEC §12.6. M1 parses syntax; library validation follows in M2.
 use crate::Result;
-use genui_core::syntax::lex;
+use genui_core::{limits::SyntaxLimits, syntax::parse_batch};
 use std::{fs, path::Path};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -86,18 +86,24 @@ pub fn check_text(markdown: &str) -> Result<SpecReport> {
     let examples = extract(markdown)?;
     let mut report = SpecReport::default();
     for example in examples {
-        let result = lex(example.source.as_bytes());
+        let result = parse_batch(example.source.as_bytes(), SyntaxLimits::default());
         match example.kind {
             ExampleKind::Program => report.programs += 1,
             ExampleKind::Fragment => report.fragments += 1,
             ExampleKind::Invalid => {
                 report.invalid += 1;
+                if result.diagnostics.is_empty() {
+                    return Err(format!(
+                        "line {}: ui-invalid example produced no diagnostics",
+                        example.line
+                    ));
+                }
                 continue;
             }
         }
         if !result.diagnostics.is_empty() {
             return Err(format!(
-                "line {}: lexical diagnostics in {:?} example: {:?}",
+                "line {}: syntax diagnostics in {:?} example: {:?}",
                 example.line, example.kind, result.diagnostics
             ));
         }
@@ -118,7 +124,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn checked_in_spec_lexes() {
+    fn checked_in_spec_parses() {
         let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../spec/SPEC.md");
         let report = check_file(&path).unwrap();
         assert_eq!(report.programs, 3);
@@ -146,5 +152,23 @@ mod tests {
     #[test]
     fn unicode_prose_does_not_panic() {
         assert!(check_text("😀😀 prose\n```ui\nroot=1\n```\n").is_ok());
+    }
+}
+
+#[cfg(test)]
+mod syntax_gate_tests {
+    use super::check_text;
+
+    #[test]
+    fn lexically_valid_syntax_errors_fail_complete_and_fragment_examples() {
+        assert!(check_text("```ui\nroot={key 1}\n```\n").is_err());
+        assert!(check_text("```ui\nroot=1\n```\n```ui-fragment\nx={key 1}\n```\n").is_err());
+    }
+
+    #[test]
+    fn invalid_tag_requires_actual_diagnostics() {
+        assert!(check_text("```ui\nroot=1\n```\n```ui-invalid\nx=1\n```\n").is_err());
+        let report = check_text("```ui\nroot=1\n```\n```ui-invalid\nx={key 1}\n```\n").unwrap();
+        assert_eq!(report.invalid, 1);
     }
 }

@@ -1,0 +1,18 @@
+{
+  "statements": [
+    {
+      "kind": "Bind",
+      "name": "root",
+      "value": {
+        "kind": "List",
+        "items": [
+          {
+            "kind": "Call",
+            "name": "S",
+            "args": []
+          }
+        ]
+      }
+    }
+  ]
+}

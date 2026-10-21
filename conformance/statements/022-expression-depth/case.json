@@ -1,0 +1,11 @@
+{
+  "title": "expression depth",
+  "tier": "core",
+  "tags": [
+    "statements"
+  ],
+  "notes": "SPEC §§2.2–2.5, 2.9; M1 syntax acceptance.",
+  "limits": {
+    "max_expr_depth": 2
+  }
+}

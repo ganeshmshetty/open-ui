@@ -1,0 +1,28 @@
+{
+  "statements": [
+    {
+      "kind": "Query",
+      "name": "q",
+      "value": {
+        "kind": "Call",
+        "name": "tool",
+        "args": [
+          {
+            "name": null,
+            "value": {
+              "kind": "String",
+              "value": "x"
+            }
+          },
+          {
+            "name": null,
+            "value": {
+              "kind": "Map",
+              "entries": []
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

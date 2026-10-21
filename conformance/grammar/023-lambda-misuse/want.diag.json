@@ -1,0 +1,8 @@
+[
+  {
+    "code": "expr.lambda_misuse",
+    "stmt": "root",
+    "path": null,
+    "recovery": "ValueNulled"
+  }
+]

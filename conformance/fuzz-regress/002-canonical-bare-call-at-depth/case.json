@@ -1,0 +1,8 @@
+{
+  "title": "canonical bare call at depth",
+  "tier": "core",
+  "tags": [
+    "fuzz-regress"
+  ],
+  "notes": "Default-budget reproducer of the minimized parser fuzz failure. Canonical bare-call parentheses require a larger reparse budget; structural AST must remain identical."
+}

@@ -1,0 +1,1 @@
+root = map(xs, |p| map(p, |q| q))

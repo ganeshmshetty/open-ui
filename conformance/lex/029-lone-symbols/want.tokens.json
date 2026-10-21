@@ -1,0 +1,22 @@
+[
+  {
+    "kind": "Or",
+    "text": "||"
+  },
+  {
+    "kind": "Pipe",
+    "text": "|"
+  },
+  {
+    "kind": "And",
+    "text": "&&"
+  },
+  {
+    "kind": "Slash",
+    "text": "/"
+  },
+  {
+    "kind": "Nl",
+    "text": "\n"
+  }
+]

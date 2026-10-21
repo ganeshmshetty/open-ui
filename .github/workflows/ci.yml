@@ -30,7 +30,7 @@ jobs:
         run: cargo run --locked -p genui-cli -- fixtures
       - name: Specification examples
         run: cargo run --locked -p genui-cli -- spec-check
-      - name: Fuzz scaffold format
+      - name: Fuzz target format
         run: cargo fmt --manifest-path fuzz/Cargo.toml -- --check
-      - name: Fuzz scaffold build
+      - name: Fuzz target build
         run: cargo check --manifest-path fuzz/Cargo.toml --bins --locked

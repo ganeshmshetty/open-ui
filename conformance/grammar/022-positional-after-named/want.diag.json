@@ -1,0 +1,8 @@
+[
+  {
+    "code": "schema.positional_after_named",
+    "stmt": "root",
+    "path": null,
+    "recovery": "ArgOmitted"
+  }
+]

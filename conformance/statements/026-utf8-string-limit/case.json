@@ -1,0 +1,11 @@
+{
+  "title": "utf8 string limit",
+  "tier": "core",
+  "tags": [
+    "statements"
+  ],
+  "notes": "SPEC §§2.2–2.5, 2.9; M1 syntax acceptance.",
+  "limits": {
+    "max_string_bytes": 3
+  }
+}

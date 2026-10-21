@@ -11,6 +11,6 @@ pub mod runtime {}
 /// Renderer-independent patch protocol (M3).
 pub mod patch {}
 /// Host-configurable evaluation and size limits (M2).
-pub mod limits {}
+pub mod limits;
 /// Component library model and builder (M2).
 pub mod r#lib {}

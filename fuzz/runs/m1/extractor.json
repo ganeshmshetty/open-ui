@@ -1,0 +1,29 @@
+{
+  "implementation_commit": "8586ba9f89df597f85b3caf6af3ff8df0b447ce1",
+  "target": "extractor",
+  "command": [
+    "cargo",
+    "+nightly",
+    "fuzz",
+    "run",
+    "extractor",
+    "--",
+    "-max_total_time=600",
+    "-max_len=32768",
+    "-seed=20261021",
+    "-dict=fuzz/syntax.dict",
+    "-print_final_stats=1"
+  ],
+  "seed": 20261021,
+  "time_limit_seconds": 600,
+  "max_len": 32768,
+  "elapsed_seconds": 603.43,
+  "exit_code": 0,
+  "executions": 571567,
+  "engine_seconds": 601,
+  "source_sha256": "3f8d7a39fc9c6cf8bcfb364a4e9303064bc9d2c71039f9116a3d4ec6cad88ce8",
+  "full_log_sha256": "4dfac19220d4bdd8b4e9fb2233fc9d0ffe68f50a90767e8cbb6d498d21f19c83",
+  "full_log_local_path": "/tmp/genui-m1-extractor-600.log",
+  "rustc": "rustc 1.101.0-nightly (19833af72 2026-10-20)",
+  "cargo_fuzz": "cargo-fuzz 0.13.2"
+}

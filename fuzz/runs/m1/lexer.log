@@ -1,0 +1,93 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on shared package cache
+    Blocking waiting for file lock on build directory
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.03s
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.03s
+     Running `fuzz/target/aarch64-apple-darwin/release/lexer -artifact_prefix=/Users/ganesh/dev/open-ui/fuzz/artifacts/lexer/ -max_total_time=600 -max_len=32768 -seed=20261021 -dict=fuzz/syntax.dict -print_final_stats=1 /Users/ganesh/dev/open-ui/fuzz/corpus/lexer`
+Dictionary: 22 entries
+INFO: Running with entropic power schedule (0xFF, 100).
+INFO: Seed: 20261021
+INFO: Loaded 1 modules   (9463 inline 8-bit counters): 9463 [0x1043397c0, 0x10433bcb7),
+INFO: Loaded 1 PC tables (9463 PCs): 9463 [0x10433bcb8,0x104360c28),
+INFO:     3266 files found in /Users/ganesh/dev/open-ui/fuzz/corpus/lexer
+INFO: seed corpus: files: 3266 min: 1b max: 17021b total: 791140b rss: 39Mb
+#3267	INITED cov: 858 ft: 4224 corp: 930/185Kb exec/s: 1633 rss: 506Mb
+#4096	pulse  cov: 858 ft: 4224 corp: 930/185Kb lim: 9642 exec/s: 2048 rss: 511Mb
+#4113	REDUCE cov: 858 ft: 4224 corp: 930/185Kb lim: 9642 exec/s: 2056 rss: 511Mb L: 21/9629 MS: 1 EraseBytes-
+#5808	REDUCE cov: 858 ft: 4224 corp: 930/185Kb lim: 9655 exec/s: 1936 rss: 543Mb L: 52/9629 MS: 5 CopyPart-ChangeBinInt-InsertByte-ChangeBit-EraseBytes-
+#6302	REDUCE cov: 858 ft: 4224 corp: 930/185Kb lim: 9655 exec/s: 2100 rss: 543Mb L: 136/9629 MS: 4 EraseBytes-ManualDict-ShuffleBytes-CopyPart- DE: "\\u{"-
+#7691	REDUCE cov: 858 ft: 4224 corp: 930/185Kb lim: 9668 exec/s: 2563 rss: 543Mb L: 254/9629 MS: 4 ChangeASCIIInt-ChangeASCIIInt-ChangeByte-EraseBytes-
+#7707	REDUCE cov: 858 ft: 4224 corp: 930/185Kb lim: 9668 exec/s: 2569 rss: 543Mb L: 192/9629 MS: 1 EraseBytes-
+#7753	REDUCE cov: 858 ft: 4224 corp: 930/185Kb lim: 9668 exec/s: 2584 rss: 543Mb L: 21/9629 MS: 1 EraseBytes-
+#8192	pulse  cov: 858 ft: 4224 corp: 930/185Kb lim: 9668 exec/s: 2730 rss: 543Mb
+#8594	REDUCE cov: 858 ft: 4224 corp: 930/185Kb lim: 9668 exec/s: 2864 rss: 543Mb L: 808/9629 MS: 1 EraseBytes-
+#8856	REDUCE cov: 858 ft: 4224 corp: 930/185Kb lim: 9668 exec/s: 2214 rss: 543Mb L: 79/9629 MS: 2 ShuffleBytes-EraseBytes-
+#11424	REDUCE cov: 858 ft: 4224 corp: 930/185Kb lim: 9681 exec/s: 2856 rss: 543Mb L: 264/9629 MS: 3 ChangeByte-ChangeASCIIInt-EraseBytes-
+[Intermediate coverage updates omitted; full log SHA-256 in adjacent JSON.]
+#1205063	REDUCE cov: 858 ft: 4249 corp: 942/182Kb lim: 17383 exec/s: 2063 rss: 568Mb L: 108/7836 MS: 1 EraseBytes-
+#1206601	REDUCE cov: 858 ft: 4249 corp: 942/182Kb lim: 17397 exec/s: 2062 rss: 568Mb L: 126/7836 MS: 3 PersAutoDict-ChangeBit-EraseBytes- DE: "1\000\000\000"-
+#1206932	REDUCE cov: 858 ft: 4249 corp: 942/182Kb lim: 17397 exec/s: 2063 rss: 568Mb L: 221/7836 MS: 1 EraseBytes-
+#1208400	REDUCE cov: 858 ft: 4249 corp: 942/182Kb lim: 17411 exec/s: 2062 rss: 568Mb L: 467/7836 MS: 3 ChangeBit-EraseBytes-ShuffleBytes-
+#1208491	REDUCE cov: 858 ft: 4249 corp: 942/182Kb lim: 17411 exec/s: 2062 rss: 568Mb L: 143/7836 MS: 1 EraseBytes-
+#1210077	REDUCE cov: 858 ft: 4249 corp: 942/182Kb lim: 17425 exec/s: 2061 rss: 568Mb L: 63/7836 MS: 1 EraseBytes-
+#1212404	REDUCE cov: 858 ft: 4249 corp: 942/182Kb lim: 17439 exec/s: 2061 rss: 568Mb L: 71/7836 MS: 2 ManualDict-EraseBytes- DE: "||"-
+#1213021	REDUCE cov: 858 ft: 4249 corp: 942/182Kb lim: 17439 exec/s: 2062 rss: 568Mb L: 4639/7836 MS: 2 ChangeBit-EraseBytes-
+#1213302	REDUCE cov: 858 ft: 4249 corp: 942/182Kb lim: 17439 exec/s: 2063 rss: 568Mb L: 78/7836 MS: 1 EraseBytes-
+#1214323	REDUCE cov: 858 ft: 4249 corp: 942/182Kb lim: 17439 exec/s: 2065 rss: 568Mb L: 70/7836 MS: 1 EraseBytes-
+#1216029	REDUCE cov: 858 ft: 4249 corp: 942/182Kb lim: 17453 exec/s: 2064 rss: 568Mb L: 69/7836 MS: 1 EraseBytes-
+#1217229	REDUCE cov: 858 ft: 4249 corp: 942/182Kb lim: 17453 exec/s: 2063 rss: 568Mb L: 4545/7836 MS: 5 EraseBytes-CMP-ChangeBit-ChangeByte-CopyPart- DE: "\021\002\000\000\000\000\000\000"-
+#1218656	REDUCE cov: 858 ft: 4249 corp: 942/182Kb lim: 17467 exec/s: 2065 rss: 568Mb L: 375/7836 MS: 2 ManualDict-EraseBytes- DE: "#"-
+#1219248	REDUCE cov: 858 ft: 4249 corp: 942/182Kb lim: 17467 exec/s: 2063 rss: 568Mb L: 60/7836 MS: 2 ChangeByte-EraseBytes-
+#1220473	REDUCE cov: 858 ft: 4249 corp: 942/182Kb lim: 17467 exec/s: 2065 rss: 568Mb L: 595/7836 MS: 5 ChangeBinInt-ChangeASCIIInt-EraseBytes-ShuffleBytes-CopyPart-
+#1223719	REDUCE cov: 858 ft: 4249 corp: 942/182Kb lim: 17495 exec/s: 2063 rss: 568Mb L: 39/7836 MS: 1 EraseBytes-
+#1225230	REDUCE cov: 858 ft: 4249 corp: 942/182Kb lim: 17509 exec/s: 2062 rss: 568Mb L: 17/7836 MS: 1 EraseBytes-
+#1227214	REDUCE cov: 858 ft: 4249 corp: 942/182Kb lim: 17523 exec/s: 2066 rss: 568Mb L: 206/7836 MS: 4 InsertByte-ManualDict-ChangeBinInt-EraseBytes- DE: "\\n"-
+#1227386	REDUCE cov: 858 ft: 4249 corp: 942/182Kb lim: 17523 exec/s: 2066 rss: 568Mb L: 625/7836 MS: 2 ManualDict-EraseBytes- DE: "&&"-
+#1230907	REDUCE cov: 858 ft: 4249 corp: 942/182Kb lim: 17551 exec/s: 2065 rss: 568Mb L: 56/7836 MS: 1 EraseBytes-
+#1231194	REDUCE cov: 858 ft: 4249 corp: 942/182Kb lim: 17551 exec/s: 2065 rss: 568Mb L: 61/7836 MS: 2 ChangeByte-EraseBytes-
+#1233924	REDUCE cov: 858 ft: 4249 corp: 942/182Kb lim: 17565 exec/s: 2066 rss: 568Mb L: 4637/7836 MS: 5 CrossOver-ManualDict-InsertByte-ShuffleBytes-EraseBytes- DE: "#"-
+#1234425	REDUCE cov: 858 ft: 4249 corp: 942/182Kb lim: 17565 exec/s: 2064 rss: 568Mb L: 349/7836 MS: 1 EraseBytes-
+#1239855	DONE   cov: 858 ft: 4249 corp: 942/182Kb lim: 17607 exec/s: 2062 rss: 568Mb
+###### Recommended dictionary. ######
+"\001\000\000\000\000\000\000\003" # Uses: 4540
+"{\000\000\000" # Uses: 4032
+"[\000" # Uses: 3087
+"\333\377\377\377" # Uses: 2890
+"\000\000\000\\" # Uses: 2871
+"\001\012" # Uses: 2783
+"\377^" # Uses: 2746
+"\377\377\377\377\377\377\377\377" # Uses: 2188
+"\021\000\000\000\000\000\000\000" # Uses: 2003
+"1\000\000\000" # Uses: 2109
+"|\000" # Uses: 1995
+"\377\377\377\377" # Uses: 1685
+"\001\000\000\003" # Uses: 1704
+"|\000\000\000" # Uses: 1693
+"\376\377\377\377" # Uses: 1516
+"M\000\000\000\000\000\000\000" # Uses: 1342
+".\000" # Uses: 1038
+"\377\377\377\377\377\377\377\304" # Uses: 874
+",\000\000\000" # Uses: 856
+"\377t" # Uses: 683
+"\026\000" # Uses: 597
+"\020\000\000\000\000\000\000\000" # Uses: 442
+"\377\377\376\375" # Uses: 457
+"&\000\000\000" # Uses: 443
+"^\000" # Uses: 387
+"C\000\000\000" # Uses: 392
+"\376\377" # Uses: 188
+"\021\002\000\000\000\000\000\000" # Uses: 36
+###### End of recommended dictionary. ######
+Done 1239855 runs in 601 second(s)
+stat::number_of_executed_units: 1239855
+stat::average_exec_per_sec:     2062
+stat::new_units_added:          782
+stat::slowest_unit_time_sec:    0
+stat::peak_rss_mb:              568

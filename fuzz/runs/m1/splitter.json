@@ -1,0 +1,29 @@
+{
+  "implementation_commit": "8586ba9f89df597f85b3caf6af3ff8df0b447ce1",
+  "target": "splitter",
+  "command": [
+    "cargo",
+    "+nightly",
+    "fuzz",
+    "run",
+    "splitter",
+    "--",
+    "-max_total_time=600",
+    "-max_len=32768",
+    "-seed=20261021",
+    "-dict=fuzz/syntax.dict",
+    "-print_final_stats=1"
+  ],
+  "seed": 20261021,
+  "time_limit_seconds": 600,
+  "max_len": 32768,
+  "elapsed_seconds": 603.0,
+  "exit_code": 0,
+  "executions": 179892,
+  "engine_seconds": 601,
+  "source_sha256": "158a54aeade8fe14e35226d256fba75c8f010346c894410200f3426fc53de484",
+  "full_log_sha256": "10e2db48d83274965336f2074fd612d691e93e3d21b4ce46b06db01c7f1fcd06",
+  "full_log_local_path": "/tmp/genui-m1-splitter-600.log",
+  "rustc": "rustc 1.101.0-nightly (19833af72 2026-10-20)",
+  "cargo_fuzz": "cargo-fuzz 0.13.2"
+}

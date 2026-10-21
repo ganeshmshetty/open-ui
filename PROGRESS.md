@@ -7,7 +7,7 @@ A milestone is complete only after its acceptance checks pass and CI is green.
 | Milestone | Status | Evidence / next gate |
 | --- | --- | --- |
 | M0 — Workspace and verification scaffolding | Complete | 21 lex fixtures / 4,743 chunkings; 7 spec examples; Linux and macOS CI green. |
-| M1 — Batch syntax | Awaiting fuzz/CI | 124 fixtures / 28,225 chunkings; 23 tests including 2,048 generated round trips pass locally; final timed campaigns running. |
+| M1 — Batch syntax | Complete | 124 fixtures / 28,225 chunkings; 23 tests including 2,048 generated round trips; four clean 600-second fuzz campaigns; Linux/macOS CI green. |
 | M2 — Library, validation, IR and limits | Not started | Category fixtures, diagnostic coverage, full spec validation. |
 | M3 — Streaming and patches | Not started | Live invariant checks, patch replay, 100k generated programs. |
 | M4 — Runtime | Not started | Evaluation and interactive fixture categories. |
@@ -98,8 +98,23 @@ Local acceptance evidence:
 - `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`,
   `cargo test --workspace`, fuzz formatting and all four fuzz-target builds pass.
 
-Fuzz status: final 600-second campaigns are running on the frozen source. Early
-20-second smoke runs passed. The first fixture-seeded parser campaign found a
+Fuzz acceptance: all four campaigns completed on implementation commit
+`8586ba9` with AddressSanitizer, seed `20261021`, max input length 32,768 bytes,
+and fixture/boundary-seeded corpora. Runs were concurrent. Source and full-log
+SHA-256 hashes were checked against the final files; all match.
+
+| Target | Engine seconds | Executions | Exit code |
+| --- | ---: | ---: | ---: |
+| lexer | 601 | 1,239,855 | 0 |
+| splitter | 601 | 179,892 | 0 |
+| extractor | 601 | 571,567 | 0 |
+| parser | 601 | 293,047 | 0 |
+
+Commands, tool versions and startup/final excerpts are checked in under
+`fuzz/runs/m1/`. Rust nightly was `1.101.0-nightly (19833af72 2026-10-20)`;
+cargo-fuzz was `0.13.2`. Engine durations exclude compilation/setup time.
+
+Early 20-second smoke runs also passed. The first fixture-seeded parser campaign found a
 round-trip **test-budget mismatch**, rather than a model-input panic: printing
 an implicit bare component adds parentheses at the bracket ceiling. The original
 minimized artifact/log is in `fuzz/runs/m1/initial-*`; two checked-in regressions
@@ -114,10 +129,14 @@ cases; strict AST/segment goldens; M1 spec-check and round-trip budget rules.
 
 The first hosted run found one Rust 1.99 Clippy style lint (`while_let_loop`)
 that Rust 1.94 did not report. The equivalent loop was rewritten without a
-behavior change; timed acceptance campaigns will use that final source.
+behavior change; the completed campaigns use that final source.
 
-Remaining acceptance gates: finish all four clean campaigns and verify hosted
-Linux/macOS CI. No known unresolved syntax issue. Semantic library resolution,
+Hosted acceptance CI passed on Linux and macOS for `8586ba9`:
+[CI run](https://github.com/ganeshmshetty/open-ui/actions/runs/39649523210).
+All eight checks passed on both platforms. Final evidence/documentation is
+committed separately and receives the same CI workflow.
+
+M1 is complete. No known unresolved syntax issue. Semantic library resolution,
 constant-state validation, general builtin/type checking, IR, provisional tails,
 statement hashes and patch invariants remain M2–M4 work. The dormant IR/runtime/
 library/GPUI scaffolds are explicitly outside M1. Next milestone: M2.

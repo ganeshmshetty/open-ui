@@ -1,0 +1,29 @@
+{
+  "implementation_commit": "8586ba9f89df597f85b3caf6af3ff8df0b447ce1",
+  "target": "lexer",
+  "command": [
+    "cargo",
+    "+nightly",
+    "fuzz",
+    "run",
+    "lexer",
+    "--",
+    "-max_total_time=600",
+    "-max_len=32768",
+    "-seed=20261021",
+    "-dict=fuzz/syntax.dict",
+    "-print_final_stats=1"
+  ],
+  "seed": 20261021,
+  "time_limit_seconds": 600,
+  "max_len": 32768,
+  "elapsed_seconds": 602.48,
+  "exit_code": 0,
+  "executions": 1239855,
+  "engine_seconds": 601,
+  "source_sha256": "721de458d77f0f319f562acae8dee083caf5d60af05ee58a89798b2996e764e3",
+  "full_log_sha256": "731cbe7e6d9e47a6b2838b1150f7898b6af6acaaec89019e29b8473366a36882",
+  "full_log_local_path": "/tmp/genui-m1-lexer-600.log",
+  "rustc": "rustc 1.101.0-nightly (19833af72 2026-10-20)",
+  "cargo_fuzz": "cargo-fuzz 0.13.2"
+}

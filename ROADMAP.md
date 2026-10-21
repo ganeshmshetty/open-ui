@@ -21,5 +21,6 @@ Each item has a "due by" milestone. When starting a milestone, pick up every ite
 | 15 | Gallery app with `--screenshot` and a component state sheet; screenshot review at the end of M6, M7 and M8 (SPEC §12.7) | M6 | demo binary in `-gpui` |
 | 16 | Scripted GPUI interaction tests (SPEC §12.7) | M7 | tests in `-gpui` |
 | 17 | Real-model loop: live stream, recorded transcripts, deterministic replay, mid-stream screenshots (SPEC §12.7) | M8 | sample host + `eval/transcripts/` |
+| 18 | Quality gates 1–7 (SPEC §12.8) | right after M2, before the spike | CI scripts + `conformance/deferred.json` |
 
 Deferred features (edit mode, write tools, secret fields, more components, other renderers) are in SPEC Appendix A, not here.

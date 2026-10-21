@@ -1786,6 +1786,18 @@ Conformance fixtures prove the core. These checks prove the whole system works a
 | Gallery app and screenshot loop | M6 | A demo binary renders every `examples/*.ui` and a per-component state sheet (all states from DESIGN.md §7) in light and dark. `--screenshot <dir>` writes one PNG per example and mode. At the end of M6, M7 and M8, the screenshot set is reviewed against DESIGN.md; each finding is fixed or logged in PROGRESS.md with a reason. Screenshots are not golden-compared in phase 1. |
 | Real-model loop | M8 | The sample host streams a live model reply into the UI. The run is recorded as a transcript (prompt, chunks with timing, events) and replayed deterministically. Screenshots are taken at 25%, 50%, 75% and 100% of the stream to check that partial UIs look intentional. |
 
+### 12.8 Quality gates (CI)
+
+These run in CI and fail the build. They turn the AGENTS.md rules into checks.
+
+1. **Lints:** `genui-core` denies `clippy::unwrap_used`, `expect_used`, `panic`, `todo` and `unimplemented` in non-test code.
+2. **Dependency ban:** `cargo-deny` rejects UI and async crates (gpui*, tokio) in `genui-core`.
+3. **No skipped tests:** any `#[ignore]` fails CI.
+4. **No hard-coded styles:** hex colors or pixel literals in `genui-gpui` outside its theme module fail CI.
+5. **Fixture protection:** a commit that changes a `want.*` file without also changing `spec/SPEC.md` and `spec/CHANGELOG.md` fails CI.
+6. **Diagnostic coverage:** every code in the 4.3 table has at least one fixture, or is listed in `conformance/deferred.json` with a reason and a milestone.
+7. **Mutation testing:** `cargo-mutants` on `syntax` and `ir` runs before a milestone is marked done; surviving mutants are fixed or justified in PROGRESS.md. (Not on every push.)
+
 ## 13. Public Rust API sketch
 
 This sketch is illustrative, not final. Every type it names is defined in this document or in Appendix D.

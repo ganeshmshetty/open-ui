@@ -1,5 +1,11 @@
 # Spec changelog
 
+## 2026-10-22 — Quality gates (§12.8)
+
+- Add §12.8: seven CI gates that enforce the AGENTS.md rules (lints, dependency
+  ban, no skipped tests, no hard-coded styles, fixture protection, diagnostic
+  coverage, mutation testing), so milestones need less manual review.
+
 ## 2026-10-22 — End-to-end checks (§12.7, §14.1)
 
 - Add §12.7: `tree` and `replay` CLI commands, scripted GPUI interaction tests,

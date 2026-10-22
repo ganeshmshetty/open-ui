@@ -217,3 +217,16 @@ fn builder_examples_share_the_statement_parser() {
         .example("$s=\"ok\"\nroot=Item($s)");
     assert!(b.component(c).build().is_ok());
 }
+
+#[test]
+fn expression_sharing_preserves_recovered_null_metadata() {
+    let mut ir = Ir::default();
+    let literal = Expr::null();
+    let recovered = Expr::recovered_null();
+    assert_eq!(literal, recovered);
+    let a = ir.intern(&literal);
+    let b = ir.intern(&recovered);
+    assert_ne!(a, b);
+    assert_eq!(ir.intern(&literal), a);
+    assert_eq!(ir.intern(&recovered), b);
+}

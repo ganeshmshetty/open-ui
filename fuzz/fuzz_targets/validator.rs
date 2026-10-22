@@ -1,6 +1,7 @@
 #![no_main]
 use genui_core::{
     ir::NodeId,
+    r#lib::{ComponentDef, Role, T},
     syntax::{BatchParser, parse_batch},
     validate::{Options, validate, validate_program},
 };
@@ -9,9 +10,27 @@ use std::{collections::BTreeSet, sync::OnceLock};
 
 fuzz_target!(|data: &[u8]| {
     static LIB: OnceLock<genui_core::r#lib::Library> = OnceLock::new();
-    let library = LIB.get_or_init(|| match genui_std::std_library() {
-        Ok(library) => library,
-        Err(errors) => panic!("invalid trusted std library: {errors:?}"),
+    let library = LIB.get_or_init(|| {
+        match genui_std::std_library().and_then(|base| {
+            base.extend()
+                .component(
+                    ComponentDef::new("Probe", Role::Group)
+                        .group("Layout")
+                        .doc("Fuzz-only nullable prop combinations.")
+                        .opt_none("mode", T::optional(T::enum_("Tone")))
+                        .opt_none("space", T::optional(T::enum_("Space")))
+                        .opt_none("action", T::optional(T::action()))
+                        .opt_none("binding", T::optional(T::binding(T::text())))
+                        .opt_none("text", T::optional(T::text()))
+                        .opt_none("number", T::optional(T::float()))
+                        .opt_none("src", T::optional(T::url()))
+                        .opt_none("children", T::optional(T::list(T::optional(T::node())))),
+                )
+                .build()
+        }) {
+            Ok(library) => library,
+            Err(errors) => panic!("invalid trusted std library: {errors:?}"),
+        }
     });
     let seed = data.first().copied().unwrap_or(0) as usize;
     let mut options = Options::default();

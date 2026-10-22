@@ -151,7 +151,11 @@ pub struct Ir {
 }
 impl Ir {
     pub fn intern(&mut self, e: &Expr) -> ExprId {
-        if let Some(i) = self.expressions.iter().position(|v| v == e) {
+        if let Some(i) = self
+            .expressions
+            .iter()
+            .position(|v| v == e && v.recovery_metadata_eq(e))
+        {
             return ExprId(i);
         }
         let i = self.expressions.len();

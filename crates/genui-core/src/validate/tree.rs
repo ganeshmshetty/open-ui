@@ -399,12 +399,15 @@ impl Validator<'_> {
         Some(node_id)
     }
     fn literal_prop(&self, mut v: Value, arg: &ArgDef) -> Prop {
-        if matches!(arg.ty, T::Float)
+        if v == Value::Null {
+            return Prop::Static(PropValue::Value(v));
+        }
+        if matches!(arg.ty.non_null(), T::Float)
             && let Value::Int(i) = v
         {
             v = Value::Float(i as f64)
         }
-        if let T::Named { name } = &arg.ty
+        if let T::Named { name } = arg.ty.non_null()
             && let Some(TypeDef::Token { scale, .. }) = self.lib.types().get(name)
         {
             return Prop::Static(PropValue::Token {
@@ -424,7 +427,7 @@ impl Validator<'_> {
         };
         self.recovery(code, recovery, ctx);
         if code == Code::Enum
-            && let T::Named { name } = &arg.ty
+            && let T::Named { name } = arg.ty.non_null()
             && let Some(TypeDef::Enum { values }) = self.lib.types().get(name)
             && let Some(d) = self.diagnostics.last_mut()
         {
@@ -438,8 +441,28 @@ impl Validator<'_> {
         }
         arg.default.clone().map(|v| self.literal_prop(v, arg))
     }
+    fn recovered_prop(&self, arg: &ArgDef) -> Option<Prop> {
+        arg.default
+            .clone()
+            .or_else(|| matches!(arg.ty, T::Optional { .. }).then_some(Value::Null))
+            .map(|v| self.literal_prop(v, arg))
+    }
     fn prop(&mut self, e: &Expr, arg: &ArgDef, ctx: &Context) -> Option<Prop> {
-        if let T::Binding { of } = &arg.ty {
+        if let Expr::Name { name } = e
+            && !ctx.locals.contains(name)
+            && let Some(value) = self.cache.get(name)
+        {
+            if !value.valid {
+                return self.recovered_prop(arg);
+            }
+            if matches!(arg.ty, T::Optional { .. }) && value.value == Some(Value::Null) {
+                return Some(self.literal_prop(Value::Null, arg));
+            }
+        }
+        if matches!(arg.ty, T::Optional { .. }) && matches!(e, Expr::Null { .. }) {
+            return Some(Prop::Static(PropValue::Value(Value::Null)));
+        }
+        if let T::Binding { of } = arg.ty.non_null() {
             if let Expr::State { name } = e {
                 if let Some(state) = self.ir.states.get(name).cloned() {
                     let infer = state.default == Value::Null
@@ -464,19 +487,19 @@ impl Validator<'_> {
                     }
                 } else {
                     self.emit(Code::Undeclared, ctx);
-                    return None;
+                    return self.recovered_prop(arg);
                 }
             }
             self.emit(Code::BindTarget, ctx);
-            return None;
+            return self.recovered_prop(arg);
         }
-        if matches!(arg.ty, T::Action) {
+        if matches!(arg.ty.non_null(), T::Action) {
             let before = self.diagnostics.len();
             let (valid, normalized) = self.normalize_action(e, ctx);
             if valid {
                 let steps = self.action_steps(&normalized);
                 if steps.is_empty() {
-                    return None;
+                    return self.recovered_prop(arg);
                 }
                 let id = ActionPlanId(self.ir.actions.len());
                 let origin = ctx
@@ -497,20 +520,21 @@ impl Validator<'_> {
                 return Some(Prop::Static(PropValue::Action(id)));
             }
             if self.diagnostics.len() == before {
-                self.bad_prop(Code::SchemaType, arg, ctx);
+                return self.bad_prop(Code::SchemaType, arg, ctx);
             }
-            return None;
+            return self.recovered_prop(arg);
         }
         let checked = self.check_value(e, ctx);
         if !checked.valid {
-            return arg.default.clone().map(|v| self.literal_prop(v, arg));
+            return self.recovered_prop(arg);
         }
         let Some(mut v) = checked.value else {
             return Some(self.dynamic(e));
         };
-        if matches!(arg.ty, T::Url) && matches!(v, Value::Str(_)) && !self.valid_url(&v) {
+        if matches!(arg.ty.non_null(), T::Url) && matches!(v, Value::Str(_)) && !self.valid_url(&v)
+        {
             self.emit(Code::TaintedUrl, ctx);
-            return arg.default.clone().map(|v| self.literal_prop(v, arg));
+            return self.recovered_prop(arg);
         }
         if let Some(cap) = ctx.list_cap
             && let Value::List(items) = &mut v
@@ -520,7 +544,7 @@ impl Validator<'_> {
             self.limit(Code::ListLen, ctx);
         }
         // Range checks happen before token membership checks, and preserve the literal numeric kind.
-        let range = if let T::Named { name } = &arg.ty {
+        let range = if let T::Named { name } = arg.ty.non_null() {
             match self.lib.types().get(name) {
                 Some(TypeDef::Token { min, max, .. }) => Some((*min as f64, *max as f64)),
                 _ => None,
@@ -528,8 +552,8 @@ impl Validator<'_> {
         } else {
             arg.min.zip(arg.max)
         };
-        if (matches!(arg.ty, T::Int)
-            || matches!(&arg.ty,T::Named{name}if matches!(self.lib.types().get(name),Some(TypeDef::Token{..}))))
+        if (matches!(arg.ty.non_null(), T::Int)
+            || matches!(arg.ty.non_null(),T::Named{name}if matches!(self.lib.types().get(name),Some(TypeDef::Token{..}))))
             && !matches!(v, Value::Int(_))
         {
             return self.bad_prop(Code::SchemaType, arg, ctx);
@@ -546,7 +570,7 @@ impl Validator<'_> {
             }
         }
         if !self.lib.accepts(&arg.ty, &v) {
-            let code = if let T::Named { name } = &arg.ty {
+            let code = if let T::Named { name } = arg.ty.non_null() {
                 if matches!(self.lib.types().get(name), Some(TypeDef::Enum { .. })) {
                     Code::Enum
                 } else {
@@ -1051,7 +1075,7 @@ impl Validator<'_> {
                             }
                         }
                         for (i, a) in component.args.iter().enumerate() {
-                            if let T::Binding { of } = &a.ty
+                            if let T::Binding { of } = a.ty.non_null()
                                 && let Some(Expr::State { name }) = bound.get(&i)
                                 && let Some(state) = self.ir.states.get_mut(name)
                             {

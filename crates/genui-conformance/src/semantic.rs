@@ -93,6 +93,30 @@ impl Runner {
         if category == "library" {
             let b: LibraryBuilder = checked_json(&path.join("library.json"), &self.library_input)?;
             let wanted: Vec<String> = read_json(&path.join("want.build.json"))?;
+            let b = if case.tags.iter().any(|t| t == "extend") {
+                let mut extension = self.library.extend();
+                extension.id = b.id;
+                extension.version = b.version;
+                for g in b.groups {
+                    extension = extension.group(g);
+                }
+                for (n, t) in b.types {
+                    extension = extension.type_(&n, t);
+                }
+                for c in b.components {
+                    extension = extension.component(c);
+                }
+                for f in b.functions {
+                    extension = extension.function(f);
+                }
+                for a in b.actions {
+                    extension = extension.action(a);
+                }
+                extension.formats.extend(b.formats);
+                extension
+            } else {
+                b
+            };
             let result = b.build();
             let actual = result.as_ref().err().cloned().unwrap_or_default();
             if actual != wanted {

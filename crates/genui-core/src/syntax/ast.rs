@@ -138,3 +138,40 @@ impl Expr {
         }
     }
 }
+
+impl Expr {
+    /// Structural AST equality omits recovery metadata; the IR must retain it when sharing expressions.
+    pub(crate) fn recovery_metadata_eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Null { origin: a }, Self::Null { origin: b }) => a.recovered == b.recovered,
+            (Self::List { items: a }, Self::List { items: b }) => {
+                a.iter().zip(b).all(|(a, b)| a.recovery_metadata_eq(b))
+            }
+            (Self::Map { entries: a }, Self::Map { entries: b }) => a
+                .iter()
+                .zip(b)
+                .all(|(a, b)| a.value.recovery_metadata_eq(&b.value)),
+            (Self::Call { args: a, .. }, Self::Call { args: b, .. }) => a
+                .iter()
+                .zip(b)
+                .all(|(a, b)| a.value.recovery_metadata_eq(&b.value)),
+            (Self::Unary { expr: a, .. }, Self::Unary { expr: b, .. })
+            | (Self::Member { base: a, .. }, Self::Member { base: b, .. })
+            | (Self::Lambda { body: a, .. }, Self::Lambda { body: b, .. }) => {
+                a.recovery_metadata_eq(b)
+            }
+            (
+                Self::Binary {
+                    left: a, right: b, ..
+                },
+                Self::Binary {
+                    left: c, right: d, ..
+                },
+            )
+            | (Self::Index { base: a, index: b }, Self::Index { base: c, index: d }) => {
+                a.recovery_metadata_eq(c) && b.recovery_metadata_eq(d)
+            }
+            _ => true,
+        }
+    }
+}

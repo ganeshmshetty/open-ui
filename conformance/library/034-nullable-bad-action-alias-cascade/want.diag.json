@@ -1,0 +1,8 @@
+[
+  {
+    "code": "expr.unknown_fn",
+    "stmt": "n",
+    "path": null,
+    "recovery": "ValueNulled"
+  }
+]

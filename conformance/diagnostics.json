@@ -21,6 +21,7 @@
       "schema/028-literal-error-stops-cascade"
     ],
     "expr.tainted_url": [
+      "library/036-nullable-url-policy",
       "schema/057-url-tainted"
     ],
     "expr.type": [
@@ -32,6 +33,7 @@
     ],
     "expr.unknown_fn": [
       "grammar/031-tool-outside-query",
+      "library/034-nullable-bad-action-alias-cascade",
       "resolve/005-invalid-root-value-no-cascade",
       "schema/047-syntax-error-stops-cascade",
       "schema/055-unknown-function",
@@ -56,7 +58,9 @@
     ],
     "limit.list_len": [
       "limits/005-list-length",
-      "limits/006-list-zero"
+      "limits/006-list-zero",
+      "limits/021-facts-one-past",
+      "limits/022-facts-composed-cap"
     ],
     "limit.nodes": [
       "limits/007-node-budget",
@@ -110,6 +114,7 @@
       "statements/015-reserved-name"
     ],
     "name.unresolved": [
+      "library/030-nullable-nullable-recovered",
       "resolve/013-unresolved-child",
       "resolve/014-unresolved-value"
     ],
@@ -149,6 +154,7 @@
     "schema.enum": [
       "library/011-optional-enum",
       "library/015-required-enum",
+      "library/024-nullable-optional-enum",
       "schema/020-enum"
     ],
     "schema.extra_positional": [
@@ -167,6 +173,7 @@
       "grammar/022-positional-after-named"
     ],
     "schema.range": [
+      "library/026-nullable-optional-token-range",
       "schema/037-range",
       "schema/048-token-range"
     ],

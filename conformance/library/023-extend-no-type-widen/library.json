@@ -1,0 +1,14 @@
+{
+  "id": "extended",
+  "version": "0.1.0",
+  "groups": [],
+  "components": [],
+  "types": {
+    "Space": {
+      "kind": "enum",
+      "values": [
+        "wide"
+      ]
+    }
+  }
+}

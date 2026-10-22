@@ -1,0 +1,31 @@
+{
+  "id": "test",
+  "version": "0.1.0",
+  "groups": [
+    {
+      "name": "G",
+      "order": 0,
+      "notes": ""
+    }
+  ],
+  "components": [
+    {
+      "name": "Extra",
+      "group": "G",
+      "role": "group",
+      "doc": "Nullable consumer.",
+      "args": [
+        {
+          "name": "value",
+          "required": false,
+          "type": {
+            "kind": "optional",
+            "of": {
+              "kind": "float"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -779,7 +779,7 @@ Recovery is applied bottom-up. Each step stops the cascade, so a parent sees a c
 1. **Token.** Skip a byte, insert a missing comma, ignore a stray closer.
 2. **Value.** An expression that errors becomes `Null`.
 3. **Argument.** A bad optional argument is omitted. A bad required argument takes its library default, if one exists.
-4. **Node.** If a required argument is still missing or `Null`, the node is dropped.
+4. **Node.** If a required argument is still missing, or is `Null` without an explicitly nullable type, the node is dropped.
 5. **Slot.** A dropped child is removed from its parent's slot, and the parent renders with the remaining children. If a slot is now below its `min_items`, the parent is dropped (step 4 applies to it).
 6. **Statement.** A statement that cannot be parsed or classified is dropped. Its name stays claimed if its left side was parsed (2.3).
 7. **Program.** With no `root`, or an unsupported major, nothing renders and the fallback text is shown.
@@ -1355,6 +1355,13 @@ The checked-in golden is compared byte for byte; tests never rewrite it.
 | `options` | a list of strings, or of `{label, value}` maps |
 | `optional{of}` | the type, or null |
 
+`optional{of}` is transparent for non-null values: enum diagnostics, token
+encoding/range recovery, URL policy, bindings, actions and node slots keep the
+underlying type's behavior. Null is a valid value even for a required nullable
+argument (required means the argument must be present). A recovered null is also
+accepted there, without a second diagnostic. A list of nullable nodes remains a
+slot, and its null elements are skipped.
+
 ### 8.4 Groups
 
 Groups are prompt metadata: an ordered list of `{name, order, notes}`. Every component MUST be in a group, so there is no catch-all bucket. Component references in group notes are enclosed in backticks. The builder checks those references against component names; ordinary prose is not interpreted as a component reference.
@@ -1778,6 +1785,7 @@ conformance/
     want.ir.json              canonical IR (M2 concrete nodes; plans tested separately)
     options.json              optional static host context: tools, refs, capabilities, URL policy
     library.json              builder input in library fixtures; want.build.json gives exact errors
+                              tag extend adds these definitions to std via extend()
     paths.json                allocator probe in focused ir fixtures; want.paths.json gives paths
     want.diag.json            expected diagnostics
     want.patches.json         exact batches (category patches only)

@@ -1,0 +1,24 @@
+{
+  "id": "extended",
+  "version": "0.1.0",
+  "groups": [],
+  "components": [
+    {
+      "name": "Extra",
+      "group": "Content",
+      "role": "group",
+      "doc": "An additive test component.",
+      "args": [
+        {
+          "name": "text",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "text"
+          }
+        }
+      ]
+    }
+  ],
+  "types": {}
+}

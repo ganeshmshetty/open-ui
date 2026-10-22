@@ -1,0 +1,8 @@
+{
+  "title": "nullable-optional-action",
+  "tier": "core",
+  "tags": [
+    "M2"
+  ],
+  "notes": "SPEC \u00a78.3 optional composes with its underlying type."
+}

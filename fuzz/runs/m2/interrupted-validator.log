@@ -1,0 +1,38 @@
+   Compiling genui-core v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-core)
+   Compiling genui-std v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-std)
+   Compiling genui-fuzz v0.0.0 (/Users/ganesh/dev/open-ui/fuzz)
+    Finished `release` profile [optimized + debuginfo] target(s) in 19.12s
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.07s
+     Running `fuzz/target/aarch64-apple-darwin/release/validator -artifact_prefix=/Users/ganesh/dev/open-ui/fuzz/artifacts/validator/ -max_total_time=600 -max_len=32768 -seed=20261022 -dict=fuzz/syntax.dict -print_final_stats=1 fuzz/corpus/m2-validator-acceptance`
+Dictionary: 22 entries
+INFO: Running with entropic power schedule (0xFF, 100).
+INFO: Seed: 20261022
+INFO: Loaded 1 modules   (93766 inline 8-bit counters): 93766 [0x102d8d520, 0x102da4366), 
+INFO: Loaded 1 PC tables (93766 PCs): 93766 [0x102da4368,0x102f127c8), 
+INFO:      255 files found in fuzz/corpus/m2-validator-acceptance
+INFO: seed corpus: files: 255 min: 5b max: 737b total: 17537b rss: 46Mb
+#256	INITED cov: 6170 ft: 14714 corp: 239/16Kb exec/s: 0 rss: 93Mb
+#258	NEW    cov: 6170 ft: 14716 corp: 240/16Kb lim: 737 exec/s: 0 rss: 93Mb L: 22/737 MS: 2 ShuffleBytes-CrossOver-
+#260	NEW    cov: 6170 ft: 14717 corp: 241/16Kb lim: 737 exec/s: 0 rss: 93Mb L: 21/737 MS: 2 ChangeByte-ManualDict- DE: "```\012"-
+#262	NEW    cov: 6170 ft: 14721 corp: 242/16Kb lim: 737 exec/s: 0 rss: 94Mb L: 8/737 MS: 2 EraseBytes-PersAutoDict- DE: "```\012"-
+#263	NEW    cov: 6171 ft: 14723 corp: 243/16Kb lim: 737 exec/s: 0 rss: 94Mb L: 7/737 MS: 1 CMP- DE: "0\000"-
+	NEW_FUNC[1/5]: 0x0001027d6e74 in _RINvNtCs7rJgpMQJsBb_4core3ptr9drop_glueINtNtCsiGJ9W6X0UHH_5alloc3vec3VecNtNtCshyShmvegXGi_10genui_core4diag10DiagnosticEEB1c_+0x0 (validator:arm64+0x1000e2e74)
+	NEW_FUNC[2/5]: 0x000102829340 in _RINvNtNtNtCs7rJgpMQJsBb_4core5slice4sort6stable14driftsort_mainNtNtCshyShmvegXGi_10genui_core4diag10DiagnosticNCINvMNtCsiGJ9W6X0UHH_5alloc5sliceSBZ_11sort_by_keyTjNtB11_4CodeENCNvB11_17order_diagnostics0E0INtNtB1S_3vec3VecBZ_EEB13_+0x0 (validator:arm64+0x100135340)
+#264	NEW    cov: 6241 ft: 14853 corp: 244/16Kb lim: 737 exec/s: 0 rss: 96Mb L: 99/737 MS: 1 InsertRepeatedBytes-
+	NEW_FUNC[1/2]: 0x000102851670 in _RINvNtNtNtNtCs7rJgpMQJsBb_4core5slice4sort6stable9quicksort9quicksortNtNtCshyShmvegXGi_10genui_core4diag10DiagnosticNCINvMNtCsiGJ9W6X0UHH_5alloc5sliceSB15_11sort_by_keyTjNtB17_4CodeENCNvB17_17order_diagnostics0E0EB19_+0x0 (validator:arm64+0x10015d670)
+[intermediate output omitted; complete log hash is in JSON]
+#414663	REDUCE cov: 9288 ft: 32386 corp: 4362/1158Kb lim: 737 exec/s: 1237 rss: 695Mb L: 98/2723 MS: 5 PersAutoDict-ChangeBinInt-CopyPart-ChangeBit-EraseBytes- DE: "\001\004"-
+#414919	NEW    cov: 9288 ft: 32388 corp: 4363/1159Kb lim: 737 exec/s: 1234 rss: 695Mb L: 711/2723 MS: 1 CopyPart-
+#414956	REDUCE cov: 9288 ft: 32388 corp: 4363/1159Kb lim: 737 exec/s: 1234 rss: 695Mb L: 54/2723 MS: 2 CMP-EraseBytes- DE: "\0033333333"-
+#414971	REDUCE cov: 9288 ft: 32389 corp: 4364/1161Kb lim: 737 exec/s: 1235 rss: 695Mb L: 2720/2723 MS: 5 CrossOver-PersAutoDict-ShuffleBytes-ChangeByte-CopyPart- DE: "\376\377\377\332"-
+#415002	NEW    cov: 9288 ft: 32392 corp: 4365/1162Kb lim: 737 exec/s: 1235 rss: 695Mb L: 328/2723 MS: 1 InsertRepeatedBytes-
+#415051	REDUCE cov: 9288 ft: 32392 corp: 4365/1162Kb lim: 737 exec/s: 1235 rss: 695Mb L: 86/2723 MS: 4 CrossOver-ManualDict-ChangeBinInt-EraseBytes- DE: "Text("-
+==69383== libFuzzer: run interrupted; exiting
+stat::number_of_executed_units: 415105
+stat::average_exec_per_sec:     1235
+stat::new_units_added:          8325
+stat::slowest_unit_time_sec:    0
+stat::peak_rss_mb:              695
+────────────────────────────────────────────────────────────────────────────────
+
+Error: Fuzz target exited with exit status: 72

@@ -45,8 +45,10 @@ invariance, concrete-tree reachability, unique path/ID identity and node/depth
 budgets. It performs no evaluation or host effects.
 
 ```sh
-cargo +nightly fuzz run validator fuzz/corpus/m2-validator-acceptance -- -max_total_time=600 -max_len=32768 -seed=20261022 -dict=fuzz/syntax.dict -print_final_stats=1
+cargo +nightly fuzz run validator fuzz/corpus/m2-validator-final -- -max_total_time=600 -max_len=32768 -seed=20261022 -dict=fuzz/syntax.dict -print_final_stats=1
 ```
 
-The corpus is seeded from all fixture and exemplar DSL inputs. M2 acceptance
+The corpus is seeded from all fixture and exemplar DSL inputs, plus nullable
+Probe programs. The Probe is an additive builder extension of std, not a fake
+validator or evaluator. Interrupted campaigns are explicitly excluded. M2 acceptance
 metrics, source hashes and retained startup/final log excerpts live in `runs/m2/`.

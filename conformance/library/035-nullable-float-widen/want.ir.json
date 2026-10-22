@@ -1,0 +1,11 @@
+{
+  "id": "root",
+  "kind": "Extra",
+  "role": "group",
+  "props": {
+    "value": {
+      "f": 3.0
+    }
+  },
+  "children": {}
+}

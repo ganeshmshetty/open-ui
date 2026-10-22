@@ -194,3 +194,27 @@ build pass. A 21-second ASan smoke run completed 36,562 executions with exit 0;
 that smoke predates final template/slot hardening and is not acceptance evidence.
 The frozen-source 600-second validator campaign and hosted Linux/macOS CI are
 next. M2 remains in progress until both succeed and final evidence is committed.
+
+
+### M2 nullable-type regression checkpoint — 2026-10-22
+
+The first implementation CI passed on both Linux and macOS for eb8250b:
+https://github.com/ganeshmshetty/open-ui/actions/runs/39705728214 .
+Supplemental exact fixtures exposed missing transparency through nullable
+wrappers (enum codes, token encoding/range, bindings, actions and node slots).
+Those cases were authored and observed failing before the fix; required nullable
+and recovered-null behavior is now explicit in SPEC §§4.4,8.3 and CHANGELOG.
+Expression interning also preserves recovery metadata despite structural AST
+round-trip equality excluding it.
+
+The timed campaign on eb8250b was intentionally interrupted after 415,105
+executions (libFuzzer exit 72; no observed crash). It does not count as acceptance.
+Retained evidence is in fuzz/runs/m2/interrupted-validator.* . The validator target
+now includes a builder-defined Probe component covering nullable compositions.
+The corrected source will receive a fresh full 600-second campaign.
+
+Current local acceptance checks pass: 275 fixtures / 62,343 chunkings /
+390 permutations, 50 Rust tests, all spec blocks and 24 exemplars. Library has
+36 cases, resolve 17, schema 61, ir 15, limits 22. Extra cases cover additive
+extension and Facts at 50, at 51, and with a composed global limit. This remains
+M2 only; the M3 splitter issue above is still open.

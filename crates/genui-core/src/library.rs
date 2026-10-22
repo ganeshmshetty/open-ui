@@ -93,17 +93,21 @@ impl T {
             accepts: Accepts::Only(names.iter().map(|s| (*s).into()).collect()),
         })
     }
+    /// Nullable wrappers preserve the underlying prop/slot kind.
+    pub fn non_null(&self) -> &Self {
+        let mut ty = self;
+        while let Self::Optional { of } = ty {
+            ty = of;
+        }
+        ty
+    }
     pub fn slot(&self) -> Option<&Accepts> {
-        match self {
+        match self.non_null() {
             Self::Node { accepts } => Some(accepts),
-            Self::Optional { of } => of.slot(),
-            Self::List { of } => {
-                if let Self::Node { accepts } = of.as_ref() {
-                    Some(accepts)
-                } else {
-                    None
-                }
-            }
+            Self::List { of } => match of.non_null() {
+                Self::Node { accepts } => Some(accepts),
+                _ => None,
+            },
             _ => None,
         }
     }

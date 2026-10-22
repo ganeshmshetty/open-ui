@@ -20,12 +20,16 @@
   builder example and enforce additive extension without base mutation.
 - §§8.2–8.3: exclude the hash from its own input, specify canonical JSON/hash
   formatting, and add the missing generic any type used by data and inference.
+  Make optional wrappers preserve underlying enum/token/action/binding/slot
+  behavior and explicitly allow null on a required nullable argument; the generic
+  recovery ladder otherwise contradicted the optional type definition.
 - §§8.6,8.8: use terminal Text when markdown is unavailable; fix the stale std
   count to 29 (27 components plus 2 helpers), and assign TableColumn's structural
   node the group role. Define malformed literal Facts records and extra-key
   removal. Code highlighting remains an optional enhancement.
 - §12: define M2 fixture inputs, frozen byte-for-byte Library Spec goldens,
-  documentation host context, exemplar checks and the audited runtime deferrals.
+  documentation host context, additive extension recipes, exemplar checks and
+  the audited runtime deferrals.
 
 ## 2026-10-21 — M1 syntax and recovery contract (§2.2–2.5, §2.8–2.9, §12)
 

@@ -1,0 +1,8 @@
+{
+  "title": "nullable-url-policy",
+  "tier": "core",
+  "tags": [
+    "M2"
+  ],
+  "notes": "SPEC \u00a7\u00a74.4,8.3 transparent nullable consumers."
+}

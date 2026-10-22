@@ -1,0 +1,9 @@
+{
+  "title": "extend-no-override",
+  "tier": "core",
+  "tags": [
+    "M2",
+    "extend"
+  ],
+  "notes": "SPEC \u00a78.5 additive extension keeps the base unchanged."
+}

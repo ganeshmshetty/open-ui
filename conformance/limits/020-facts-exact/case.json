@@ -1,0 +1,9 @@
+{
+  "title": "facts-exact",
+  "tier": "core",
+  "tags": [
+    "M2",
+    "Facts"
+  ],
+  "notes": "SPEC \u00a7\u00a77.1,8.8; effective cap is min(global list limit,50)."
+}

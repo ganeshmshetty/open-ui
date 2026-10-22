@@ -1,0 +1,14 @@
+{
+  "id": "root",
+  "kind": "Extra",
+  "role": "group",
+  "props": {
+    "value": {
+      "tok": [
+        "space",
+        3
+      ]
+    }
+  },
+  "children": {}
+}

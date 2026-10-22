@@ -1,0 +1,15 @@
+{
+  "id": "extended",
+  "version": "0.1.0",
+  "groups": [],
+  "components": [
+    {
+      "name": "Text",
+      "group": "Content",
+      "role": "paragraph",
+      "doc": "An attempted override.",
+      "args": []
+    }
+  ],
+  "types": {}
+}

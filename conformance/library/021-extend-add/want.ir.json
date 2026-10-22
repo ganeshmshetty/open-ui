@@ -1,0 +1,9 @@
+{
+  "id": "root",
+  "kind": "Extra",
+  "role": "group",
+  "props": {
+    "text": "ok"
+  },
+  "children": {}
+}

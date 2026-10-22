@@ -1,0 +1,46 @@
+{
+  "id": "test",
+  "version": "0.1.0",
+  "groups": [
+    {
+      "name": "G",
+      "order": 0,
+      "notes": ""
+    }
+  ],
+  "types": {
+    "Mode": {
+      "kind": "enum",
+      "values": [
+        "ok"
+      ]
+    },
+    "Space": {
+      "kind": "token",
+      "scale": "space",
+      "min": 0,
+      "max": 8
+    }
+  },
+  "components": [
+    {
+      "name": "Extra",
+      "group": "G",
+      "role": "group",
+      "doc": "A nullable test prop.",
+      "args": [
+        {
+          "name": "value",
+          "required": true,
+          "type": {
+            "kind": "optional",
+            "of": {
+              "kind": "text"
+            }
+          },
+          "position": 0
+        }
+      ]
+    }
+  ]
+}

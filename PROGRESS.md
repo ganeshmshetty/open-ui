@@ -8,7 +8,7 @@ A milestone is complete only after its acceptance checks pass and CI is green.
 | --- | --- | --- |
 | M0 — Workspace and verification scaffolding | Complete | 21 lex fixtures / 4,743 chunkings; 7 spec examples; Linux and macOS CI green. |
 | M1 — Batch syntax | Complete | 124 fixtures / 28,225 chunkings; 23 tests including 2,048 generated round trips; four clean 600-second fuzz campaigns; Linux/macOS CI green. |
-| M2 — Library, validation, IR and limits | In progress | M1 merged into main; milestone/m2 created from main. Fixtures and contract clarifications first. |
+| M2 — Library, validation, IR and limits | Complete | 277 fixtures / 62,884 chunkings / 400 permutations; 52 tests; 24 exemplars; final validator ASan 601s / 71,760 executions / exit 0; Linux/macOS source CI green. |
 | M3 — Streaming and patches | Not started | Live invariant checks, patch replay, 100k generated programs. |
 | M4 — Runtime | Not started | Evaluation and interactive fixture categories. |
 | M5 — Prompt, feedback and messages | Not started | Golden output and cross-platform determinism. |
@@ -241,3 +241,34 @@ Dynamic plans instead of folding referenced data. A focused fixture and a
 cached type growth. Final local totals are 277 fixtures, 62,884 chunkings,
 400 permutations and 52 Rust tests; the corrected source is ready for its final
 frozen campaign. No evaluator or additional milestone work was added.
+
+
+### M2 completion — 2026-10-22
+
+Final source 2bd18eb passed a fresh 601-engine-second validator campaign:
+71,760 executions, exit 0, 884 MiB peak RSS, with every recorded source SHA-256
+matching the frozen implementation. The harness uses std plus a builder-defined
+nullable Probe, varied budgets/capabilities, chunk equality, sealed-table
+permutations, path uniqueness and concrete-tree budget/reachability assertions.
+Its 282 initial seeds include a 1,200-statement container chain. Final evidence:
+`fuzz/runs/m2/validator.json` and `validator.log`.
+
+All local gates pass: fmt, Clippy (Rust 1.94 and 1.99), workspace tests, all
+277 fixtures / 62,884 chunkings / 400 seeded permutations, full spec-check on
+3 complete SPEC programs + 4 fragments + 24 exemplars, and fuzz target format/
+stable builds. There are 52 Rust tests including 2,048 AST round trips and two
+512-case semantic properties. Library 36, resolve 18, schema 62, ir 15, limits 22.
+The audit covers 59 codes and explicitly defers 10 to M4/M5/M6.
+
+Linux/macOS source CI for 2bd18eb is green:
+https://github.com/ganeshmshetty/open-ui/actions/runs/39709952954 .
+The final evidence/report commit receives the same workflow. Complete scope,
+counts, code-by-code deferrals, every spec change and remaining limitations are
+in `docs/milestones/M2.md`. M2 implementation commits cite the affected sections.
+The report and final evidence are committed after acceptance.
+
+M2 is complete. Next is M3; no M3 implementation was started. Its splitter
+provisional-diagnostic issue above remains open. Runtime behavior, ref/tool
+handling, field validation, event execution and resolved output remain M4;
+message/prompt/replay work remains M5, and the renderer remains M6–M8.
+Unrelated research/marketing files remain untouched.

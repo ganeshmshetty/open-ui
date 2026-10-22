@@ -1,1 +1,1 @@
-root=Column([Heading("Your nearby team",level:1),Text("Profiles supplied by the workspace directory"),List(each(ref("t4.places"),|person| Row([Text(person.name,bold:true),Text(person.address)]),key:"id"))])
+root=Column([Heading("Your nearby team",level:1),Text("Profiles supplied by the workspace directory"),List(each(ref("t4.people"),|person| Row([Text(person.name,bold:true),Text(person.location)]),key:"id"))])

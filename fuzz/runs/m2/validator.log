@@ -1,0 +1,35 @@
+   Compiling genui-core v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-core)
+   Compiling genui-std v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-std)
+   Compiling genui-fuzz v0.0.0 (/Users/ganesh/dev/open-ui/fuzz)
+    Finished `release` profile [optimized + debuginfo] target(s) in 19.16s
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.08s
+     Running `fuzz/target/aarch64-apple-darwin/release/validator -artifact_prefix=/Users/ganesh/dev/open-ui/fuzz/artifacts/validator/ -max_total_time=600 -max_len=32768 -seed=20261022 -dict=fuzz/syntax.dict -print_final_stats=1 fuzz/corpus/m2-validator-complete`
+Dictionary: 22 entries
+INFO: Running with entropic power schedule (0xFF, 100).
+INFO: Seed: 20261022
+INFO: Loaded 1 modules   (94380 inline 8-bit counters): 94380 [0x1013e1bd0, 0x1013f8c7c), 
+INFO: Loaded 1 PC tables (94380 PCs): 94380 [0x1013f8c80,0x101569740), 
+INFO:      281 files found in fuzz/corpus/m2-validator-complete
+INFO: seed corpus: files: 281 min: 5b max: 14637b total: 38530b rss: 49Mb
+#282	INITED cov: 6966 ft: 16448 corp: 256/36Kb exec/s: 0 rss: 146Mb
+#283	NEW    cov: 6967 ft: 16468 corp: 257/36Kb lim: 14637 exec/s: 0 rss: 146Mb L: 8/14637 MS: 1 CopyPart-
+#286	NEW    cov: 6968 ft: 16471 corp: 258/36Kb lim: 14637 exec/s: 0 rss: 146Mb L: 17/14637 MS: 3 ChangeASCIIInt-ChangeASCIIInt-ManualDict- DE: "|p|"-
+	NEW_FUNC[1/7]: 0x000100e25f74 in _RINvNtCs7rJgpMQJsBb_4core3ptr9drop_glueINtNtCsiGJ9W6X0UHH_5alloc3vec3VecNtNtCshyShmvegXGi_10genui_core4diag10DiagnosticEEB1c_+0x0 (validator:arm64+0x1000e9f74)
+	NEW_FUNC[2/7]: 0x000100e78440 in _RINvNtNtNtCs7rJgpMQJsBb_4core5slice4sort6stable14driftsort_mainNtNtCshyShmvegXGi_10genui_core4diag10DiagnosticNCINvMNtCsiGJ9W6X0UHH_5alloc5sliceSBZ_11sort_by_keyTjNtB11_4CodeENCNvB11_17order_diagnostics0E0INtNtB1S_3vec3VecBZ_EEB13_+0x0 (validator:arm64+0x10013c440)
+#287	NEW    cov: 7083 ft: 16649 corp: 259/36Kb lim: 14637 exec/s: 0 rss: 148Mb L: 131/14637 MS: 1 InsertRepeatedBytes-
+#288	NEW    cov: 7091 ft: 16693 corp: 260/36Kb lim: 14637 exec/s: 0 rss: 149Mb L: 54/14637 MS: 1 InsertRepeatedBytes-
+#289	NEW    cov: 7105 ft: 16712 corp: 261/36Kb lim: 14637 exec/s: 0 rss: 149Mb L: 60/14637 MS: 1 ManualDict- DE: "||"-
+#290	NEW    cov: 7107 ft: 16726 corp: 262/36Kb lim: 14637 exec/s: 0 rss: 149Mb L: 85/14637 MS: 1 InsertRepeatedBytes-
+#291	NEW    cov: 7108 ft: 16727 corp: 263/36Kb lim: 14637 exec/s: 0 rss: 149Mb L: 26/14637 MS: 1 PersAutoDict- DE: "||"-
+#292	NEW    cov: 7108 ft: 16731 corp: 264/36Kb lim: 14637 exec/s: 0 rss: 149Mb L: 22/14637 MS: 1 CMP- DE: "\377n"-
+#294	NEW    cov: 7109 ft: 16732 corp: 265/36Kb lim: 14637 exec/s: 0 rss: 150Mb L: 37/14637 MS: 2 CopyPart-PersAutoDict- DE: "|p|"-
+#295	NEW    cov: 7115 ft: 16756 corp: 266/36Kb lim: 14637 exec/s: 0 rss: 150Mb L: 27/14637 MS: 1 ChangeByte-
+#296	NEW    cov: 7116 ft: 16773 corp: 267/36Kb lim: 14637 exec/s: 0 rss: 150Mb L: 49/14637 MS: 1 ManualDict- DE: "&&"-
+#297	NEW    cov: 7116 ft: 16774 corp: 268/36Kb lim: 14637 exec/s: 0 rss: 150Mb L: 13/14637 MS: 1 InsertByte-
+[intermediate output omitted; full log SHA-256 is in validator.json]
+Done 71760 runs in 601 second(s)
+stat::number_of_executed_units: 71760
+stat::average_exec_per_sec:     119
+stat::new_units_added:          3693
+stat::slowest_unit_time_sec:    0
+stat::peak_rss_mb:              884

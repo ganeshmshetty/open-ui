@@ -34,6 +34,7 @@ fuzz_target!(|data: &[u8]| {
     });
     let seed = data.first().copied().unwrap_or(0) as usize;
     let mut options = Options::default();
+    options.limits.syntax.max_expr_depth = seed % 49;
     options.limits.max_nodes = seed;
     options.limits.max_ir_depth = seed % 49;
     options.limits.max_list_len = seed * 2;

@@ -1,0 +1,12 @@
+{
+  "title": "parentheses consume recursive syntax depth",
+  "tier": "core",
+  "tags": [
+    "depth",
+    "mutation"
+  ],
+  "notes": "SPEC \u00a72.5: parentheses consume depth even though they do not appear in the structural AST.",
+  "limits": {
+    "max_expr_depth": 1
+  }
+}

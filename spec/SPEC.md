@@ -278,7 +278,7 @@ Rules enforced after parsing:
 - **Trailing tokens.** Tokens left over after a complete statement expression are skipped (`syntax.trailing`, warning). The statement keeps the complete expression. This covers `a < b < c` (it keeps `a < b`) and `x = Foo() Bar()` (it keeps `Foo()`).
 - **Missing commas.** Inside a list, a map or an argument list, two adjacent complete elements with no comma get one inserted (`syntax.missing_comma`). Example: `[a b]`.
 - **Duplicate map keys.** In a map literal the first key wins (`syntax.dup_key`).
-- **Expression depth** is at most `max_expr_depth` (`limit.depth`, once per statement). At the recursive boundary, the omitted expression becomes `null`; a growing left-associated or postfix chain keeps its bounded prefix and skips the rest of that expression. Recursive syntax nesting, including parentheses, is bounded too. Literal strings above `max_string_bytes` are truncated at a UTF-8 boundary with one `limit.string`. Program size is measured in incoming program bytes before normalization, with one `limit.program_size` on truncation.
+- **Expression depth** is at most `max_expr_depth` (`limit.depth`, once per statement). At the recursive boundary, the omitted expression becomes `null`; a growing left-associated or postfix chain keeps its bounded prefix and skips the rest of that expression. Growing binary/postfix prefixes use the remaining budget after enclosing syntax, not a fresh local budget: at depth limit 2, `1 + 2 * 3` retains `1 + 2`, with one `limit.depth`. The replacement null is a sentinel at the recursive cutoff and does not consume retained-expression budget. Recursive syntax nesting, including parentheses, is bounded too. Literal strings above `max_string_bytes` are truncated at a UTF-8 boundary with one `limit.string`. Program size is measured in incoming program bytes before normalization, with one `limit.program_size` on truncation.
 - **Method calls.** `a.b(` is not a call, because there are no methods. It parses as member access followed by a stray `(`, which gives `syntax.trailing`.
 
 ### 2.6 Values and operators
@@ -1937,14 +1937,18 @@ attributes. The style gate allows literals only in `genui-gpui/src/theme.rs` or
 `genui-gpui/src/theme/`; it rejects hex color literals and numeric `px`/`Pixels`
 constructors elsewhere. Dependency patterns include `gpui*`, `tokio*`, async/futures
 and the named UI/executor families in the gate script; cargo-deny checks the
-transitive core graph across targets and optional features, excluding dev-only
+transitive core graph across targets and optional features, including dev-only
 edges. New UI/async families must be added to this policy when introduced.
 Fixture protection checks each commit independently, including additions,
 deletions and renames; a later spec edit cannot excuse an earlier golden change.
 The milestone-only mutation workflow runs all syntax/IR mutants with workspace
 tests in an isolated project-only copy. Results, source hashes, tool version and
 any survivor rationale are retained. Direct public API contracts and nested
-recovery metadata need assertions as well as end-to-end fixtures.
+recovery metadata need assertions as well as end-to-end fixtures. Lexical cases
+include EOF without a terminating newline for pending symbols, `$`, `\u` and
+`\u{...`; token and recovery spans are asserted directly. Expression-depth
+cutoff cases retain enclosing delimiters and siblings while skipping nested
+call/list/map syntax.
 
 ## 13. Public Rust API sketch
 

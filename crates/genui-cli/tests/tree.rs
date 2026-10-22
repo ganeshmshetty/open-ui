@@ -11,6 +11,7 @@ fn tree_output_and_exit_status_match_fixtures() {
         ("root-plan", true),
         ("binding", true),
         ("warning", false),
+        ("info", true),
     ] {
         let case = root.join(case);
         let output = Command::new(env!("CARGO_BIN_EXE_genui-cli"))

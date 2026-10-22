@@ -1,0 +1,9 @@
+{
+  "title": "unicode-prefix-at-eof",
+  "tier": "core",
+  "tags": [
+    "lex",
+    "mutation"
+  ],
+  "notes": "SPEC \u00a72.2 EOF token/escape recovery; no terminating newline."
+}

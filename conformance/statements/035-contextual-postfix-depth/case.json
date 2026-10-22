@@ -1,0 +1,12 @@
+{
+  "title": "postfix prefix budget includes surrounding expression depth",
+  "tier": "core",
+  "tags": [
+    "depth",
+    "mutation"
+  ],
+  "notes": "SPEC \u00a72.5: postfix chains inside a binary RHS use the remaining global expression budget.",
+  "limits": {
+    "max_expr_depth": 2
+  }
+}

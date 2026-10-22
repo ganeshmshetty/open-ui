@@ -311,3 +311,43 @@ M2 core behavior is unchanged; the existing 601-second validator evidence still
 applies to the implementation. Syntax source changes so far add test modules,
 and the core root adds deny attributes. M3's provisional-diagnostic issue remains
 open. No GPUI spike or streaming/runtime work is started.
+
+### Quality-gate regression checkpoint
+
+Checkpoint 6b51caf passed all three hosted jobs (Linux, macOS and quality):
+https://github.com/ganeshmshetty/open-ui/actions/runs/39712881640 .
+Expanded exact EOF fixtures and source-span assertions now pass locally:
+283 conformance fixtures / 64,174 chunkings / 400 permutations, seven CLI output
+cases, 58 Rust tests and eight Python gate tests. Core dependency checking now
+also includes dev edges and the project renderer crate. Mutation review rejects
+incomplete campaigns, failed baselines, unreviewed survivors and stale reasons.
+
+The full 609-mutant campaign is still running. Three observed equivalents are
+justified in conformance/mutations/review.json with source hashes: two temporary
+Span.end edits are overwritten by emit; complementing the boolean namespace tag
+preserves every name-set membership result. Other observed survivors receive
+regressions and will be rerun. This is checkpoint evidence, not mutation acceptance.
+
+Additional mutation regression: statements/033-expression-skip-delimiters now
+asserts the existing depth-cutoff rule on nested calls/lists/maps while retaining
+outer siblings and exactly one limit.depth. No parser implementation change.
+
+### Mutation-driven expression-depth correction (SPEC §2.5)
+
+The binary-depth survivor exposed a real budget issue: growing binary/postfix
+prefix checks ignored enclosing expression depth. New statements/034–035 were
+authored first; 034 failed with a nested multiply instead of the required bounded
+prefix. Both checks now include enclosing depth. SPEC/CHANGELOG clarify the
+remaining-budget rule and existing cutoff-null sentinel. A focused retained-depth
+property checks mixed expressions across limits 0–8, and statements/036 checks
+that parentheses consume recursive syntax depth despite being absent from ASTs.
+
+The original mutation campaign remains checkpoint evidence. All parser mutants
+will be rerun on the corrected implementation, along with remaining survivors.
+Parser and validator fuzz targets now vary expression-depth limits, and both will
+receive fresh ten-minute frozen-source campaigns before final acceptance.
+
+The contextual-budget fix passes all local gates: 287 conformance fixtures /
+65,047 chunkings / 400 permutations, eight CLI output cases, 59 Rust tests,
+eight Python gate tests, full spec-check and fuzz target builds. The corrected
+source will be frozen for renewed campaigns; M2 follow-up remains in progress.

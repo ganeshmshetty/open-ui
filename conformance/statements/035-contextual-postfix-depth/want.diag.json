@@ -1,0 +1,8 @@
+[
+  {
+    "code": "limit.depth",
+    "stmt": "root",
+    "path": null,
+    "recovery": "Truncated"
+  }
+]

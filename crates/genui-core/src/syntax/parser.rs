@@ -251,7 +251,7 @@ impl ExpressionParser<'_> {
             {
                 break;
             }
-            if tree_depth(&left) >= self.limits.max_expr_depth {
+            if depth.saturating_add(tree_depth(&left)) >= self.limits.max_expr_depth {
                 self.depth_limit();
                 self.skip_expression();
                 break;
@@ -367,7 +367,7 @@ impl ExpressionParser<'_> {
             _ => return Err(()),
         };
         loop {
-            if tree_depth(&value) >= self.limits.max_expr_depth {
+            if depth.saturating_add(tree_depth(&value)) >= self.limits.max_expr_depth {
                 if matches!(self.peek(), Some(K::Dot | K::LBracket)) {
                     self.depth_limit();
                     self.skip_expression();

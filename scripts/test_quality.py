@@ -28,7 +28,7 @@ class QualityTests(unittest.TestCase):
         self.assertEqual(fixture_errors(["crates/x/src/lib.rs"], "abc"), [])
 
     def test_core_dependency_prefixes_and_renamed_packages(self):
-        for name in ["gpui", "gpui-pre", "gpui-new", "tokio", "tokio-util", "futures-core", "async-std", "egui", "smol"]:
+        for name in ["gpui", "gpui-pre", "gpui-new", "tokio", "tokio-util", "futures-core", "async-std", "egui", "smol", "genui-gpui"]:
             self.assertTrue(forbidden(name))
         for name in ["genui-core", "serde", "url", "xxhash-rust"]:
             self.assertFalse(forbidden(name))
@@ -107,6 +107,23 @@ pub fn e() { unimplemented!() }
             self.assertNotEqual(result.returncode, 0)
             for lint in ["unwrap_used", "expect_used", "panic", "todo", "unimplemented"]:
                 self.assertIn(lint, result.stderr)
+
+
+class MutationReviewTests(unittest.TestCase):
+    def test_only_complete_baseline_passed_reviewed_campaigns_are_accepted(self):
+        from mutation import review_outcomes
+        data = {"end_time": "finished", "outcomes": [
+            {"scenario": "Baseline", "summary": "Success"},
+            {"scenario": {"Mutant": {"name": "m", "file": "file.rs"}}, "summary": "MissedMutant"},
+        ]}
+        hashes = {"file.rs": "sha"}
+        self.assertTrue(review_outcomes(data, [{"name": "m"}], hashes, {}))
+        review = {"source_sha256": hashes, "survivors": {"m": "Equivalent under the documented contract."}}
+        self.assertEqual(review_outcomes(data, [{"name": "m"}], hashes, review), [])
+        self.assertTrue(review_outcomes(data, [{"name": "m"}, {"name": "other"}], hashes, review))
+        self.assertTrue(review_outcomes(data, [{"name": "m"}], {"file.rs": "changed"}, review))
+        data["outcomes"][0]["summary"] = "Failure"
+        self.assertTrue(review_outcomes(data, [{"name": "m"}], hashes, review))
 
 
 if __name__ == "__main__":

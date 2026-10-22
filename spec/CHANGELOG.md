@@ -1,18 +1,29 @@
 # Spec changelog
 
+## 2026-10-22 — Contextual expression budgets (§2.5)
+
+- Clarify that growing binary/postfix prefixes consume the remaining budget after
+  enclosing syntax. Mutation-driven exact fixtures exposed the parser granting
+  each nested prefix a fresh max_expr_depth budget. Count enclosing depth in both
+  checks; retain the existing cutoff-null sentinel behavior and one diagnostic
+  per statement. Parser mutation testing and parser/validator fuzzing are renewed.
+
 ## 2026-10-22 — Enforced quality gates (§12.8)
 
 - Split runtime deferrals into the required deferred.json; keep the covered-code
   fixture map disjoint and audit both against §4.3. Specify source-scan boundaries,
-  theme locations, dependency scope and per-commit fixture protection so the new
+  theme locations, all-target/all-feature dependency scope (including dev edges)
+  and per-commit fixture protection so the new
   gates have a reproducible policy. Retain isolated mutation evidence and add
-  exact nested-recovery/public-extractor and fence-info regressions exposed by
+  exact nested-recovery/public-extractor, source-span, EOF-token/escape and
+  fence-info and nested expression-cutoff regressions exposed by
   mutation testing; existing syntax behavior is unchanged.
 
 ## 2026-10-22 — M2 tree inspection (§12.7)
 
 - Define deterministic text output, explicit deferred plans, default host policy,
-  diagnostics and exit statuses for the new tree command. The first output fixture
+  diagnostics and exit statuses for the new tree command, including successful
+  Info-only and failing Warning+ reports. The first output fixture
   mistakenly used `~1`; corrected it to §5.2's existing second-use `~2` rule before
   accepting the implementation. No identity rule changed.
 

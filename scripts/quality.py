@@ -102,12 +102,12 @@ def fixtures(root, base, head):
 
 def forbidden(name):
     return (name.startswith(("gpui", "tokio", "async-", "futures", "iced", "egui", "gtk", "tauri"))
-            or name in {"smol", "glommio", "monoio", "embassy-executor", "eframe", "winit", "slint", "dioxus", "leptos"})
+            or name in {"smol", "glommio", "monoio", "embassy-executor", "eframe", "winit", "slint", "dioxus", "leptos", "genui-gpui"})
 
 
 def dependencies(root):
     # cargo-deny scopes this to the core's transitive graph, across target cfgs and
-    # all optional features. Dev dependencies are outside the shipped core.
+    # all optional features, including core dev-dependencies.
     metadata = json.loads(subprocess.check_output([
         "cargo", "metadata", "--format-version", "1", "--all-features", "--locked",
         "--manifest-path", str(root / "crates/genui-core/Cargo.toml"),
@@ -120,7 +120,7 @@ def dependencies(root):
                           + json.dumps(names) + '\n')
         result = subprocess.run([
             "cargo", "deny", "--manifest-path", str(root / "crates/genui-core/Cargo.toml"),
-            "--all-features", "--exclude-dev", "--locked", "--config", str(config),
+            "--all-features", "--locked", "--config", str(config),
             "check", "bans",
         ], cwd=root, check=False)
     return [] if result.returncode == 0 else ["cargo-deny: core depends on a UI/async crate"]

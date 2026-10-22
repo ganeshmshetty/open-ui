@@ -16,7 +16,13 @@ jobs:
         with:
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        id: deny-cache
+        with:
+          path: ~/.cargo/bin/cargo-deny
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-deny-0.20.2
       - name: Install dependency checker
+        if: steps.deny-cache.outputs.cache-hit != 'true'
         run: cargo install cargo-deny --version 0.20.2 --locked
       - name: Gate regression tests
         run: python3 -m unittest discover -s scripts -p 'test_*.py'

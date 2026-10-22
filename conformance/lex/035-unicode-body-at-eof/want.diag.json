@@ -1,0 +1,14 @@
+[
+  {
+    "code": "syntax.bad_escape",
+    "stmt": null,
+    "path": null,
+    "recovery": "Replaced"
+  },
+  {
+    "code": "syntax.unterminated_string",
+    "stmt": null,
+    "path": null,
+    "recovery": "ClosedImplicitly"
+  }
+]

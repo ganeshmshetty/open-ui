@@ -1,0 +1,11 @@
+{
+  "statements": [
+    {
+      "kind": "Bind",
+      "name": "root",
+      "value": {
+        "kind": "Null"
+      }
+    }
+  ]
+}

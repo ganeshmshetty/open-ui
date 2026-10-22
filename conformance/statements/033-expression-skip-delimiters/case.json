@@ -1,0 +1,12 @@
+{
+  "title": "expression cutoff preserves enclosing delimiters",
+  "tier": "core",
+  "tags": [
+    "depth",
+    "mutation"
+  ],
+  "notes": "SPEC \u00a72.4: skip the over-budget expression including nested list/map/call delimiters; preserve outer siblings and emit one limit.depth.",
+  "limits": {
+    "max_expr_depth": 1
+  }
+}

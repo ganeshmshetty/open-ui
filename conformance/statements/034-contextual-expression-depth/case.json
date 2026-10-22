@@ -1,0 +1,12 @@
+{
+  "title": "binary prefix budget includes surrounding expression depth",
+  "tier": "core",
+  "tags": [
+    "depth",
+    "mutation"
+  ],
+  "notes": "SPEC \u00a72.5: nested growing prefixes consume the remaining global expression budget, not a fresh local budget.",
+  "limits": {
+    "max_expr_depth": 2
+  }
+}

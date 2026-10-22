@@ -5,8 +5,12 @@ use genui_core::{
 };
 use libfuzzer_sys::fuzz_target;
 fuzz_target!(|data: &[u8]| {
-    let expected = parse_batch(data, SyntaxLimits::default());
-    let mut parser = BatchParser::default();
+    let source_limits = SyntaxLimits {
+        max_expr_depth: data.first().map_or(48, |b| usize::from(*b) % 49),
+        ..SyntaxLimits::default()
+    };
+    let expected = parse_batch(data, source_limits.clone());
+    let mut parser = BatchParser::new(source_limits);
     for part in data.chunks(7) {
         parser.push(part);
     }

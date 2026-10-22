@@ -1,0 +1,34 @@
+   Compiling genui-conformance v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-conformance)
+    Finished `bench` profile [optimized] target(s) in 6.21s
+     Running benches/streaming.rs (target/release/deps/streaming-27d18f969cd020e0)
+Gnuplot not found, using plotters backend
+M3_SINGLE_CHUNK_P99_NS=8827167
+Benchmarking 64_byte_chunk_1000_nodes
+Benchmarking 64_byte_chunk_1000_nodes: Warming up for 1.0000 s
+
+Warning: Unable to complete 20 samples in 2.0s. You may wish to increase target time to 3.5s, enable flat sampling, or reduce sample count to 10.
+Benchmarking 64_byte_chunk_1000_nodes: Collecting 20 samples in estimated 3.5292 s (210 iterations)
+Benchmarking 64_byte_chunk_1000_nodes: Analyzing
+64_byte_chunk_1000_nodes
+                        time:   [7.5626 ms 7.5938 ms 7.6297 ms]
+                        change: [+4.3205% +4.7956% +5.2250%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+
+Benchmarking batch_syntax_200_kib
+Benchmarking batch_syntax_200_kib: Warming up for 1.0000 s
+Benchmarking batch_syntax_200_kib: Collecting 20 samples in estimated 2.6855 s (630 iterations)
+Benchmarking batch_syntax_200_kib: Analyzing
+batch_syntax_200_kib    time:   [3.7283 ms 3.7451 ms 3.7688 ms]
+                        change: [+7.8368% +8.8917% +9.9514%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+
+Benchmarking batch_validated_200_kib
+Benchmarking batch_validated_200_kib: Warming up for 1.0000 s
+Benchmarking batch_validated_200_kib: Collecting 20 samples in estimated 3.4436 s (420 iterations)
+Benchmarking batch_validated_200_kib: Analyzing
+batch_validated_200_kib time:   [8.1614 ms 8.2018 ms 8.2500 ms]
+                        change: [+4.5515% +6.3185% +7.5024%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+

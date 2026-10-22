@@ -1,0 +1,13 @@
+   Compiling genui-core v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-core)
+   Compiling genui-std v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-std)
+   Compiling genui-prompt v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-prompt)
+   Compiling genui-conformance v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-conformance)
+    Finished `release` profile [optimized] target(s) in 9.83s
+     Running unittests src/lib.rs (target/release/deps/genui_conformance-7bc3701cbeb705ff)
+
+running 1 test
+PASS: 100000 generated programs, seeds 0..100000, stream == batch and replay invariants
+test properties::tests::generated_streams_equal_batch ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 6.03s
+

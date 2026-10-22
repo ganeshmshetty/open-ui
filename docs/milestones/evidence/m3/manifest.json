@@ -1,0 +1,18 @@
+{
+  "source_commit": "ffd602f41f7f06339a658fd45bf4b29e765fe963",
+  "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "platform": "Darwin arm64",
+  "artifact_sha256": {
+    "100k.log": "75b649f9893527a595e8c199ea0531c71e19b46f7cd535ec3e4604aba800e873",
+    "64_byte_chunk_1000_nodes-estimates.json": "37302ad9a124b335b6ad553c480d7484498a3d59f927912ae3a92ac44fc5939f",
+    "batch_syntax_200_kib-estimates.json": "d95f24dc8f1ed69309d1b57ff355b9478a990c0f20e7d869b975cb9775d0c023",
+    "batch_validated_200_kib-estimates.json": "f05926dcfc83e0cf7ff7bf6c2b7e5f02b8b187fef76862d494f48a362d4edaed",
+    "bench.log": "acafd3478e8362cd14a3cb8fce9cd289267fda0677a9d571a3bcd6c4c878c255",
+    "ci.json": "2397bbf6505d01bb2d493a9b9b22a8f679a0efaf8545c91e6c1c0754409da681",
+    "fixtures.log": "a0a2561c953967fb1a0daf44e9485d29a42da71baa5cc16eedef1cbf0be69e35",
+    "preserve.log": "2d8aa3ab32274ca0a4a59dbbd0d9613249ea76cd5b91246def09af8617cbb289",
+    "spec-check.log": "1aa5946140926396406eaf4a1eec34e788edca1fe93a03a8b8ef36a64deec619",
+    "workspace.log": "748795bf9763922879debb517c043bbd96da2e735cf7fe585bfab82066a52386"
+  },
+  "cpu": "Apple M2"
+}

@@ -713,3 +713,20 @@ IR/patch bound. The ~7ms chunk measurement misses the non-gating target. No clai
 of complete I7/performance compliance or M3 completion is made.
 Next: final gates, mutation analysis, evidence/report, then push a review PR;
 no self-merge. See docs/milestones/M3.md for the detailed review scope.
+
+### M3 acceptance evidence checkpoint
+
+Final streaming fuzz: 601 seconds, 113,441 executions, exit 0, no crash; random
+chunkings in both Program and Message modes, varied syntax/IR/byte limits, source
+hashes verified unchanged. Logs and metadata are in fuzz/runs/m3/. The prior
+interrupted campaign and smoke remain explicitly non-acceptance history.
+84 Rust tests pass under both JSON backends; 10 Python tests, all 323 fixtures /
+73,503 chunkings / 400 permutations, 100k generated cases (6.03s release), fmt,
+Clippy, dependency/source checks and spec-check pass. Spec-check: 3 ui, 4 fragments,
+24 exemplars (zero ui-invalid fences currently in SPEC). CI run 39777596951 passes
+macOS/Linux/quality/preserve_order. Mutation run 39777596929 is still pending;
+no acceptance or completion is claimed before its results are reviewed.
+ROADMAP 13's replay command is implemented and tested. Final Criterion: 64-byte
+chunk / 1,000 nodes 7.594ms, sampled p99 8.827ms; 200KiB syntax batch 3.745ms,
+validated batch 8.202ms. Chunk target missed; I7 dirty-only maintenance remains
+an explicit external-review issue. Full report: docs/milestones/M3.md.

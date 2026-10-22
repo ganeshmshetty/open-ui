@@ -1,0 +1,16 @@
+{
+  "accepted": true,
+  "source_commit": "ffd602f41f7f06339a658fd45bf4b29e765fe963",
+  "command": "cargo +nightly fuzz run streaming -- -max_total_time=600 -seed=20261022 -max_len=32768 -dict=fuzz/syntax.dict",
+  "toolchain": "rustc 1.101.0-nightly (19833af72 2026-10-20)",
+  "cargo_fuzz": "cargo-fuzz 0.13.2",
+  "mode": "Program and Message; randomized 1..97-byte chunks; stream == batch, seal, prose and replay assertions; varied limits",
+  "engine_seconds": 601,
+  "executions": 113441,
+  "exit_code": 0,
+  "seed": 20261022,
+  "initial_corpus_files": 6983,
+  "source_hashes_match": true,
+  "log_sha256": "c0d68b41f64a8787294f574f4f29411d8ec1c16ae9ad2795d922eceb580eacf5",
+  "completed_utc": "2026-10-22T12:30:14.353804+00:00"
+}

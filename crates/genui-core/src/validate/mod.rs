@@ -75,6 +75,30 @@ pub fn validate_program(
     }
     Validator::new(program, diagnostics, library, options).run()
 }
+/// Reuse unaffected concrete static instances while revisiting canonical budgets.
+/// Expression/action arenas remain batch-owned; deferred instances take the regular path.
+pub(crate) fn validate_incremental(
+    program: &Program,
+    library: &Library,
+    options: &Options,
+    previous: &Validation,
+    dirty: &BTreeSet<String>,
+) -> (Validation, usize) {
+    let count = std::cell::Cell::new(0);
+    let mut validator = Validator::new(program, Vec::new(), library, options);
+    validator.reuse = Some(Reuse {
+        previous,
+        dirty,
+        count: &count,
+    });
+    let validation = validator.run();
+    (validation, count.get())
+}
+struct Reuse<'a> {
+    previous: &'a Validation,
+    dirty: &'a BTreeSet<String>,
+    count: &'a std::cell::Cell<usize>,
+}
 #[derive(Clone, Debug)]
 struct Checked {
     value: Option<Value>,
@@ -134,6 +158,7 @@ struct TemplateCheck {
     place: Option<String>,
 }
 struct Validator<'a> {
+    reuse: Option<Reuse<'a>>,
     lib: &'a Library,
     options: &'a Options,
     limits: Limits,
@@ -212,6 +237,7 @@ impl<'a> Validator<'a> {
         }
         let kinds = table.keys().map(|n| (n.clone(), Kind::Value)).collect();
         Self {
+            reuse: None,
             lib,
             options,
             limits: options.limits.clone().bounded(),

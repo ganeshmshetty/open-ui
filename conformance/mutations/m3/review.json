@@ -1,0 +1,14 @@
+{
+  "source_sha256": {
+    "crates/genui-core/src/syntax/lexer.rs": "015566c2bf317648f3fa167756d47418f3dce9cfc2c36b243fef39a7c1bd4dbe",
+    "crates/genui-core/src/syntax/parser.rs": "4bd1232a7f1887f06f5cb938504007ad91261290fd3455bf2cc3c958b254ccd0",
+    "crates/genui-core/src/syntax/splitter.rs": "1a3c2a27167cd2dca102ca50d115ef834e59c488cf8444d34ce2c900e46f5193"
+  },
+  "survivors": {
+    "crates/genui-core/src/syntax/lexer.rs:458:30: replace + with - in Lexer::number": "Equivalent: this changes only the temporary Span.end passed to Lexer::emit, which unconditionally overwrites end with the explicit cursor.start argument before recording the token. Span.start/column and every observable output are unchanged.",
+    "crates/genui-core/src/syntax/lexer.rs:458:30: replace + with * in Lexer::number": "Equivalent: this changes only the temporary Span.end passed to Lexer::emit, which unconditionally overwrites end with the explicit cursor.start argument before recording the token. Span.start/column and every observable output are unchanged.",
+    "crates/genui-core/src/syntax/parser.rs:136:46: replace == with != in parse_split": "Equivalent: replacing is_state with its negation bijectively renames the boolean namespace tag in every name-set insertion. Equality/duplicate membership and separation of state vs non-state namespaces are unchanged.",
+    "crates/genui-core/src/syntax/splitter.rs:255:48: replace < with <= in ScanState::suppressed": "Equivalent: a skipped range ends at EOF or at the first Name/State token of a recognized column-zero statement header. None of the five filtered lexer diagnostic kinds starts at EOF (all cover a consumed scalar), nor can any start at a valid header Name/State token. Thus no filtered diagnostic has span.start equal to that exclusive endpoint; changing < to <= cannot change overlap membership. This does not change the provisional-diagnostic requirement for M3.",
+    "crates/genui-core/src/syntax/splitter.rs:258:53: replace < with <= in ScanState::suppressed": "Equivalent: a skipped range ends at EOF or at the first Name/State token of a recognized column-zero statement header. None of the five filtered lexer diagnostic kinds starts at EOF (all cover a consumed scalar), nor can any start at a valid header Name/State token. Thus no filtered diagnostic has span.start equal to that exclusive endpoint; changing < to <= cannot change overlap membership. This does not change the provisional-diagnostic requirement for M3."
+  }
+}

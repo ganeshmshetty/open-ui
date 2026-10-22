@@ -53,7 +53,9 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
-      - name: Unit tests and conformance
+      - name: Unit tests, live conformance and seeded streaming property
+        env:
+          GENUI_STREAM_CASES: "2000"
         run: cargo test --workspace --locked
       - name: All fixture chunkings
         run: cargo run --locked -p genui-cli -- fixtures
@@ -63,3 +65,12 @@ jobs:
         run: cargo fmt --manifest-path fuzz/Cargo.toml -- --check
       - name: Fuzz target build
         run: cargo check --manifest-path fuzz/Cargo.toml --bins --locked
+
+  canonical:
+    name: Canonical bytes (serde_json preserve_order)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Identical core and conformance goldens under feature unification
+        run: cargo test --locked --workspace --features serde_json/preserve_order

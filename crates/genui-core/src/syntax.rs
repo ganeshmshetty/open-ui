@@ -10,6 +10,7 @@ mod properties;
 mod quality_tests;
 mod source;
 pub mod splitter;
+pub mod streaming;
 
 use crate::diag::{Diagnostic, Span};
 pub use lexer::{LexBuffer, Lexer, lex};

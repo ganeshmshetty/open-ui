@@ -1,12 +1,1 @@
-{
-  "id": "root",
-  "kind": "Button",
-  "role": "button",
-  "props": {
-    "label": "Export",
-    "tone": "secondary",
-    "submit": false,
-    "disabled": false
-  },
-  "children": {}
-}
+{"children":{},"id":"root","kind":"Button","props":{"disabled":false,"label":"Export","submit":false,"tone":"secondary"},"role":"button"}

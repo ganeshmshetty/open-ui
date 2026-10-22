@@ -80,11 +80,118 @@ impl Splitter {
         self.lexer.push(bytes);
         let events = self.lexer.take_events();
         self.state.events(events, self.lexer.normalized_source());
+        if self.state.line_decided {
+            self.state.check_size(
+                self.lexer.normalized_source().len(),
+                self.lexer.normalized_source(),
+            );
+        }
     }
     pub fn sealed(&self) -> &[SplitStatement] {
         &self.state.result.statements
     }
+    pub(crate) fn take_sealed(&mut self) -> Vec<SplitStatement> {
+        std::mem::take(&mut self.state.result.statements)
+    }
+    pub(crate) fn source(&self) -> &str {
+        self.lexer.normalized_source()
+    }
+    pub(crate) fn diagnostics(&self) -> Vec<Diagnostic> {
+        let end = self.source().len();
+        self.state
+            .result
+            .diagnostics
+            .iter()
+            .filter(|d| !self.state.suppressed(d, end))
+            .cloned()
+            .map(|mut d| {
+                if let Some(span) = &d.span {
+                    let stable = self
+                        .state
+                        .open
+                        .as_ref()
+                        .map_or(self.state.line_start, |s| s.span.start);
+                    if span.end > stable {
+                        d.provisional = true;
+                    }
+                }
+                d
+            })
+            .collect()
+    }
+    /// Closes an O(tail) copy; the sole boundary scanner remains ScanState.
+    pub(crate) fn provisional(&self) -> Option<(SplitStatement, Vec<Diagnostic>)> {
+        let mut open = self.state.open.clone()?;
+        let mut diagnostics = Vec::new();
+        if self.state.line_decided {
+            for event in self.lexer.provisional_events() {
+                match event {
+                    LexEvent::Diagnostic(d) => diagnostics.push(d),
+                    LexEvent::Token(t) => {
+                        open.span.end = t.span.end;
+                        open.tokens.push(t);
+                    }
+                }
+            }
+        }
+        let keep = open.header.as_ref()?.rhs;
+        if self.state.line_decided
+            && self.lexer.pending_colon()
+            && open
+                .tokens
+                .last()
+                .is_some_and(|t| matches!(t.token.kind, K::Name | K::True | K::False | K::Null))
+        {
+            open.tokens.pop();
+        }
+        // Drop an unfinished lambda head, and its optional preceding named arg.
+        if let Some(pipe) = open.tokens.iter().rposition(|t| t.token.kind == K::Pipe)
+            && !open.tokens[pipe + 1..]
+                .iter()
+                .any(|t| !matches!(t.token.kind, K::Name | K::Comma))
+        {
+            open.tokens.truncate(pipe);
+        }
+        loop {
+            if open.tokens.len() <= keep {
+                break;
+            }
+            let n = open.tokens.len();
+            if open.tokens.last().is_some_and(|t| dangling(t.token.kind)) {
+                if open.tokens[n - 1].token.kind == K::Colon
+                    && n >= keep + 2
+                    && matches!(
+                        open.tokens[n - 2].token.kind,
+                        K::Name | K::True | K::False | K::Null
+                    )
+                {
+                    open.tokens.truncate(n - 2);
+                } else {
+                    open.tokens.pop();
+                }
+            } else {
+                break;
+            }
+        }
+        while let Some((close, skipped)) = open.brackets.pop() {
+            if !skipped {
+                open.tokens
+                    .push(synthetic(close, spelling(close), open.span.clone()));
+            }
+        }
+        Some((
+            SplitStatement {
+                tokens: open.tokens,
+                header: open.header,
+                span: open.span,
+            },
+            diagnostics,
+        ))
+    }
     pub fn finish(self) -> SplitResult {
+        self.finish_with_source().0
+    }
+    pub(crate) fn finish_with_source(self) -> (SplitResult, String) {
         let (source, events) = self.lexer.finish_events();
         let mut state = self.state;
         state.events(events, &source);
@@ -94,26 +201,13 @@ impl Splitter {
         if let Some(start) = state.skip_from.take() {
             state.skipped_ranges.push((start, source.len()));
         }
-        state.result.diagnostics.retain(|diagnostic| {
-            if !matches!(
-                diagnostic.code,
-                Code::BadChar
-                    | Code::BadEscape
-                    | Code::UnterminatedString
-                    | Code::Overflow
-                    | Code::NonFinite
-            ) {
-                return true;
-            }
-            diagnostic.span.as_ref().is_none_or(|span| {
-                !state
-                    .skipped_ranges
-                    .iter()
-                    .any(|(start, end)| span.start < *end && span.end > *start)
-            })
-        });
+        let diagnostics = std::mem::take(&mut state.result.diagnostics);
+        state.result.diagnostics = diagnostics
+            .into_iter()
+            .filter(|d| !state.suppressed(d, source.len()))
+            .collect();
         order_diagnostics(&mut state.result.diagnostics);
-        state.result
+        (state.result, source)
     }
 }
 impl Default for Splitter {
@@ -127,6 +221,7 @@ pub fn split(bytes: &[u8], limits: SyntaxLimits) -> SplitResult {
     splitter.finish()
 }
 
+#[derive(Clone)]
 struct Open {
     tokens: Vec<LocatedToken>,
     header: Option<Header>,
@@ -146,6 +241,23 @@ struct ScanState {
     skipped_ranges: Vec<(usize, usize)>,
 }
 impl ScanState {
+    fn suppressed(&self, diagnostic: &Diagnostic, source_end: usize) -> bool {
+        matches!(
+            diagnostic.code,
+            Code::BadChar
+                | Code::BadEscape
+                | Code::UnterminatedString
+                | Code::Overflow
+                | Code::NonFinite
+        ) && diagnostic.span.as_ref().is_some_and(|span| {
+            self.skipped_ranges
+                .iter()
+                .any(|(start, end)| span.start < *end && span.end > *start)
+                || self
+                    .skip_from
+                    .is_some_and(|start| span.start < source_end && span.end > start)
+        })
+    }
     fn new(limits: SyntaxLimits) -> Self {
         Self {
             limits,

@@ -1,0 +1,1 @@
+{"limits":{"max_nodes":2},"notes":"M3 SPEC \u00a7\u00a73,6,12.3: hand-written exact wire batches; all chunkings also replay against batch.","tags":[],"tier":"core","title":"budget-removes-before-insert"}

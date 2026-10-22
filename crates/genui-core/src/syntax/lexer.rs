@@ -71,6 +71,45 @@ impl Lexer {
         &self.normalized
     }
 
+    /// A display-only token from the uncommitted lexical state. Growing words and
+    /// operator prefixes are deliberately absent; incomplete escapes contribute nothing.
+    pub(crate) fn pending_colon(&self) -> bool {
+        matches!(self.mode, Mode::Symbol(':'))
+    }
+    pub(crate) fn provisional_events(&self) -> Vec<LexEvent> {
+        let mut copy = Self {
+            start: self.start.clone(),
+            cursor: self.cursor.clone(),
+            ..Self::default()
+        };
+        match &self.mode {
+            Mode::String(value, _) => copy.emit(
+                K::String,
+                value.clone(),
+                self.start.clone(),
+                self.cursor.start,
+            ),
+            Mode::Number(text, stage) => copy.number(text.clone(), *stage),
+            _ => {}
+        }
+        copy.events
+            .into_iter()
+            .filter(|e| {
+                matches!(
+                    e,
+                    LexEvent::Diagnostic(_)
+                        | LexEvent::Token(LocatedToken {
+                            token: Token {
+                                kind: K::Int | K::Float | K::Null | K::String,
+                                ..
+                            },
+                            ..
+                        })
+                )
+            })
+            .collect()
+    }
+
     pub(crate) fn take_events(&mut self) -> Vec<LexEvent> {
         std::mem::take(&mut self.events)
     }

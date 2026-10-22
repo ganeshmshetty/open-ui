@@ -1,0 +1,2 @@
+root=Input("Name",bind:$x)
+$x=""

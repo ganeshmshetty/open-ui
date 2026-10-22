@@ -1,11 +1,1 @@
-{
-  "id": "root",
-  "kind": "Input",
-  "role": "text_input",
-  "props": {
-    "label": "Name",
-    "kind": "text",
-    "required": false
-  },
-  "children": {}
-}
+{"children":{},"id":"root","kind":"Input","props":{"kind":"text","label":"Name","required":false},"role":"text_input"}

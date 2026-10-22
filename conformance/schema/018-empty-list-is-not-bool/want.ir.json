@@ -1,9 +1,1 @@
-{
-  "id": "root",
-  "kind": "Checkbox",
-  "role": "checkbox",
-  "props": {
-    "label": "Flag"
-  },
-  "children": {}
-}
+{"children":{},"id":"root","kind":"Checkbox","props":{"label":"Flag"},"role":"checkbox"}

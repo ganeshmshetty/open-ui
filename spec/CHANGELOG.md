@@ -1,5 +1,27 @@
 # Spec changelog
 
+## 2026-10-22 — M3 streaming and wire clarifications (§3, §5.5, §6, §12.7, §13)
+
+- Preserve selected raw program bytes alongside normalized extraction segments and seal at a completed closing fence. A CRLF budget fixture exposed M2 counting normalized message bytes, contrary to §2.5.
+- Extend the I6 action-handle guard through reverse dependencies: a sealed consumer must not expose a handle from an unsealed action alias. An explicit live checkpoint caught this before acceptance.
+- Scope G9 evaluation to M4 and carry stable structural deferred expressions in
+  M3 wire props. The old text simultaneously required M3 patches and M4 evaluation.
+- Encode typed maps as ordered tagged pairs: sorted JSON keys cannot preserve
+  map entry order, and untagged maps collide with int/ref/handle tags. Metadata
+  and Library Spec defaults stay ordinary JSON; no std hash change is intended.
+- Add strict live checkpoints/session-script fixtures and expand the milestone mutation inventory to the M3 protocol, Session and canonical encoder.
+- Specify root attachment, deterministic diff/coalescing order, empty push and
+  idempotent finish behavior, snapshot Update/sequence consumption, replay output
+  and authoritative provisional diagnostic withdrawal. Allow conservative semantic
+  provisional diagnostics and hold cutoff-sensitive lexer errors until sealing.
+
+## 2026-10-22 — M3 canonical golden bytes (§6.5, §8.2, §12.2)
+
+- Apply the approved core-owned canonical encoder to Library Spec bytes/hash and
+  IR fixtures. Goldens use sorted compact JSON plus a file-terminating LF; the
+  LF is outside the hashed document. This replaces pretty fixture whitespace
+  without changing the Library Spec hash or expected tree values.
+
 ## 2026-10-22 — GPUI spike findings (§6.5, §10.1, §10.3, §10.6, §12.7, DESIGN §10)
 
 Approves the six proposals in docs/spikes/gpui.md:

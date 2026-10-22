@@ -1,0 +1,1 @@
+["root=Button(\"Go\",on_click:act)\n","act=say(\"Hi","\")\n"]

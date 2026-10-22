@@ -1,0 +1,1 @@
+[{"op":"push","text":"root=Divider()\n"},{"op":"snapshot"},{"op":"reset"},{"op":"push","text":"root=Text(\"new\")\n"},{"op":"finish"}]

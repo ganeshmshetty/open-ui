@@ -1,0 +1,1 @@
+[{"chunk":0,"equals":{"i":1},"id":"root","prop":"value","status":"partial"},{"chunk":1,"equals":{"i":12},"id":"root","prop":"value","status":"partial"},{"chunk":2,"equals":{"f":12.5},"id":"root","prop":"value","status":"sealed"}]

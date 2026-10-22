@@ -1,0 +1,2 @@
+root=Button("Go",on_click:act)
+act=say("Hi")

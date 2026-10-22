@@ -438,9 +438,7 @@ mod tests {
         assert_eq!(lib.components().len(), 29);
         assert_eq!(lib.hash(), "d19a769bd510997ce786ade4d60db23d");
         let want = include_str!("../../../conformance/libs/std.json");
-        let actual = serde_json::to_string_pretty(&serde_json::to_value(lib.spec()).unwrap())
-            .unwrap()
-            + "\n";
+        let actual = genui_core::canonical::serialize(lib.spec()).unwrap() + "\n";
         assert_eq!(actual, want);
     }
     #[test]

@@ -91,7 +91,7 @@ class IntegrationTests(unittest.TestCase):
         import tempfile
         from quality import ROOT
         # Copy only the crate-level attributes, then prove every denied lint fires.
-        header = (ROOT / "crates/genui-core/src/lib.rs").read_text().split("pub mod diag;")[0]
+        header = (ROOT / "crates/genui-core/src/lib.rs").read_text().split("pub mod ")[0]
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "src").mkdir()
@@ -150,8 +150,8 @@ class MutationAggregationTests(unittest.TestCase):
             (root / "source.rs").write_text("original")
             hashes = {"source.rs": hashlib.sha256(b"original").hexdigest()}
             inventory = [f"m{i}" for i in range(mutation.SHARD_COUNT)]
-            (root / "conformance/mutations").mkdir(parents=True)
-            (root / "conformance/mutations/inventory.json").write_text(json.dumps(inventory))
+            (root / "conformance/mutations/m3").mkdir(parents=True)
+            (root / "conformance/mutations/m3/inventory.json").write_text(json.dumps(inventory))
             review = root / "review.json"
             review.write_text('{}')
             artifacts = root / "artifacts"

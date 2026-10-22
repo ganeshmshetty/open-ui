@@ -229,6 +229,95 @@ impl Validator<'_> {
         }
         bound
     }
+    /// A clean concrete subtree can retain checked props and IDs. The canonical
+    /// walk still charges its node count/depth at its new position; a previously
+    /// truncated subtree cannot be reused because its omitted suffix may now fit.
+    fn reuse_subtree(
+        &mut self,
+        id: ComponentId,
+        ctx: &Context,
+        path: &NodePath,
+        depth: usize,
+    ) -> Option<NodeId> {
+        if self.checking_orphan || self.checking_template {
+            return None;
+        }
+        let reuse = self.reuse.as_ref()?;
+        if reuse.dirty.contains(&ctx.stmt) {
+            return None;
+        }
+        let old_id = self.ids.allocate(path);
+        let root = reuse.previous.ir.nodes.get(&old_id)?;
+        if root.path != *path
+            || root.kind != id
+            || root.origin != ctx.stmt
+            || root.status != NodeStatus::Sealed
+        {
+            return None;
+        }
+        let under =
+            |p: &str| p == path.0 || p.strip_prefix(&path.0).is_some_and(|s| s.starts_with('/'));
+        if reuse.previous.diagnostics.iter().any(|d| {
+            matches!(d.code, Code::Nodes | Code::IrDepth) && d.path.as_deref().is_some_and(under)
+        }) {
+            return None;
+        }
+        let mut stack = vec![(old_id, depth)];
+        let mut nodes = Vec::new();
+        while let Some((id, d)) = stack.pop() {
+            let n = reuse.previous.ir.nodes.get(&id)?;
+            if d > self.limits.max_ir_depth
+                || reuse.dirty.contains(&n.origin)
+                || n.status != NodeStatus::Sealed
+                || n.props.values().any(|p| {
+                    !matches!(
+                        p,
+                        Prop::Static(PropValue::Value(_) | PropValue::Token { .. })
+                    )
+                })
+                || n.slots.iter().any(|s| !s.plans.is_empty())
+            {
+                return None;
+            }
+            for s in &n.slots {
+                for id in &s.children {
+                    stack.push((*id, d + 1));
+                }
+            }
+            nodes.push(n.clone());
+            if nodes.len() > self.limits.max_nodes.saturating_sub(self.allocated) {
+                return None;
+            }
+        }
+        let mut ids = BTreeMap::new();
+        for n in &nodes {
+            ids.insert(n.id, self.ids.allocate(&n.path));
+        }
+        self.allocated += nodes.len();
+        reuse.count.set(reuse.count.get() + nodes.len());
+        self.diagnostics.extend(
+            reuse
+                .previous
+                .diagnostics
+                .iter()
+                .filter(|d| d.span.is_none() && d.path.as_deref().is_some_and(under))
+                .cloned()
+                .map(|mut d| {
+                    d.provisional = false;
+                    d
+                }),
+        );
+        for mut n in nodes {
+            n.id = *ids.get(&n.id)?;
+            for s in &mut n.slots {
+                for id in &mut s.children {
+                    *id = *ids.get(id)?;
+                }
+            }
+            self.ir.nodes.insert(n.id, n);
+        }
+        Some(old_id)
+    }
     fn component(
         &mut self,
         source: &Expr,
@@ -239,6 +328,9 @@ impl Validator<'_> {
         depth: usize,
     ) -> Option<NodeId> {
         let (id, def) = definition;
+        if let Some(id) = self.reuse_subtree(id, ctx, &path, depth) {
+            return Some(id);
+        }
         let node_id = self.ids.allocate(&path);
         let mut local = ctx.clone();
         local.budget_stmt = None;

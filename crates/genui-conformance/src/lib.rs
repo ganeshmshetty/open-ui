@@ -2,8 +2,10 @@
 #![forbid(unsafe_code)]
 
 pub mod chunks;
+pub mod properties;
 mod semantic;
 pub mod spec_check;
+pub mod streaming;
 
 use genui_core::diag::{Code, Diagnostic, Recovery};
 use genui_core::{
@@ -104,7 +106,9 @@ fn checked_json<T: DeserializeOwned>(path: &Path, schema: &jsonschema::Validator
     schema
         .validate(&value)
         .map_err(|e| format!("{}: {e}", path.display()))?;
-    serde_json::from_value(value).map_err(|e| format!("{}: {e}", path.display()))
+    // Deserialize the original bytes after schema checking: semantic Value::Map
+    // must retain source entry order under either serde_json object backend.
+    read_json(path)
 }
 
 fn directories(path: &Path) -> Result<Vec<PathBuf>> {
@@ -137,7 +141,7 @@ pub fn run_suite(root: &Path) -> Result<SuiteReport> {
     for category in directories(root)? {
         if matches!(
             category.file_name().and_then(|s| s.to_str()),
-            Some("schemas" | "libs")
+            Some("schemas" | "libs" | "mutations")
         ) {
             continue;
         }
@@ -155,13 +159,21 @@ pub fn run_suite(root: &Path) -> Result<SuiteReport> {
                     | "schema"
                     | "ir"
                     | "limits"
+                    | "streaming"
+                    | "patches"
             ) {
                 return Err(format!(
                     "{}: category is not implemented in M2",
                     path.display()
                 ));
             }
-            let result = if matches!(
+            let result = if matches!(category_name, "streaming" | "patches") {
+                streaming::run_case(
+                    &path,
+                    &schemas,
+                    std::sync::Arc::new(genui_std::std_library().map_err(|e| format!("{e:?}"))?),
+                )
+            } else if matches!(
                 category_name,
                 "library" | "resolve" | "schema" | "ir" | "limits"
             ) {
@@ -272,7 +284,16 @@ fn run_case(path: &Path, category: &str, schemas: &Schemas) -> Result<usize> {
         None
     };
     let mut count = 0;
+    let mut live_options = genui_core::validate::Options::default();
+    live_options.limits.syntax = SyntaxLimits::default();
+    let oracle = streaming::Oracle::new(
+        &input,
+        std::sync::Arc::new(genui_std::std_library().map_err(|e| format!("{e:?}"))?),
+        live_options,
+        false,
+    );
     chunks::for_each(&input, explicit.as_deref(), |label, parts| {
+        oracle.check(parts).map_err(|e| format!("{label}: {e}"))?;
         let mut buffer = LexBuffer::default();
         for part in parts {
             buffer.push(part);
@@ -348,7 +369,16 @@ fn run_parse_case(path: &Path, category: &str, schemas: &Schemas, case: &Case) -
         None
     };
     let mut count = 0;
+    let mut live_options = genui_core::validate::Options::default();
+    live_options.limits.syntax = limits.clone();
+    let oracle = streaming::Oracle::new(
+        &input,
+        std::sync::Arc::new(genui_std::std_library().map_err(|e| format!("{e:?}"))?),
+        live_options,
+        message,
+    );
     chunks::for_each(&input, explicit.as_deref(), |label, parts| {
+        oracle.check(parts).map_err(|e| format!("{label}: {e}"))?;
         if message {
             let mut parser = MessageParser::new(limits.clone());
             for part in parts {
@@ -416,6 +446,18 @@ mod tests {
         assert!(!schemas.case.is_valid(&serde_json::json!({"title":"x", "tier":"core", "tags":[], "notes":"", "limits":{"unknown":4}})));
     }
 
+    #[test]
+    fn schema_checking_preserves_semantic_map_source_order() {
+        let file =
+            std::env::temp_dir().join(format!("genui-map-order-{}.json", std::process::id()));
+        fs::write(&file, r#"{"z":1,"a":2}"#).unwrap();
+        let schema = jsonschema::validator_for(&serde_json::json!({"type":"object"})).unwrap();
+        let value: genui_core::value::Value = checked_json(&file, &schema).unwrap();
+        fs::remove_file(file).unwrap();
+        assert!(
+            matches!(value,genui_core::value::Value::Map(items)if items[0].0=="z"&&items[1].0=="a")
+        );
+    }
     #[test]
     fn diagnostics_are_compared_as_a_multiset() {
         let result = lex(b"@@");

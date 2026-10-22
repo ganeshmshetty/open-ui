@@ -1,17 +1,1 @@
-{
-  "id": "root",
-  "kind": "Facts",
-  "role": "list",
-  "props": {
-    "items": [
-      {
-        "label": "Owner",
-        "value": "Ada"
-      }
-    ],
-    "columns": {
-      "i": 1
-    }
-  },
-  "children": {}
-}
+{"children":{},"id":"root","kind":"Facts","props":{"columns":{"i":1},"items":[{"map":[["label","Owner"],["value","Ada"]]}]},"role":"list"}

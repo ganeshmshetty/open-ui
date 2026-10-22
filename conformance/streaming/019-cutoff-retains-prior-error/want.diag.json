@@ -1,0 +1,1 @@
+[{"code":"syntax.bad_escape","path":null,"recovery":"Replaced","stmt":null},{"code":"limit.stmt_size","path":null,"recovery":"Truncated","stmt":"a"},{"code":"name.orphan","path":null,"recovery":"None","stmt":"a"}]

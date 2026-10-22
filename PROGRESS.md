@@ -9,7 +9,7 @@ A milestone is complete only after its acceptance checks pass and CI is green.
 | M0 — Workspace and verification scaffolding | Complete | 21 lex fixtures / 4,743 chunkings; 7 spec examples; Linux and macOS CI green. |
 | M1 — Batch syntax | Complete | 124 fixtures / 28,225 chunkings; 23 tests including 2,048 generated round trips; four clean 600-second fuzz campaigns; Linux/macOS CI green. |
 | M2 — Library, validation, IR and limits | Complete, including tree and quality gates | 295 fixtures / 66,772 chunkings / 400 permutations; 66 Rust + 10 gate tests; 8 CLI fixtures; 24 exemplars; renewed parser/validator ASan 601s each; 609 mutations audited; Linux/macOS/quality and mutation CI green. |
-| M3 — Streaming and patches | Not started | Live invariant checks, patch replay, 100k generated programs. |
+| M3 — Streaming and patches | In progress on milestone/m3 | Fixtures first; canonical encoder, live invariants, replay, 100k property, fuzz and mutation acceptance pending. |
 | M4 — Runtime | Not started | Evaluation and interactive fixture categories. |
 | M5 — Prompt, feedback and messages | Not started | Golden output and cross-platform determinism. |
 | M6 — GPUI skeleton | Not started | Live streaming demo and recorded performance. |
@@ -651,3 +651,65 @@ DECISIONS.md and can be revisited without a compatibility or scope change.
 Naming/license/publishing remain ROADMAP item 10; no publishing decision was made.
 Next is ROADMAP item 14's GPUI spike, including the
 screenshot pipeline; M3 must then preserve the diagnostic issue recorded above.
+
+
+## M3 start — 2026-10-22
+
+Created milestone/m3 from main and merged main (already at 6bca7fa). Read AGENTS,
+PROGRESS, ROADMAP, CHANGELOG, M2 report and the requested streaming/patch contract.
+The approved spike changes are included; throwaway spike code is not merged.
+No self-merge: external streaming review is required. Runtime execution remains M4.
+Next: streaming/patch fixtures and canonical encoding vectors before implementation.
+
+### M3 implementation checkpoint
+
+Streaming parser and Session now use the existing resumable lexer and sole
+splitter. Sealed ASTs are parsed once, held-back UTF-8/CR/fence/header bytes stay
+uncommitted, and tail previews close a copy with parse-failure retention. Size
+cutoffs filter provisional lexer errors before commit. Added reverse dependency
+revisions and static-subtree reuse with canonical budget checks; deferred/runtime
+nodes remain checked plans, never evaluated.
+
+The named wire protocol includes diff/coalescing, checked replay, snapshots,
+epochs, statuses and append_text; replay CLI has an exact output fixture. Current
+new fixture categories contain 20 streaming and 5 patch cases, including explicit
+live checkpoints and an epoch/snapshot script. Their hand-written goldens include
+the existing std prop defaults/roles; initial uncommitted drafts omitted those
+catalog fields and were completed before acceptance. No old semantic golden was
+changed to conceal a failure: existing IR whitespace is migrated to approved
+compact canonical bytes; six literal map payloads migrate to the explicitly
+specified ordered-map encoding in the same spec/fixture change.
+
+The full legacy chunk harness now also checks live Session final IR/diagnostics,
+sealed traces, retained-tree replay and absence of provisional effects. A 100,000
+seeded-program discovery run passed in release mode (5.90s); a fresh frozen-source
+run is required after final hardening. A 61-second ASan streaming smoke completed
+224,333 executions with exit 0; it is not the required acceptance campaign.
+Default/preserve_order workspace tests passed before the final protocol fixtures.
+The std hash remains d19a769bd510997ce786ade4d60db23d.
+
+First non-gating Criterion results before subtree reuse: 64-byte chunk on 1,000
+nodes ~7.14ms (sampled p99 7.595ms), syntax batch 200KiB ~3.50ms, validated batch
+~7.76ms. The chunk target is missed; final numbers will be remeasured and reported,
+not hidden or made gating retroactively. Remaining: final schema/checkpoint and
+sequence assertions, full 100k gate, 600s seeded fuzz, complete syntax/IR/patch
+mutation campaign, final report and CI. No M3 completion or self-merge is claimed.
+
+### M3 frozen-source validation checkpoint
+
+All 23 streaming and 5 patch fixtures pass, including provisional action aliases
+through sealed consumers and a held lookahead header colon. Raw message budget
+tracking now preserves CRLF bytes, and a closing fence seals its final statement.
+Final production source is frozen for the renewed 600-second streaming fuzz run.
+The earlier seeded campaign was interrupted at 89,119 executions after the new
+I6 checkpoint exposed a handle-publication bug; it is not acceptance evidence.
+The complete mutation inventory now contains 967 candidates; historical M2
+evidence is preserved separately. CI and mutation acceptance remain pending.
+
+Important open review issue: static subtree reuse does not eliminate global
+validator bookkeeping, IR copies and full tree diff. The scanner/tail counters
+assert parse-once/bounded-tail work, but do not establish the full I7 O(dirty)
+IR/patch bound. The ~7ms chunk measurement misses the non-gating target. No claim
+of complete I7/performance compliance or M3 completion is made.
+Next: final gates, mutation analysis, evidence/report, then push a review PR;
+no self-merge. See docs/milestones/M3.md for the detailed review scope.

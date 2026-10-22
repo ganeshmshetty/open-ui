@@ -87,7 +87,7 @@ pub fn inspect(bytes: &[u8], library: &Library) -> Result<(String, bool), String
                     };
                     props.insert(name, value);
                 }
-                let props = serde_json::to_string(&props).map_err(|e| e.to_string())?;
+                let props = genui_core::canonical::serialize(&props).map_err(|e| e.to_string())?;
                 let _ = writeln!(
                     out,
                     "{}{} [{}] {props}",

@@ -1,0 +1,1 @@
+{"limits":{"max_program_bytes":13},"notes":"SPEC \u00a7\u00a72.5,3.1: 12 code bytes + CRLF is 14 incoming bytes; budget 13 retains CR and reports truncation. Fences/prose do not consume program budget.","tags":["message"],"tier":"core","title":"message CRLF budget counts incoming program bytes"}

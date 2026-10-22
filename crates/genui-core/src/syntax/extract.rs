@@ -1,5 +1,9 @@
 //! Resumable line-based model-message extraction (SPEC §§2.8–2.9).
-use super::{LocatedToken, lex, source::Source, splitter::statement_start};
+use super::{
+    LexEvent, Lexer, LocatedToken, TokenKind as K, lex,
+    source::Source,
+    splitter::{lower_name, statement_start},
+};
 use crate::diag::{Code, Diagnostic, order_diagnostics};
 use serde::{Deserialize, Serialize};
 
@@ -14,6 +18,7 @@ pub struct ExtractResult {
     pub segments: Vec<Segment>,
     pub diagnostics: Vec<Diagnostic>,
     pub rejected: bool,
+    pub program_raw: Vec<u8>,
 }
 
 #[derive(Clone, Copy)]
@@ -28,7 +33,24 @@ enum Mode {
     Unfenced,
 }
 
+#[derive(Clone, Copy, Default)]
+enum Route {
+    #[default]
+    Hold,
+    Program,
+    Markdown,
+}
+
 pub struct Extractor {
+    route: Route,
+    probe: Lexer,
+    prefix: Vec<LocatedToken>,
+    raw: Vec<u8>,
+    raw_base: usize,
+    raw_line_start: usize,
+    raw_end: usize,
+    program_cursor: Option<usize>,
+    program_ended: bool,
     source: Source,
     line: String,
     mode: Mode,
@@ -38,7 +60,16 @@ pub struct Extractor {
 impl Default for Extractor {
     fn default() -> Self {
         Self {
-            source: Source::default(),
+            route: Route::Hold,
+            probe: Lexer::default(),
+            prefix: Vec::new(),
+            raw: Vec::new(),
+            raw_base: 0,
+            raw_line_start: 0,
+            raw_end: 0,
+            program_cursor: None,
+            program_ended: false,
+            source: Source::tracked(),
             line: String::new(),
             mode: Mode::Prose,
             seen: false,
@@ -48,15 +79,31 @@ impl Default for Extractor {
 }
 impl Extractor {
     pub fn push(&mut self, bytes: &[u8]) {
+        self.raw.extend_from_slice(bytes);
         let text = self.source.push(bytes, false);
-        self.scan(&text);
+        let ends = self.source.take_raw_ends();
+        self.scan(&text, &ends);
+        self.compact_raw();
+    }
+    pub fn program_raw(&self) -> &[u8] {
+        &self.result.program_raw
+    }
+    pub fn program_ended(&self) -> bool {
+        self.program_ended
+    }
+    pub fn rejected(&self) -> bool {
+        self.result.rejected
+    }
+    pub fn diagnostics(&self) -> &[Diagnostic] {
+        &self.result.diagnostics
     }
     pub fn segments(&self) -> &[Segment] {
         &self.result.segments
     }
     pub fn finish(mut self) -> ExtractResult {
         let text = self.source.push(&[], true);
-        self.scan(&text);
+        let ends = self.source.take_raw_ends();
+        self.scan(&text, &ends);
         if !self.line.is_empty() {
             let line = std::mem::take(&mut self.line);
             self.line(&line);
@@ -69,12 +116,84 @@ impl Extractor {
         order_diagnostics(&mut self.result.diagnostics);
         self.result
     }
-    fn scan(&mut self, text: &str) {
-        for ch in text.chars() {
-            self.line.push(ch);
+    fn scan(&mut self, text: &str, ends: &[usize]) {
+        for (ch, end) in text.chars().zip(ends.iter().copied()) {
+            self.raw_end = end;
+            match self.route {
+                Route::Program => self.program(ch.encode_utf8(&mut [0; 4])),
+                Route::Markdown => self.markdown(ch.encode_utf8(&mut [0; 4])),
+                Route::Hold => {
+                    self.line.push(ch);
+                    if ch != '\n' {
+                        match self.mode {
+                            Mode::Unfenced => self.route = Route::Program,
+                            Mode::Program(fence)
+                                if self.line.as_bytes().first() != Some(&fence.marker) =>
+                            {
+                                self.route = Route::Program
+                            }
+                            Mode::Prose if !self.seen => {
+                                if !self.line.as_bytes().first().is_some_and(|b| {
+                                    b.is_ascii_lowercase()
+                                        || matches!(*b, b'_' | b'$' | b'`' | b'~')
+                                }) {
+                                    self.route = Route::Markdown;
+                                } else if !self.line.starts_with(['`', '~']) {
+                                    self.probe.push(ch.encode_utf8(&mut [0; 4]).as_bytes());
+                                    self.prefix.extend(
+                                        self.probe.take_events().into_iter().filter_map(|e| {
+                                            if let LexEvent::Token(t) = e {
+                                                Some(t)
+                                            } else {
+                                                None
+                                            }
+                                        }),
+                                    );
+                                    if statement_start(&self.prefix).is_some() {
+                                        self.seen = true;
+                                        self.program_cursor = Some(self.raw_line_start);
+                                        self.result.segments.push(Segment::Program(String::new()));
+                                        self.mode = Mode::Unfenced;
+                                        self.route = Route::Program;
+                                    } else if self.prefix.len() >= 3
+                                        || self.prefix.first().is_some_and(|t| {
+                                            !lower_name(&t.token) && t.token.kind != K::State
+                                        })
+                                        || (self.prefix.len() == 2
+                                            && self
+                                                .prefix
+                                                .first()
+                                                .is_some_and(|t| t.token.text != "query"))
+                                    {
+                                        self.route = Route::Markdown;
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                        match self.route {
+                            Route::Program => {
+                                let line = std::mem::take(&mut self.line);
+                                self.program(&line);
+                            }
+                            Route::Markdown => {
+                                let line = std::mem::take(&mut self.line);
+                                self.markdown(&line);
+                            }
+                            Route::Hold => {}
+                        }
+                    }
+                }
+            }
             if ch == '\n' {
-                let line = std::mem::take(&mut self.line);
-                self.line(&line);
+                if matches!(self.route, Route::Hold) {
+                    let line = std::mem::take(&mut self.line);
+                    self.line(&line);
+                }
+                self.raw_line_start = end;
+                self.route = Route::Hold;
+                self.probe = Lexer::default();
+                self.prefix.clear();
             }
         }
     }
@@ -85,7 +204,23 @@ impl Extractor {
             self.result.segments.push(Segment::Markdown(text.into()));
         }
     }
+    fn compact_raw(&mut self) {
+        let count = self
+            .raw_line_start
+            .saturating_sub(self.raw_base)
+            .min(self.raw.len());
+        self.raw.drain(..count);
+        self.raw_base += count;
+    }
     fn program(&mut self, text: &str) {
+        if let Some(start) = self.program_cursor {
+            if let Some(bytes) = self.raw.get(
+                start.saturating_sub(self.raw_base)..self.raw_end.saturating_sub(self.raw_base),
+            ) {
+                self.result.program_raw.extend_from_slice(bytes);
+            }
+            self.program_cursor = Some(self.raw_end);
+        }
         if let Some(Segment::Program(value)) = self.result.segments.last_mut() {
             value.push_str(text);
         }
@@ -94,6 +229,8 @@ impl Extractor {
         match self.mode {
             Mode::Program(fence) => {
                 if closes(line, fence) {
+                    self.program_cursor = None;
+                    self.program_ended = true;
                     self.mode = Mode::Prose;
                 } else {
                     self.program(line);
@@ -132,6 +269,7 @@ impl Extractor {
                                 ));
                             }
                             self.result.segments.push(Segment::Program(String::new()));
+                            self.program_cursor = Some(self.raw_end);
                             self.mode = Mode::Program(fence);
                         }
                     } else {
@@ -140,7 +278,9 @@ impl Extractor {
                     }
                 } else if !self.seen && starts_program(line) {
                     self.seen = true;
-                    self.result.segments.push(Segment::Program(line.into()));
+                    self.result.segments.push(Segment::Program(String::new()));
+                    self.program_cursor = Some(self.raw_line_start);
+                    self.program(line);
                     self.mode = Mode::Unfenced;
                 } else {
                     self.markdown(line);

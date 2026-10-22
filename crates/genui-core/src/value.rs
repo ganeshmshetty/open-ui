@@ -204,7 +204,10 @@ impl Value {
             Self::Str(s) => json!(s.text.as_ref()),
             Self::Ref(s) => json!({"ref":s}),
             Self::List(v) => J::Array(v.iter().map(|v| v.json(typed)).collect()),
-            Self::Map(v) => J::Object(v.iter().map(|(k, v)| (k.clone(), v.json(typed))).collect()),
+            Self::Map(v) if typed => {
+                json!({"map":v.iter().map(|(k,v)|json!([k,v.json(true)])).collect::<Vec<_>>()})
+            }
+            Self::Map(v) => J::Object(v.iter().map(|(k, v)| (k.clone(), v.json(false))).collect()),
         }
     }
     /// Constants are syntax literals and containers, including signed numeric literals.

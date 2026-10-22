@@ -1,11 +1,1 @@
-{
-  "id": "root",
-  "kind": "List",
-  "role": "list",
-  "props": {
-    "ordered": false
-  },
-  "children": {
-    "items": []
-  }
-}
+{"children":{"items":[]},"id":"root","kind":"List","props":{"ordered":false},"role":"list"}

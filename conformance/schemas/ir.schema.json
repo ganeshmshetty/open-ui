@@ -126,8 +126,27 @@
         },
         {
           "type": "object",
-          "additionalProperties": {
-            "$ref": "#/$defs/value"
+          "additionalProperties": false,
+          "required": [
+            "map"
+          ],
+          "properties": {
+            "map": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/$defs/value"
+                  }
+                ],
+                "minItems": 2,
+                "maxItems": 2
+              }
+            }
           }
         }
       ]

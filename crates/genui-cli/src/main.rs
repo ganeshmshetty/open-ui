@@ -1,6 +1,7 @@
 //! Developer entry points (SPEC §1.2 and §12.6).
 #![forbid(unsafe_code)]
 
+mod replay;
 mod tree;
 
 use genui_conformance::{run_suite, spec_check};
@@ -14,6 +15,9 @@ fn run(args: Vec<String>) -> Result<bool, String> {
                 .into(),
         );
     };
+    if command == "replay" {
+        return replay::run(&args[1..]);
+    }
     if args.len() > 2 {
         return Err("expected at most one path argument".into());
     }
@@ -33,7 +37,7 @@ fn run(args: Vec<String>) -> Result<bool, String> {
                 .unwrap_or_else(|| root.join("conformance"));
             let report = run_suite(&path)?;
             println!(
-                "PASS: {} fixtures, {} chunkings, {} seeded permutations (M2 static validation).",
+                "PASS: {} fixtures, {} chunkings, {} seeded permutations (M3 live invariants and static validation).",
                 report.fixtures, report.chunkings, report.permutations
             );
             for (category, count) in &report.categories {
@@ -60,7 +64,7 @@ fn run(args: Vec<String>) -> Result<bool, String> {
         }
         _ => {
             return Err(format!(
-                "unknown command {command:?}; M2 supports fixtures, spec-check and tree"
+                "unknown command {command:?}; M3 supports fixtures, spec-check, tree and replay"
             ));
         }
     }

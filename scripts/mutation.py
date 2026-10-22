@@ -48,7 +48,7 @@ def inventory_errors(groups, expected):
     return []
 
 
-def aggregate(directory, review_path):
+def aggregate(directory, review_path, inventory_path=None):
     folders = sorted(p for p in directory.iterdir() if p.is_dir())
     if len(folders) != SHARD_COUNT:
         raise ValueError("expected exactly eight mutation shards")
@@ -65,7 +65,7 @@ def aggregate(directory, review_path):
         results.append(data)
         manifests.append(hashes)
         raw_hashes[folder.name] = hashlib.sha256(data_path.read_bytes()).hexdigest()
-    expected = json.loads((ROOT / "conformance/mutations/inventory.json").read_text())
+    expected = json.loads((inventory_path or ROOT / "conformance/mutations/m3/inventory.json").read_text())
     errors.extend(inventory_errors(groups, expected))
     if any(m != manifests[0] for m in manifests):
         errors.append("shards used different source manifests")
@@ -103,10 +103,11 @@ def main():
     mode.add_argument("--output", type=Path)
     mode.add_argument("--aggregate", type=Path)
     parser.add_argument("--shard")
-    parser.add_argument("--review", type=Path, default=ROOT / "conformance/mutations/review.json")
+    parser.add_argument("--review", type=Path, default=ROOT / "conformance/mutations/m3/review.json")
+    parser.add_argument("--inventory", type=Path, default=ROOT / "conformance/mutations/m3/inventory.json")
     args = parser.parse_args()
     if args.aggregate:
-        aggregate(args.aggregate, args.review)
+        aggregate(args.aggregate, args.review, args.inventory)
         return 0
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -124,13 +125,15 @@ def main():
             target = source / name
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(path, target)
-            if name.startswith("crates/genui-core/src/syntax") or name == "crates/genui-core/src/ir.rs":
+            if name.startswith("crates/genui-core/src/") and name.endswith(".rs"):
                 hashes[name] = hashlib.sha256(path.read_bytes()).hexdigest()
         (output / "source.json").write_text(json.dumps(hashes, indent=2) + "\n")
         subprocess.run(["cargo", "test", "--workspace", "--locked"], cwd=source, check=True)
         command = ["cargo", "mutants", "--dir", str(source), "-p", "genui-core",
                    "-f", "crates/genui-core/src/syntax.rs", "-f", "crates/genui-core/src/syntax/**",
-                   "-f", "crates/genui-core/src/ir.rs", "--test-workspace", "true", "--jobs", "2",
+                   "-f", "crates/genui-core/src/ir.rs",
+                   "-f", "crates/genui-core/src/patch.rs", "-f", "crates/genui-core/src/session.rs",
+                   "-f", "crates/genui-core/src/canonical.rs", "--test-workspace", "true", "--jobs", "2",
                    "--timeout", "60", "--build-timeout", "300", "--output", str(output)]
         if args.shard:
             command.extend(["--shard", args.shard])

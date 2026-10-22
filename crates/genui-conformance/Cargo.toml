@@ -11,3 +11,10 @@ genui-prompt.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 jsonschema = { version = "0.33", default-features = false }
+
+[dev-dependencies]
+criterion = "=0.5.1"
+
+[[bench]]
+name = "streaming"
+harness = false

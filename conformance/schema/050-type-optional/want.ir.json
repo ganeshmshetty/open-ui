@@ -1,16 +1,1 @@
-{
-  "id": "root",
-  "kind": "Card",
-  "role": "region",
-  "props": {
-    "padding": {
-      "tok": [
-        "space",
-        4
-      ]
-    }
-  },
-  "children": {
-    "children": []
-  }
-}
+{"children":{"children":[]},"id":"root","kind":"Card","props":{"padding":{"tok":["space",4]}},"role":"region"}

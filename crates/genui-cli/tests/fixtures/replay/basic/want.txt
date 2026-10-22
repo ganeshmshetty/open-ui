@@ -1,0 +1,7 @@
+chunk 0 bytes=0..15 phase=Streaming
+batch {"epoch":1,"ops":[{"op":"reset"},{"index":0,"node":{"id":"root","kind":"Divider","props":{},"role":"separator","status":"sealed"},"op":"insert","parent":null,"slot":"root"}],"seq":0}
+tree {"children":{},"id":"root","kind":"Divider","props":{},"role":"separator","status":"sealed"}
+finish phase=Done
+batch (none)
+tree {"children":{},"id":"root","kind":"Divider","props":{},"role":"separator","status":"sealed"}
+Diagnostics: 0

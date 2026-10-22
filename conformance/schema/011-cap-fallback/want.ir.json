@@ -1,13 +1,1 @@
-{
-  "id": "root",
-  "kind": "Text",
-  "role": "paragraph",
-  "props": {
-    "text": "hello",
-    "size": "md",
-    "tone": "neutral",
-    "bold": false,
-    "mono": false
-  },
-  "children": {}
-}
+{"children":{},"id":"root","kind":"Text","props":{"bold":false,"mono":false,"size":"md","text":"hello","tone":"neutral"},"role":"paragraph"}

@@ -394,7 +394,7 @@ impl Library {
         self.spec.actions.iter().find(|a| a.name == name)
     }
     pub fn canonical_json(&self) -> Result<String, serde_json::Error> {
-        serde_json::to_string(&serde_json::to_value(&self.spec)?)
+        crate::canonical::serialize(&self.spec)
     }
     pub fn hash(&self) -> &str {
         &self.spec.hash

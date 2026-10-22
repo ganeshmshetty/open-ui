@@ -1,0 +1,25 @@
+name: Milestone mutation gate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mutation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install mutation tester
+        run: cargo install cargo-mutants --version 27.1.0 --locked
+      - name: Syntax and IR mutations with all workspace tests
+        run: python3 scripts/mutation.py --output mutation-results
+      - name: Upload complete mutation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: syntax-ir-mutations
+          path: mutation-results/

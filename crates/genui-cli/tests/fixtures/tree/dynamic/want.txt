@@ -1,0 +1,4 @@
+Column [root] {"align":"stretch","gap":{"tok":["space",2]},"padding":{"tok":["space",0]}}
+  children:
+    Dynamic [root/children:#0] if($show, Text("Shown"), null)
+Diagnostics: 0

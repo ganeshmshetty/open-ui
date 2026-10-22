@@ -342,10 +342,10 @@ mod audit_tests {
         #[serde(deny_unknown_fields)]
         struct Audit {
             covered: BTreeMap<Code, Vec<String>>,
-            deferred: BTreeMap<Code, Deferred>,
         }
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../conformance");
         let audit: Audit = read_json(&root.join("diagnostics.json")).unwrap();
+        let deferred: BTreeMap<Code, Deferred> = read_json(&root.join("deferred.json")).unwrap();
         let spec = fs::read_to_string(root.join("../spec/SPEC.md")).unwrap();
         let mut codes = BTreeSet::new();
         let table = spec
@@ -367,13 +367,13 @@ mod audit_tests {
         let actual: BTreeSet<_> = audit
             .covered
             .keys()
-            .chain(audit.deferred.keys())
+            .chain(deferred.keys())
             .copied()
             .collect();
         assert_eq!(actual, codes);
         assert_eq!(actual.len(), 69);
         for (code, fixtures) in audit.covered {
-            assert!(!audit.deferred.contains_key(&code));
+            assert!(!deferred.contains_key(&code));
             assert!(!fixtures.is_empty());
             for fixture in fixtures {
                 let diagnostics: Vec<DiagnosticKey> =
@@ -381,7 +381,7 @@ mod audit_tests {
                 assert!(diagnostics.iter().any(|d| d.code == code));
             }
         }
-        for deferred in audit.deferred.values() {
+        for deferred in deferred.values() {
             assert!(["M4", "M5", "M6"].contains(&deferred.milestone.as_str()));
             assert!(!deferred.reason.is_empty());
         }

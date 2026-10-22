@@ -8,7 +8,7 @@ A milestone is complete only after its acceptance checks pass and CI is green.
 | --- | --- | --- |
 | M0 — Workspace and verification scaffolding | Complete | 21 lex fixtures / 4,743 chunkings; 7 spec examples; Linux and macOS CI green. |
 | M1 — Batch syntax | Complete | 124 fixtures / 28,225 chunkings; 23 tests including 2,048 generated round trips; four clean 600-second fuzz campaigns; Linux/macOS CI green. |
-| M2 — Library, validation, IR and limits | Complete | 277 fixtures / 62,884 chunkings / 400 permutations; 52 tests; 24 exemplars; final validator ASan 601s / 71,760 executions / exit 0; Linux/macOS source CI green. |
+| M2 — Library, validation, IR and limits | Follow-up in progress | 277 fixtures / 62,884 chunkings / 400 permutations; 52 tests; 24 exemplars; final validator ASan 601s / 71,760 executions / exit 0; Linux/macOS source CI green. |
 | M3 — Streaming and patches | Not started | Live invariant checks, patch replay, 100k generated programs. |
 | M4 — Runtime | Not started | Evaluation and interactive fixture categories. |
 | M5 — Prompt, feedback and messages | Not started | Golden output and cross-platform determinism. |
@@ -283,3 +283,31 @@ quality gates 1–7 follow immediately, before any GPUI spike. No M3 or spike wo
 is started. Existing M2 fuzz evidence remains attached to unchanged core source.
 Next: exact CLI output fixtures first, implement tree inspection, then add and
 exercise the seven quality gates, record evidence and update the milestone report.
+
+### M2 tree / quality-gate implementation checkpoint
+
+Merged main in 5114f8a (changelog retains both histories). Re-read AGENTS.md,
+ROADMAP and SPEC §§12.7–12.8. Added DECISIONS.md with the reversible empty-host
+policy default for tree; no owner decision blocks progress. The command now
+prints kinds, typed props, §5.2 paths, deferred plans and exact diagnostic summaries.
+Seven CLI output fixtures were authored before the implementation/extension;
+argument/I/O tests also pass. The initial repeated-reference expectation was
+corrected to the existing `~2` rule and documented in SPEC/CHANGELOG.
+
+Quality gates 1–6 are implemented: non-test core Clippy denies, cargo-deny on the
+transitive core graph, source checks for ignores/styles, per-commit fixture
+protection, and the covered/deferred audit (59 covered + 10 explicit deferrals).
+Seven Python tests include actual negative cargo-deny/Clippy/history probes.
+The manual mutation workflow uses a project-only copy, never research.
+
+The first full 609-mutant syntax/IR campaign is running against frozen source.
+Early survivors revealed assertion gaps in nested null-recovery metadata and
+two extractor APIs; focused tests now cover these without production changes.
+Two exact fence-info extraction fixtures cover another survivor. All additions
+retain the §12.3 chunk harness. Mutation survivors will be rerun and individually
+fixed or justified before completion; no acceptance claim is made yet.
+
+M2 core behavior is unchanged; the existing 601-second validator evidence still
+applies to the implementation. Syntax source changes so far add test modules,
+and the core root adds deny attributes. M3's provisional-diagnostic issue remains
+open. No GPUI spike or streaming/runtime work is started.

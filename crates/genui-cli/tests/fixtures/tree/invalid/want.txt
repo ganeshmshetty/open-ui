@@ -1,0 +1,3 @@
+(no concrete root)
+Diagnostics: 1
+  Error schema.unknown_component recovery=NodeDropped stmt=root path=root

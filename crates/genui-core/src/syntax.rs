@@ -6,6 +6,8 @@ pub mod parser;
 pub mod printer;
 #[cfg(test)]
 mod properties;
+#[cfg(test)]
+mod quality_tests;
 mod source;
 pub mod splitter;
 

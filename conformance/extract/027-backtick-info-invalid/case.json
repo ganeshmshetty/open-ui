@@ -1,0 +1,9 @@
+{
+  "title": "backtick-info-invalid",
+  "tier": "core",
+  "tags": [
+    "fence",
+    "mutation"
+  ],
+  "notes": "SPEC \u00a72.9: backticks disqualify backtick fence info, but are allowed in tilde fence info."
+}

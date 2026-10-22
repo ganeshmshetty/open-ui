@@ -1905,6 +1905,16 @@ Conformance fixtures prove the core. These checks prove the whole system works a
 | Gallery app and screenshot loop | M6 | A demo binary renders every `examples/*.ui` and a per-component state sheet (all states from DESIGN.md §7) in light and dark. `--screenshot <dir>` writes one PNG per example and mode. At the end of M6, M7 and M8, the screenshot set is reviewed against DESIGN.md; each finding is fixed or logged in PROGRESS.md with a reason. Screenshots are not golden-compared in phase 1. |
 | Real-model loop | M8 | The sample host streams a live model reply into the UI. The run is recorded as a transcript (prompt, chunks with timing, events) and replayed deterministically. Screenshots are taken at 25%, 50%, 75% and 100% of the stream to check that partial UIs look intentional. |
 
+`tree` uses genui-std and the default host policy (no tool/ref catalog). It reads
+raw DSL bytes, prints all static props in sorted-name compact IR JSON, traverses
+concrete children in validated slot order, and shows deferred slot/root plans as
+`Dynamic [path] expression` without evaluating them. Paths follow §5.2, including
+`@name~2` for the second use. Concrete children precede deferred plans within each
+slot; source paths retain their original positions. An absent root prints
+`(no concrete root)`. Diagnostics include severity, code, Recovery, statement and
+path (`-` if absent). Exit status is nonzero for Warning+ diagnostics or I/O/usage
+errors; diagnostic reports go to stdout and operational errors to stderr.
+
 ### 12.8 Quality gates (CI)
 
 These run in CI and fail the build. They turn the AGENTS.md rules into checks.
@@ -1915,7 +1925,26 @@ These run in CI and fail the build. They turn the AGENTS.md rules into checks.
 4. **No hard-coded styles:** hex colors or pixel literals in `genui-gpui` outside its theme module fail CI.
 5. **Fixture protection:** a commit that changes a `want.*` file without also changing `spec/SPEC.md` and `spec/CHANGELOG.md` fails CI.
 6. **Diagnostic coverage:** every code in the 4.3 table has at least one fixture, or is listed in `conformance/deferred.json` with a reason and a milestone.
+   Coverage and deferrals are disjoint; `conformance/diagnostics.json` maps covered
+   codes to actual diagnostic fixtures and `conformance/deferred.json` contains
+   only `{milestone, reason}` records. The table/audit tests reject unknown codes,
+   missing fixtures and empty reasons.
 7. **Mutation testing:** `cargo-mutants` on `syntax` and `ir` runs before a milestone is marked done; surviving mutants are fixed or justified in PROGRESS.md. (Not on every push.)
+
+The source scanner checks project Rust files under `crates/` and `fuzz/`, including
+untracked files locally. It recognizes comments, literals and conditional ignore
+attributes. The style gate allows literals only in `genui-gpui/src/theme.rs` or
+`genui-gpui/src/theme/`; it rejects hex color literals and numeric `px`/`Pixels`
+constructors elsewhere. Dependency patterns include `gpui*`, `tokio*`, async/futures
+and the named UI/executor families in the gate script; cargo-deny checks the
+transitive core graph across targets and optional features, excluding dev-only
+edges. New UI/async families must be added to this policy when introduced.
+Fixture protection checks each commit independently, including additions,
+deletions and renames; a later spec edit cannot excuse an earlier golden change.
+The milestone-only mutation workflow runs all syntax/IR mutants with workspace
+tests in an isolated project-only copy. Results, source hashes, tool version and
+any survivor rationale are retained. Direct public API contracts and nested
+recovery metadata need assertions as well as end-to-end fixtures.
 
 ## 13. Public Rust API sketch
 

@@ -1,0 +1,3 @@
+$label="Name"
+$value=""
+root=Input($label,bind:$value)

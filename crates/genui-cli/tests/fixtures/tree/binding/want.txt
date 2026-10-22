@@ -1,0 +1,2 @@
+Input [root] {"bind":{"bind":"$value"},"kind":"text","label":{"dynamic":0},"required":false}
+Diagnostics: 0

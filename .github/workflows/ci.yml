@@ -8,6 +8,29 @@ permissions:
   contents: read
 
 jobs:
+  quality:
+    name: Quality gates (§12.8)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install dependency checker
+        run: cargo install cargo-deny --version 0.20.2 --locked
+      - name: Gate regression tests
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - name: No skipped tests or hard-coded renderer styles
+        run: python3 scripts/quality.py sources
+      - name: Core dependency ban
+        run: python3 scripts/quality.py dependencies
+      - name: Protect fixture goldens in every commit
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: python3 scripts/quality.py fixtures --base "$BASE_SHA" --head "$HEAD_SHA"
+      - name: Diagnostic fixture and deferral coverage
+        run: cargo test --locked -p genui-conformance semantic::audit_tests
   check:
     name: Rust (${{ matrix.os }})
     strategy:

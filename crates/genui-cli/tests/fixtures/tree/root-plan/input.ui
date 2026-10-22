@@ -1,0 +1,2 @@
+$show=true
+root=if($show,Divider(),null)

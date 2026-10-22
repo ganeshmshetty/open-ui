@@ -1,0 +1,2 @@
+Dynamic [root] if($show, Divider(), null)
+Diagnostics: 0

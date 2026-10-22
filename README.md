@@ -4,11 +4,9 @@ A clean-room implementation of [SPEC.md](spec/SPEC.md), using the temporary
 `genui` crate prefix. See [PROGRESS.md](PROGRESS.md) for milestone status,
 [ROADMAP.md](ROADMAP.md) for future work, and [AGENTS.md](AGENTS.md) for the quality bar.
 
-M1 implements the DSL lexer, one shared statement splitter, model-reply extractor,
-batch AST parser and canonical printer. Scanners retain token/escape, UTF-8,
-held-CR and line-lookahead state across pushes. The parser handles syntax recovery,
-name claiming, and syntax limits. Library validation, IR, runtime and GPUI follow
-in milestone order.
+M2 adds the checked library builder, standard catalog, static resolver/validator,
+recovery ladder, typed IR with path IDs and limits to M1's syntax pipeline.
+Dynamic data stays in expression and slot plans until the M4 runtime.
 
 ```sh
 cargo fmt --all -- --check
@@ -20,11 +18,24 @@ cargo run --locked -p genui-cli -- spec-check
 
 `fixtures [directory]` and `spec-check [SPEC.md]` accept optional paths. Default
 paths are rooted at the source workspace, independent of the current directory.
-`spec-check` parses every `ui` and `ui-fragment` documentation block and requires
-diagnostics for `ui-invalid`. Full standard-library validation arrives in M2.
-The other CLI commands in the final architecture are not implemented yet and
-fail explicitly. Applications can use `genui_core::syntax::parse_batch`,
-`parse_message`, `BatchParser`, and `syntax::printer::print` directly.
+`spec-check` validates SPEC examples and all 24 exemplars against genui-std.
+`tree <file.ui>` prints the static IR, typed props, identity paths, deferred plans
+and diagnostics. It uses the default empty tool/ref catalog, so examples requiring
+host data will report missing catalogs. Warning+ diagnostics exit nonzero.
+
+```sh
+cargo run --locked -p genui-cli -- tree examples/01-sales-dashboard.ui
+python3 -m unittest discover -s scripts -p 'test_*.py'
+python3 scripts/quality.py sources
+python3 scripts/quality.py dependencies  # cargo-deny 0.20.2
+python3 scripts/quality.py fixtures --base main --head HEAD
+python3 scripts/mutation.py --output /tmp/genui-mutations  # cargo-mutants 27.1.0
+```
+
+Quality gates (§12.8) run in CI. Mutation testing is a milestone gate, run locally
+or through the manual **Milestone mutation gate** workflow. It uses a project-only
+copy and never copies research. The core's public syntax APIs and
+`genui_core::validate::{validate, validate_message}` are available to applications.
 
 See [conformance/README.md](conformance/README.md), [fuzz/README.md](fuzz/README.md),
 and [PINS.md](PINS.md) for verification boundaries and dependency policy.

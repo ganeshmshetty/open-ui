@@ -59,8 +59,8 @@ Focused allocator cases use `paths.json`, `want.paths.json` and exact
 `want.diag.json`; they exercise typed/escaped keys, index fallback and injected
 initial hash collisions without evaluating `each`.
 
-`diagnostics.json` maps every covered code to fixture paths, and records the
-milestone/reason for every deferred code. Tests audit it against the spec's full
+`diagnostics.json` maps every covered code to fixture paths. `deferred.json`
+records the milestone/reason for every deferred code. Tests audit it against the spec's full
 code table and require all conditional static recovery variants. Runtime-only
 limits remain M4 work; every limit's hard ceiling is checked in the core tests.
 The runner reports chunkings and permutations separately from direct builder/

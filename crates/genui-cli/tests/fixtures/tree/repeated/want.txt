@@ -1,0 +1,5 @@
+Column [root] {"align":"stretch","gap":{"tok":["space",2]},"padding":{"tok":["space",0]}}
+  children:
+    Divider [root/children:@body] {}
+    Divider [root/children:@body~2] {}
+Diagnostics: 0

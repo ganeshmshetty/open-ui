@@ -284,6 +284,7 @@ dependencies = [
  "genui-core",
  "genui-prompt",
  "genui-std",
+ "serde_json",
 ]
 
 [[package]]

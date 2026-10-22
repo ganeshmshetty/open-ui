@@ -1,5 +1,21 @@
 # Spec changelog
 
+## 2026-10-22 — Enforced quality gates (§12.8)
+
+- Split runtime deferrals into the required deferred.json; keep the covered-code
+  fixture map disjoint and audit both against §4.3. Specify source-scan boundaries,
+  theme locations, dependency scope and per-commit fixture protection so the new
+  gates have a reproducible policy. Retain isolated mutation evidence and add
+  exact nested-recovery/public-extractor and fence-info regressions exposed by
+  mutation testing; existing syntax behavior is unchanged.
+
+## 2026-10-22 — M2 tree inspection (§12.7)
+
+- Define deterministic text output, explicit deferred plans, default host policy,
+  diagnostics and exit statuses for the new tree command. The first output fixture
+  mistakenly used `~1`; corrected it to §5.2's existing second-use `~2` rule before
+  accepting the implementation. No identity rule changed.
+
 ## 2026-10-22 — M2 static library, resolution and IR clarifications
 
 - §2.7: spell out builtin arities, lambda shapes and named options; the function

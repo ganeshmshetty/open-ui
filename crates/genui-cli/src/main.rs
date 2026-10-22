@@ -1,18 +1,31 @@
 //! Developer entry points (SPEC §1.2 and §12.6).
 #![forbid(unsafe_code)]
 
+mod tree;
+
 use genui_conformance::{run_suite, spec_check};
 use std::{env, path::PathBuf, process::ExitCode};
 
-fn run(args: Vec<String>) -> Result<(), String> {
+fn run(args: Vec<String>) -> Result<bool, String> {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let Some(command) = args.first() else {
-        return Err("usage: genui-cli <fixtures [directory] | spec-check [SPEC.md]>".into());
+        return Err(
+            "usage: genui-cli <fixtures [directory] | spec-check [SPEC.md] | tree <file.ui>>"
+                .into(),
+        );
     };
     if args.len() > 2 {
         return Err("expected at most one path argument".into());
     }
     match command.as_str() {
+        "tree" => {
+            let path = args.get(1).ok_or("usage: genui-cli tree <file.ui>")?;
+            let bytes = std::fs::read(path).map_err(|e| format!("{path}: {e}"))?;
+            let library = genui_std::std_library().map_err(|e| format!("std build: {e:?}"))?;
+            let (output, success) = tree::inspect(&bytes, &library)?;
+            print!("{output}");
+            return Ok(success);
+        }
         "fixtures" => {
             let path = args
                 .get(1)
@@ -47,16 +60,17 @@ fn run(args: Vec<String>) -> Result<(), String> {
         }
         _ => {
             return Err(format!(
-                "unknown command {command:?}; M2 supports fixtures and spec-check"
+                "unknown command {command:?}; M2 supports fixtures, spec-check and tree"
             ));
         }
     }
-    Ok(())
+    Ok(true)
 }
 
 fn main() -> ExitCode {
     match run(env::args().skip(1).collect()) {
-        Ok(()) => ExitCode::SUCCESS,
+        Ok(true) => ExitCode::SUCCESS,
+        Ok(false) => ExitCode::FAILURE,
         Err(error) => {
             eprintln!("error: {error}");
             ExitCode::FAILURE

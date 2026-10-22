@@ -1,0 +1,2 @@
+body=Divider()
+root=Column([body,body])

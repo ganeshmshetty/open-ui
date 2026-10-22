@@ -1,0 +1,3 @@
+Divider [root] {}
+Diagnostics: 1
+  Warning schema.unknown_arg recovery=ArgOmitted stmt=root path=root

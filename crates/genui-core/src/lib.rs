@@ -1,5 +1,15 @@
 //! UI-free, synchronous generative-UI core (SPEC §1.2).
 #![forbid(unsafe_code)]
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::todo,
+        clippy::unimplemented
+    )
+)]
 
 pub mod diag;
 pub mod syntax;

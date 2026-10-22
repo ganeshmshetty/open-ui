@@ -1,0 +1,3 @@
+(no concrete root)
+Diagnostics: 1
+  Fatal name.no_root recovery=ProgramRejected stmt=- path=-

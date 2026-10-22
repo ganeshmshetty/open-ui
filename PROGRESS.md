@@ -8,7 +8,7 @@ A milestone is complete only after its acceptance checks pass and CI is green.
 | --- | --- | --- |
 | M0 — Workspace and verification scaffolding | Complete | 21 lex fixtures / 4,743 chunkings; 7 spec examples; Linux and macOS CI green. |
 | M1 — Batch syntax | Complete | 124 fixtures / 28,225 chunkings; 23 tests including 2,048 generated round trips; four clean 600-second fuzz campaigns; Linux/macOS CI green. |
-| M2 — Library, validation, IR and limits | Follow-up in progress | 277 fixtures / 62,884 chunkings / 400 permutations; 52 tests; 24 exemplars; final validator ASan 601s / 71,760 executions / exit 0; Linux/macOS source CI green. |
+| M2 — Library, validation, IR and limits | Complete, including tree and quality gates | 295 fixtures / 66,772 chunkings / 400 permutations; 66 Rust + 10 gate tests; 8 CLI fixtures; 24 exemplars; renewed parser/validator ASan 601s each; 609 mutations audited; Linux/macOS/quality and mutation CI green. |
 | M3 — Streaming and patches | Not started | Live invariant checks, patch replay, 100k generated programs. |
 | M4 — Runtime | Not started | Evaluation and interactive fixture categories. |
 | M5 — Prompt, feedback and messages | Not started | Golden output and cross-platform determinism. |
@@ -435,3 +435,219 @@ survivors, successful baseline. It is supplementary evidence only, retained in
 conformance/mutations/timeout-recheck.json; a new full eight-shard CI campaign
 is required for acceptance. All production parser/validator code remains frozen
 at 9b9f8e4.
+
+## Consolidated M2 and quality-gate completion report
+
+The historical checkpoints above are retained. This report supersedes their
+pending states and counts. ROADMAP items 2, 12 and 18 are done; no spike or M3
+implementation is included. milestone/m2 was fast-forwarded locally into main at 8a5d9e8 after all candidate
+gates passed. The evidence commit and final main push/CI check follow.
+
+
+M2 and the immediate quality gates pass. Linux, macOS, quality and complete
+mutation CI are green on 8a5d9e8: 609 mutants, 521 caught, 75 unviable, 9 test timeouts, 4 reviewed equivalents.
+No review blocker remains. milestone/m2 was fast-forwarded locally into main
+at 8a5d9e8 after every candidate gate passed; this evidence commit records the
+completion before the final main push/CI check.
+
+M1 was fast-forwarded into main before M2. Local main's new §12.7–12.8 rules
+were merged into milestone/m2 in 5114f8a. The follow-up implements tree inspection
+and the post-M2 quality gates; no spike, streaming, evaluator or renderer work
+was started. Core implementation is frozen at 9b9f8e4, with subsequent fixture,
+gate and evidence commits. Renewed parser and validator ASan campaigns each ran
+601 engine seconds: 95,490 and 44,685 executions, exit 0, matching source hashes at run completion. Later changes only add cfg(test) assertions and fixtures; executable parser/validator code is unchanged.
+
+Built the checked library builder and additive extension model, all 29 std catalog
+entries (27 components plus TableColumn/Tab), canonical Library Spec JSON and its
+xxh3-128 hash, static resolver/validator and recovery ladder, typed values/props,
+state/query declarations, inert typed action/form plans, capability fallbacks,
+node-template plans, canonical limits and path-based identity. String comparison
+and salted rehash handle injected xxh3 collisions. No evaluator, query/ref delivery,
+request dispatcher, streaming patch engine or renderer was added.
+
+The std golden is `conformance/libs/std.json`; its independent Python xxhash
+result is `d19a769bd510997ce786ade4d60db23d`. Rust checks both the hash and exact
+pretty JSON bytes. Every component example validates with zero Warning+ diagnostics.
+
+| Category | Fixtures | Byte chunkings | Seeded statement permutations |
+| --- | ---: | ---: | ---: |
+| library | 36 | 4,535 | — |
+| resolve | 18 | 4,292 | 180 |
+| schema | 62 | 14,875 | — |
+| ir | 15 | 3,082 | — |
+| limits | 22 | 7,875 | 220 |
+| lex | 35 | 7,975 | — |
+| grammar | 37 | 8,383 | — |
+| statements | 40 | 8,943 | — |
+| extract | 28 | 6,326 | — |
+| fuzz-regress | 2 | 486 | — |
+| **Total** | **295** | **66,772** | **400** |
+
+There are 171 conformance cases added since M1: 153 original M2 cases and 18
+follow-up syntax regressions. Eight additional CLI text fixtures assert tree
+output and exit status; they are separate from the conformance counts. Builder/allocator-only cases have direct exact
+checks; every case with DSL input runs the byte chunkings. The Library Spec
+byte golden is checked in addition to these directory case counts.
+
+| Rust test area | Tests |
+| --- | ---: |
+| Core syntax | 22 |
+| Core resolver/validator/library integration | 14 |
+| Core identity | 2 |
+| Core values | 3 |
+| Core limit ceilings | 2 |
+| Std catalog/plans/forms/capabilities | 5 |
+| Conformance, schema audits and spec-check | 15 |
+| CLI unit/integration tests | 3 |
+| **Total** | **66** |
+
+Properties include 2,048 AST round trips, 512 generated semantic permutations,
+512 append/recovery path checks, and the 400 fixture permutations above.
+A further 72 mixed-expression/limit combinations check enclosing depth budgets,
+and 338 deterministic grouped operator pairs check printer precedence.
+Ten Python gate tests include negative dependency, lint, history, review and
+shard-aggregation probes. The static-vs-dynamic boundary is asserted: custom function callbacks are never
+called, and a 1,200-statement container chain stays a bounded expression plan.
+Recovery metadata survives expression sharing while remaining outside structural
+AST equality, JSON and printing.
+
+`spec-check` passes all 3 complete SPEC programs, 4 fragments and 24 complete
+exemplar programs. There are no actual ui-invalid blocks in the current SPEC;
+unit tests prove that valid ui-invalid bodies fail the gate and invalid bodies
+or unsupported versions produce diagnostics. Version info uses the shared
+protocol extractor. ROADMAP item 2 is done.
+
+`genui-cli tree <file.ui>` prints concrete nodes in validated slot order, kinds,
+typed props and §5.2 paths. It shows deferred slot/root plans without evaluating
+them and prints diagnostic severity/code/recovery/statement/path. Info-only
+programs succeed; Warning+ diagnostics fail. The default host catalog is empty,
+matching the core API; DECISIONS.md records this adopted reversible default.
+
+All seven quality gates pass: non-test core Clippy denies, cargo-deny
+across core's transitive all-feature/all-target graph including dev edges,
+ignore/style scanning, per-commit golden protection, covered/deferred audits,
+and milestone mutation testing. Eight CI shards must cover the frozen inventory
+exactly once, pass their baselines, match current source hashes and justify every
+survivor. A source-matched review file records the four known equivalents.
+
+All 69 diagnostic codes are audited. The following 59 have exact fixtures;
+`conformance/diagnostics.json` maps each to its cases. Conditional static recovery
+variants (including required defaults, enum/type omission/drop and unresolved
+slot/value contexts) are separately asserted.
+
+| Family | Covered codes |
+| --- | --- |
+| cap | `cap.fallback` |
+| expr | `expr.fmt_args`, `expr.lambda_misuse`, `expr.non_finite`, `expr.overflow`, `expr.tainted_url`, `expr.type`, `expr.unknown_fn` |
+| extract | `extract.extra_program`, `extract.version` |
+| limit | `limit.depth`, `limit.ir_depth`, `limit.list_len`, `limit.nodes`, `limit.program_size`, `limit.state`, `limit.stmt_count`, `limit.stmt_size`, `limit.string` |
+| name | `name.cycle`, `name.duplicate`, `name.no_root`, `name.orphan`, `name.reserved`, `name.unresolved` |
+| query | `query.too_many`, `query.unknown_tool` |
+| ref | `ref.invalid`, `ref.unknown` |
+| schema | `schema.a11y_missing`, `schema.bad_key`, `schema.bind_target`, `schema.dup_arg`, `schema.dup_key`, `schema.enum`, `schema.extra_positional`, `schema.min_items`, `schema.missing_required`, `schema.positional_after_named`, `schema.range`, `schema.required_by_name`, `schema.slot_kind`, `schema.type`, `schema.unknown_arg`, `schema.unknown_component` |
+| state | `state.const_default`, `state.undeclared` |
+| syntax | `syntax.bad_char`, `syntax.bad_escape`, `syntax.bad_utf8`, `syntax.bare_component`, `syntax.dup_key`, `syntax.missing_comma`, `syntax.stmt_shape`, `syntax.stray_closer`, `syntax.trailing`, `syntax.trailing_operator`, `syntax.unclosed_bracket`, `syntax.unterminated_string` |
+
+The remaining 10 codes cannot be emitted by the implemented static phase;
+`conformance/deferred.json` records their milestone and reason:
+
+| Code | Milestone | Reason |
+| --- | --- | --- |
+| `expr.div_zero` | M4 | Arithmetic is stored as Dynamic; division is not evaluated in M2. |
+| `expr.index_oob` | M4 | Indexing is evaluated against data in M4, even when its syntax is literal. |
+| `lib.mismatch` | M5 | Requires stored-message replay with a recorded library identity. |
+| `limit.event` | M4 | Requires construction of a gesture event, including resolved label and context. |
+| `limit.fuel` | M4 | Requires execution of a fuel-metered expression or action step. |
+| `query.denied` | M4 | Requires a host approval decision. |
+| `query.failed` | M4 | Requires a host tool delivery. |
+| `ref.too_large` | M4 | Requires resolved host data and delivery byte accounting. |
+| `render.panic` | M6 | Requires a renderer subtree boundary and renderer failure. |
+| `state.type_write` | M4 | Actions are inert plans; this code describes an executed state write. |
+
+For already-covered codes, runtime variants remain M4 work: arithmetic overflow
+and non-finiteness; state byte accounting during writes; dynamic
+fmt/provenance/type errors; list producers and evaluated each keys. Typed/escaped
+keys and duplicate/bad-key recovery are tested directly through the allocator in
+M2, without evaluating data. All runtime limit configuration and hard ceilings
+exist now; their execution/delivery enforcement is not claimed.
+
+Every spec change and its reason is recorded in `spec/CHANGELOG.md` and paired
+with affected fixtures/tests in the implementation commits:
+
+| Sections | Change | Why |
+| --- | --- | --- |
+| 2.5 | Count enclosing depth when growing binary/postfix prefixes; retain cutoff-null sentinels | Exact mutation-driven fixtures exposed a fresh local budget being granted inside outer expressions. |
+| 2.7 | Explicit builtin arities, lambda shapes/options; call namespace distinct from value bindings | Signatures did not fully define static validation or shadowing. |
+| 2.7, 2.10–2.11 | Lambda shadowing and node-template environment; locally checked orphans; root depth/count and alias depth; single-node roots; deferred plans | Avoid false instantiation errors, ambiguous root IDs and accidental data evaluation. |
+| 2.10, 12.3 | Permute the sealed table after syntax cutoffs; allocate concrete nodes/depth in canonical pre-order | Lexical byte/count cutoffs are inherently source ordered; semantic budgets/cycles must not be. |
+| 2.12 | Compact-JSON state byte cost, signed literal constants, canonical first syntactic binding, unused-state behavior | Define deterministic typing/allocation without an evaluator. |
+| 2.13–2.15 | Inert action steps, sibling preservation, literal typed emit target, canonical query-name budget and malformed tool signatures | Close recovery/order/target ambiguities without executing effects. |
+| 4.3 | Add cap.fallback and lib.mismatch rows | Other sections already required these codes, but the table omitted them. |
+| 4.4, 8.3 | Recovered-null metadata; required nullable values; transparent nullable enum/token/action/binding/slot behavior | Prevent duplicate diagnostics and reconcile the recovery ladder with optional types. |
+| 5.5 | Static Dynamic encoding, retained node/action/fallback definitions and environments; non-literal containers remain plans | Make the M2 output usable by M4 without partial evaluation or quadratic type expansion. |
+| 8.1, 8.4–8.5 | Checked defaults/metadata, self-contained examples, marked group references, total terminal fallback targets and immutable extension base | Make builder checks precise and keep extensions additive. Align the fallible std API example. |
+| 8.2–8.3 | Canonical number/object formatting, exclude the hash field, add generic any | A self-containing hash is undefined; generic data/state types needed an explicit type. |
+| 8.6, 5.5 | Terminal Text when markdown is absent; data/float fallback text retains an M4 formatter plan | Prevent unsupported fallback chains and raw JSON substituted for a chart table. |
+| 8.8 | Correct 29-entry count; structural TableColumn role; literal Facts record shape and ignored extra keys; Code highlighting optional | Align catalog metadata, IR roles and literal schema behavior. |
+| 12 | Strict M2 fixture inputs, additive recipes, frozen Library Spec bytes, explicit documentation host context, all exemplars, fence version gate and code deferrals | Make acceptance reproducible and prevent silent unsupported cases. |
+| 12.7 | Deterministic tree text, explicit deferred plans, empty host policy, diagnostics and exit status | Define the new inspection command without evaluation or hidden exemplar privileges. |
+| 12.8 | Covered/deferred files, scanner/theme/dependency scope, per-commit protection, frozen mutation inventory/eight-shard aggregation and reviewed equivalents | Make the new quality requirements executable and reproducible. Added exact recovery metadata, extractor, span, EOF, delimiter, invalid-key, container/index budget, lookahead, printer and public splitter regressions. |
+
+Final candidate 8a5d9e8 passes Linux, macOS and the quality job:
+https://github.com/ganeshmshetty/open-ui/actions/runs/39741887882 .
+The first complete mutation CI run (39716792722) correctly failed on 23
+unreviewed survivors: 499 caught, 75 unviable, 9 test timeouts, 26 survivors.
+The second complete run (39735047609) caught every earlier unreviewed survivor
+but exposed the additive printer precedence deletion (previously a timeout).
+It finished with 520 caught, 75 unviable, 9 test timeouts and 5 survivors, of
+which four are equivalent. A fixture and 338 deterministic operator pairs now
+assert the remaining rule. The focused timeout recheck caught four mutants and left nine test timeouts
+at 120 seconds, with zero survivors. The fresh eight-shard acceptance run
+passes all baselines, source/review checks and complete inventory aggregation:
+https://github.com/ganeshmshetty/open-ui/actions/runs/39741887850 .
+No failed or focused campaign is used as full acceptance.
+Local fmt, Clippy on Rust 1.94 and 1.99, workspace tests, fixtures, spec-check,
+fuzz formatting/builds, source/history and dependency checks pass.
+
+Fuzz history remains in fuzz/runs/m2/: the initial run was interrupted and the
+nullable checkpoint predates the formatter-plan correction. Original M2 acceptance
+on 2bd18eb completed 601 seconds / 71,760 executions. The contextual-depth fix
+receives fresh acceptance in fuzz/runs/m2-quality/: parser 601s / 95,490 executions,
+validator 601s / 44,685, exit 0, matching frozen source hashes at run completion,
+301 initial seeds. test-only-follow-up.json records the two later cfg(test)
+source changes; production behavior and fuzz-target code are unchanged.
+Both now vary expression-depth limits from 0 through 48. No crash was found.
+
+Mutation discovery tested all 609 original mutants: 428 caught, 75 unviable,
+57 timeouts, 49 survivors. That run is explicitly non-acceptance checkpoint
+evidence. The new suite addresses 46 survivors. Two equivalent temporary Span.end
+edits are overwritten by emit; complementing a private namespace tag preserves
+all duplicate-name membership. The fourth equivalent changes a skipped-range
+endpoint comparison that no filtered lexer error can equal (EOF or a valid header
+token). All four exact rationales and current containing-file hashes are recorded.
+Final CI reran every mutant, including every old timeout, with a 60-second
+test limit: 521 caught, 75 unviable, 9 test timeouts, 4 reviewed equivalents. All eight baselines and inventory/source/review
+aggregation passed. No old outcome was carried into acceptance.
+Complete per-mutant acceptance, inventory, discovery, timeout recheck and review
+records are in conformance/mutations/. Full raw outcomes, diffs and logs remain
+in the final CI artifacts; acceptance.json retains their hashes and every result.
+
+No unresolved M2 contract ambiguity is known. Decisions about roots, template
+scope, nullability, canonical allocation and deferred evaluation are explicit in
+the spec and fixtures. Runtime-dependent results and live-stream equivalence require M3/M4 validation.
+
+The required M3 open issue remains: `Splitter::finish()` suppresses BadChar,
+BadEscape, UnterminatedString, Overflow and NonFinite diagnostics inside
+size-cutoff skipped ranges. A streaming push may already have emitted them.
+M3 must hold those diagnostics provisional until the cutoff decision, or
+stream != batch. This milestone does not claim the issue is solved.
+
+Unrelated untracked `research/marketing/` files were left untouched. No files
+under `research/openui/` were opened, searched or copied.
+
+
+Open decisions: none blocking. The empty-host default for tree is adopted in
+DECISIONS.md and can be revisited without a compatibility or scope change.
+Naming/license/publishing remain ROADMAP item 10; no publishing decision was made.
+Next is ROADMAP item 14's GPUI spike, including the
+screenshot pipeline; M3 must then preserve the diagnostic issue recorded above.

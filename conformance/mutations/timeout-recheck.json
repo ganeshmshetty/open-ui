@@ -1,0 +1,79 @@
+{
+  "acceptance": false,
+  "purpose": "Supplementary focused recheck of prior CI timeout cases and the additive printer regression; full acceptance must still cover all 609 mutants.",
+  "test_timeout_seconds": 120,
+  "cargo_mutants_version": "27.1.0",
+  "started_utc": "2026-10-22T07:27:00.822928Z",
+  "finished_utc": "2026-10-22T07:37:53.188975Z",
+  "baseline_passed": true,
+  "counts": {
+    "CaughtMutant": 4,
+    "Timeout": 9
+  },
+  "raw_outcomes_sha256": "a25599d7267c8541a3c07d5487d8fb449497e31056ced7f6bc44012e8b953973",
+  "source_sha256": {
+    "crates/genui-core/src/syntax/splitter.rs": "2cbe5e2d354d860b35fbd0c6c543ae3274550f7774817d33d6904388e94637db",
+    "crates/genui-core/src/syntax/properties.rs": "8cd1cced08e4d5f034fd677cecb452cd4654e5dcbb9f386447f9e302374257ab",
+    "crates/genui-core/src/syntax/extract.rs": "407aad2b57e72d63f7a3ba5fa2c787306042d6dfc04d5aa53fe932359ba7fa09",
+    "crates/genui-core/src/syntax/source.rs": "f20d86eb4356f6cb5c6289321a13a8924c71c2d6fe1e437b5e979c0287152580",
+    "crates/genui-core/src/syntax/printer.rs": "d7c64cc31ace9db9b5d5773adac29f88a9646b1bf2b59895489df480530d3229",
+    "crates/genui-core/src/syntax/quality_tests.rs": "373815ef7b52342db80c144346da4fbfe39630bf9772abd4cdac67fe5a36d6cc",
+    "crates/genui-core/src/syntax/ast.rs": "9fd81aebfd2ddfb5e880358d50b80d386450a97a1a390d3452aa956b6ae1f41f",
+    "crates/genui-core/src/syntax/lexer.rs": "49fb48aa950021ab4508eaa8bbb29fed89c62b500a253929a55cb5555fcca286",
+    "crates/genui-core/src/syntax/parser.rs": "fb9d70012e2a02f6e132f2fe842d5855f49b4adcb2a6bddb82ea1e481ab21871"
+  },
+  "outcomes": [
+    {
+      "name": "crates/genui-core/src/syntax/lexer.rs:129:26: delete field end from struct Span expression in Lexer::emit",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/lexer.rs:135:25: delete field end from struct Span expression in Lexer::diagnose",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/lexer.rs:114:19: delete ! in Lexer::scan",
+      "summary": "Timeout"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/lexer.rs:144:9: replace Lexer::character -> bool with false",
+      "summary": "Timeout"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/parser.rs:224:9: replace ExpressionParser<'_>::skip_expression with ()",
+      "summary": "Timeout"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/parser.rs:233:22: replace += with *= in ExpressionParser<'_>::skip_expression",
+      "summary": "Timeout"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/printer.rs:166:9: delete match arm BinaryOp::Add | BinaryOp::Sub in precedence",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/parser.rs:300:29: replace -= with /= in ExpressionParser<'_>::primary",
+      "summary": "Timeout"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/source.rs:15:22: replace < with <= in Source::push",
+      "summary": "Timeout"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/source.rs:31:32: replace += with -= in Source::push",
+      "summary": "Timeout"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/source.rs:31:32: replace += with *= in Source::push",
+      "summary": "Timeout"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/splitter.rs:335:17: delete field end from struct Span expression in ScanState::check_size",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/splitter.rs:329:15: delete ! in ScanState::check_size",
+      "summary": "Timeout"
+    }
+  ]
+}

@@ -402,3 +402,36 @@ The local survivor-focused campaign caught the parser/printer/header/token
 regressions. Four remaining assertion gaps (three early-lookahead timing checks
 and a size cutoff inside a token) received exact tests. The full final CI run
 will recheck all 609 mutations; no focused result is substituted for acceptance.
+
+### Final review — e3a9b8f
+
+Reviewed the tree traversal/typed prop formatting, explicit default host policy,
+operational vs diagnostic exit paths, fixture/deferred audits, mutation inventory
+and source-matched rationale checks, and the production-vs-test-only delta after
+the accepted fuzz runs. No implementation review blocker remains. The open gate
+is the fresh four-shard mutation CI 39735047609; normal CI 39735047595 passes
+Linux, macOS and quality. Tree smoke testing examples/02-operations.ui produces
+its Stat grid and Facts panel with zero diagnostics. Main is not self-merged
+until all mutation shards and aggregation pass.
+
+### Second full-CI survivor checkpoint
+
+Run 39735047609 shard 2 passes (117 caught, 35 unviable, one test timeout).
+Shard 3 catches all prior unreviewed survivors but exposes one new survivor:
+deleting Add/Sub printer precedence, which had timed out in the first run.
+A fixture-first grouped expression and 338 deterministic operator-pair round
+trips now assert this rule; the baseline passes. The other timeout cases receive
+a focused 120-second recheck before restarting acceptance. Production code is
+unchanged. SPEC §12.8 and the gate now use eight disjoint shards for the same
+609 mutants and full workspace tests, reducing wall-clock latency without
+weakening completeness or review checks. Completion/self-merge remain pending.
+
+Current passing suite: 295 fixtures / 66,772 chunkings / 400 permutations,
+66 Rust tests, 10 Python gate tests and eight CLI text fixtures.
+
+The focused 120-second campaign completed: 13 mutants, four caught (including
+the additive printer rule and three span-field cases), nine test timeouts, zero
+survivors, successful baseline. It is supplementary evidence only, retained in
+conformance/mutations/timeout-recheck.json; a new full eight-shard CI campaign
+is required for acceptance. All production parser/validator code remains frozen
+at 9b9f8e4.

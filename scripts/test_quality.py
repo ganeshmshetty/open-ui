@@ -149,7 +149,7 @@ class MutationAggregationTests(unittest.TestCase):
             root = Path(directory)
             (root / "source.rs").write_text("original")
             hashes = {"source.rs": hashlib.sha256(b"original").hexdigest()}
-            inventory = [f"m{i}" for i in range(4)]
+            inventory = [f"m{i}" for i in range(mutation.SHARD_COUNT)]
             (root / "conformance/mutations").mkdir(parents=True)
             (root / "conformance/mutations/inventory.json").write_text(json.dumps(inventory))
             review = root / "review.json"
@@ -169,8 +169,8 @@ class MutationAggregationTests(unittest.TestCase):
                 mutation.aggregate(artifacts, review)
                 summary = json.loads((artifacts / "acceptance.json").read_text())
                 self.assertTrue(summary["acceptance"])
-                self.assertEqual(summary["generated"], 4)
-                self.assertEqual(summary["counts"], {"CaughtMutant": 4})
+                self.assertEqual(summary["generated"], 8)
+                self.assertEqual(summary["counts"], {"CaughtMutant": 8})
                 (root / "source.rs").write_text("changed")
                 with self.assertRaisesRegex(ValueError, "stale mutation source"):
                     mutation.aggregate(artifacts, review)

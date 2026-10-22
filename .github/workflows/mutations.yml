@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
@@ -23,7 +23,7 @@ jobs:
       - name: Install mutation tester
         run: cargo install cargo-mutants --version 27.1.0 --locked
       - name: Syntax and IR mutations with all workspace tests
-        run: python3 scripts/mutation.py --output mutation-results --shard ${{ matrix.shard }}/4
+        run: python3 scripts/mutation.py --output mutation-results --shard ${{ matrix.shard }}/8
       - name: Upload complete mutation evidence
         if: always()
         uses: actions/upload-artifact@v4

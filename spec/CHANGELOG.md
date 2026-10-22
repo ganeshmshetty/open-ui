@@ -1,5 +1,14 @@
 # Spec changelog
 
+## 2026-10-22 — Exhaustive printer pairs and faster mutation scheduling (§12.8)
+
+- A prior timeout became a survivor in the renewed CI run: deleting the additive
+  printer precedence rule. Add a grouped-expression fixture and 338 deterministic
+  operator-pair round trips. No production printer behavior changed.
+- Increase the complete campaign from four to eight disjoint CI shards to reduce
+  wall-clock latency; preserve the same 609-name inventory, full workspace tests,
+  baseline/source/review checks, and exact aggregation coverage.
+
 ## 2026-10-22 — Final mutation regression coverage (§12.8)
 
 - Extend exact assertions to container-prefix/index budgets, multi-entry map

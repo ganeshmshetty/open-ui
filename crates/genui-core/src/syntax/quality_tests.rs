@@ -383,3 +383,38 @@ fn splitter_preserves_empty_binder_and_suppresses_only_cutoff_repairs() {
         [Code::Depth, Code::UnclosedBracket]
     );
 }
+
+#[test]
+fn printer_round_trips_every_binary_operator_pair_in_both_positions() {
+    let operators = [
+        "+", "-", "*", "/", "%", "&&", "||", "==", "!=", "<", "<=", ">", ">=",
+    ];
+    for outer in operators {
+        for inner in operators {
+            for source in [
+                format!("root=(a {inner} b) {outer} c\n"),
+                format!("root=a {outer} (b {inner} c)\n"),
+            ] {
+                let parsed = super::parse_batch(source.as_bytes(), Default::default());
+                assert!(
+                    parsed.diagnostics.is_empty(),
+                    "{source}: {:?}",
+                    parsed.diagnostics
+                );
+                let printed = super::printer::print(&parsed.program);
+                let reparsed = super::parse_batch(printed.as_bytes(), Default::default());
+                assert!(
+                    reparsed.diagnostics.is_empty(),
+                    "{source} -> {printed}: {:?}",
+                    reparsed.diagnostics
+                );
+                assert_eq!(reparsed.program, parsed.program, "{source} -> {printed}");
+            }
+        }
+    }
+    let parsed = super::parse_batch(b"root=(1+2)*3\n", Default::default());
+    assert_eq!(
+        super::printer::print(&parsed.program),
+        "root = (1 + 2) * 3\n"
+    );
+}

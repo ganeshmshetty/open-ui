@@ -1944,7 +1944,7 @@ deletions and renames; a later spec edit cannot excuse an earlier golden change.
 The milestone-only mutation workflow runs manually or on an explicit
 `[mutation-gate]` push, and checks all syntax/IR mutants with workspace
 tests in an isolated project-only copy. Results, source hashes, tool version and
-any survivor rationale are retained in milestone metadata. Four CI shards must
+any survivor rationale are retained in milestone metadata. Eight CI shards must
 cover the frozen inventory exactly once and use identical current source hashes;
 each baseline must pass, and every survivor needs a source-matched rationale.
 Build timeouts fail the gate; test timeouts are killed mutants under the mutation
@@ -1954,7 +1954,7 @@ include EOF without a terminating newline for pending symbols, `$`, `\u` and
 `\u{...`; token and recovery spans are asserted directly. Expression-depth
 cutoff cases retain enclosing delimiters and siblings while skipping nested
 call/list/map syntax. Negative grammar cases distinguish invalid separator,
-member-key and map-key tokens from missing-comma recovery. Container prefixes and index operands are checked against enclosing expression budgets. Public splitter token spellings, cutoff spans and empty binders, contextual header rejection, and multi-entry map printing have exact assertions.
+member-key and map-key tokens from missing-comma recovery. Container prefixes and index operands are checked against enclosing expression budgets. Public splitter token spellings, cutoff spans and empty binders, contextual header rejection, and multi-entry map printing have exact assertions. Deterministic binary-operator pair tests cover both grouped operand positions in addition to generated round trips.
 
 ## 13. Public Rust API sketch
 

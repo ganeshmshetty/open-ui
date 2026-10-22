@@ -1,0 +1,9 @@
+{
+  "title": "grouped arithmetic precedence survives printing",
+  "tier": "core",
+  "tags": [
+    "grammar",
+    "mutation"
+  ],
+  "notes": "SPEC \u00a72.5: grouping an additive expression under multiplication must retain the AST."
+}

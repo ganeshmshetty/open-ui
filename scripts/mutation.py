@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
+SHARD_COUNT = 8
 
 
 def review_outcomes(outcomes, generated, hashes, review):
@@ -49,8 +50,8 @@ def inventory_errors(groups, expected):
 
 def aggregate(directory, review_path):
     folders = sorted(p for p in directory.iterdir() if p.is_dir())
-    if len(folders) != 4:
-        raise ValueError("expected exactly four mutation shards")
+    if len(folders) != SHARD_COUNT:
+        raise ValueError("expected exactly eight mutation shards")
     review = json.loads(review_path.read_text())
     groups, results, manifests, raw_hashes = [], [], [], {}
     errors = []
@@ -83,7 +84,7 @@ def aggregate(directory, review_path):
         "acceptance": True,
         "implementation_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
         "cargo_mutants_version": sorted({r["cargo_mutants_version"] for r in results}),
-        "shards": 4,
+        "shards": SHARD_COUNT,
         "generated": len(outcomes),
         "counts": dict(sorted(Counter(o["summary"] for o in outcomes).items())),
         "started_utc": min(r["start_time"] for r in results),

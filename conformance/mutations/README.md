@@ -7,7 +7,7 @@ This directory contains milestone metadata, not conformance cases.
 - discovery.json records the historical first pass, including all 49 survivors.
   It is not acceptance: the parser budget and regression suite changed afterward,
   and the 30-second test timeout was too tight under concurrent workloads.
-- The final CI gate runs four disjoint shards with a 60-second test timeout and
+- The final CI gate runs eight disjoint shards with a 60-second test timeout and
   all workspace tests. Aggregation rejects missing/duplicate mutants, failed
   baselines, incomplete runs, unreviewed survivors and stale source manifests.
   Build timeouts fail; test timeouts are killed mutants under cargo-mutants' model.

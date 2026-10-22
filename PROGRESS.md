@@ -272,3 +272,14 @@ provisional-diagnostic issue above remains open. Runtime behavior, ref/tool
 handling, field validation, event execution and resolved output remain M4;
 message/prompt/replay work remains M5, and the renderer remains M6–M8.
 Unrelated research/marketing files remain untouched.
+
+
+### M2 follow-up — main integration and inspection gates
+
+Merging local main (91e6a79), which adds SPEC §§12.7–12.8, ROADMAP items
+12–18 and the decisions/report/self-merge rules. The changelog conflict keeps
+both branches' entries. M2 is reopened for the required `genui-cli tree` command;
+quality gates 1–7 follow immediately, before any GPUI spike. No M3 or spike work
+is started. Existing M2 fuzz evidence remains attached to unchanged core source.
+Next: exact CLI output fixtures first, implement tree inspection, then add and
+exercise the seven quality gates, record evidence and update the milestone report.

@@ -85,6 +85,12 @@ cargo run -p genui-cli -- fixtures      # run conformance suite with all chunkin
 cargo +nightly fuzz run parser -- -max_total_time=600
 ```
 
+## Decisions and milestone reports
+
+- **Don't block on owner decisions.** Log them in `DECISIONS.md` (question, options, your recommended default, what you did meanwhile) and keep going with the default unless it is irreversible or changes scope. The owner answers in batches.
+- **Milestone report** (end of every milestone, also appended to PROGRESS.md): gates passed with numbers; spec changes and why; open DECISIONS.md items; risks; what the next milestone needs.
+- **Self-merge:** you may merge your own milestone branch into main when every CI gate (SPEC §12.7–12.8) is green and the milestone review has no open blockers.
+
 ## Asking for help
 
 When a decision is genuinely the project owner's (naming, scope, un-deferring an Appendix A item), stop and ask instead of guessing.

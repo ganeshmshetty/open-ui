@@ -4,6 +4,7 @@ import argparse
 from collections import Counter
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -111,6 +112,18 @@ def main():
         return 0
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
+    # Keep the full live chunk harness practical under concurrent mutations,
+    # without retaining large debug-symbol caches in each isolated build.
+    environment = os.environ.copy()
+    environment.update({
+        "CARGO_PROFILE_DEV_DEBUG": "0",
+        "CARGO_PROFILE_TEST_DEBUG": "0",
+        "CARGO_PROFILE_TEST_OPT_LEVEL": "1",
+    })
+    (output / "test-profile.json").write_text(json.dumps({
+        key: environment[key] for key in ["CARGO_PROFILE_DEV_DEBUG",
+            "CARGO_PROFILE_TEST_DEBUG", "CARGO_PROFILE_TEST_OPT_LEVEL"]
+    }, indent=2) + "\n")
     with tempfile.TemporaryDirectory(prefix="genui-mutations-") as directory:
         source = Path(directory)
         paths = subprocess.check_output([
@@ -128,7 +141,7 @@ def main():
             if name.startswith("crates/genui-core/src/") and name.endswith(".rs"):
                 hashes[name] = hashlib.sha256(path.read_bytes()).hexdigest()
         (output / "source.json").write_text(json.dumps(hashes, indent=2) + "\n")
-        subprocess.run(["cargo", "test", "--workspace", "--locked"], cwd=source, check=True)
+        subprocess.run(["cargo", "test", "--workspace", "--locked"], cwd=source, env=environment, check=True)
         command = ["cargo", "mutants", "--dir", str(source), "-p", "genui-core",
                    "-f", "crates/genui-core/src/syntax.rs", "-f", "crates/genui-core/src/syntax/**",
                    "-f", "crates/genui-core/src/ir.rs",
@@ -137,7 +150,7 @@ def main():
                    "--timeout", "60", "--build-timeout", "300", "--output", str(output)]
         if args.shard:
             command.extend(["--shard", args.shard])
-        result = subprocess.run(command, cwd=ROOT, check=False)
+        result = subprocess.run(command, cwd=ROOT, env=environment, check=False)
     outcomes_file = output / "mutants.out/outcomes.json"
     mutants_file = output / "mutants.out/mutants.json"
     if not outcomes_file.is_file() or not mutants_file.is_file():

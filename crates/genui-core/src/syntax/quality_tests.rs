@@ -57,6 +57,133 @@ fn nested(null: Expr) -> Vec<Expr> {
 }
 
 #[test]
+fn tracked_source_preserves_raw_endpoints_for_repairs_and_crlf() {
+    use super::source::Source;
+    let mut source = Source::tracked();
+    assert_eq!(source.push(b"a\r\nb", false), "a\nb");
+    assert_eq!(source.take_raw_ends(), vec![1, 3, 4]);
+    assert_eq!(source.push(b"\xf0", false), "");
+    assert!(source.take_raw_ends().is_empty());
+    assert_eq!(source.push(b"", true), "\u{fffd}");
+    assert_eq!(source.take_raw_ends(), vec![5]);
+    assert!(source.bad_utf8);
+}
+
+#[test]
+fn provisional_numeric_span_stays_relative_to_its_original_token() {
+    let mut lexer = super::Lexer::default();
+    lexer.push(b"\nroot=123");
+    let events = lexer.provisional_events();
+    assert_eq!(events.len(), 1);
+    let super::LexEvent::Token(token) = &events[0] else {
+        panic!("number token required")
+    };
+    assert_eq!(token.token.kind, super::TokenKind::Int);
+    assert_eq!(token.token.text, "123");
+    assert_eq!(
+        (
+            token.span.start,
+            token.span.end,
+            token.span.line,
+            token.span.column
+        ),
+        (6, 9, 2, 6)
+    );
+}
+
+#[test]
+fn live_splitter_source_and_committed_cutoff_diagnostics_are_exact() {
+    use super::splitter::Splitter;
+    use crate::{diag::Code, limits::SyntaxLimits};
+    let mut s = Splitter::new(SyntaxLimits::default());
+    s.push(b"\xef\xbb\xbfroot=Text(\"a\")\r");
+    assert_eq!(s.source(), "root=Text(\"a\")");
+    s.push(b"\nother=Divider()\n");
+    assert_eq!(s.source(), "root=Text(\"a\")\nother=Divider()\n");
+
+    let mut s = Splitter::new(SyntaxLimits {
+        max_stmt_bytes: 0,
+        ..Default::default()
+    });
+    s.push(b"a=Text(");
+    let diagnostics = s.diagnostics();
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].code, Code::StmtSize);
+    assert_eq!(
+        diagnostics[0].span.as_ref().map(|s| (s.start, s.end)),
+        Some((0, 0))
+    );
+    assert!(!diagnostics[0].provisional);
+
+    let mut s = Splitter::new(SyntaxLimits {
+        max_stmt_bytes: 5,
+        ..Default::default()
+    });
+    s.push("a=§\"abcdef\\q".as_bytes());
+    assert_eq!(
+        s.diagnostics().iter().map(|d| d.code).collect::<Vec<_>>(),
+        vec![Code::BadChar, Code::StmtSize]
+    );
+    s.push(b"more");
+    assert_eq!(
+        s.diagnostics().iter().map(|d| d.code).collect::<Vec<_>>(),
+        vec![Code::BadChar, Code::StmtSize]
+    );
+}
+
+#[test]
+fn closed_tail_keeps_complete_lambda_bodies_and_removes_only_unfinished_heads() {
+    use super::splitter::Splitter;
+    for (input, expected) in [
+        ("root=Button(\"Go\",on_click:|x, ", "root=Button(\"Go\")\n"),
+        (
+            "root=Column(each([1],|x|Text(\"a",
+            "root=Column(each([1],|x|Text(\"a\")))\n",
+        ),
+        ("root=Text(foo+ ", "root=Text(foo)\n"),
+        ("root=Text(1: ", "root=Text(1)\n"),
+        ("root=Text(\"kept\",true: ", "root=Text(\"kept\")\n"),
+        ("root=Text(\"kept\",false: ", "root=Text(\"kept\")\n"),
+        ("root=Text(\"kept\",null: ", "root=Text(\"kept\")\n"),
+    ] {
+        let mut s = Splitter::new(Default::default());
+        s.push(input.as_bytes());
+        let (tail, diagnostics) = s.provisional().unwrap();
+        assert!(diagnostics.is_empty(), "{input}: {diagnostics:?}");
+        let parsed = super::parser::parse_split(
+            super::splitter::SplitResult {
+                statements: vec![tail],
+                diagnostics,
+            },
+            &Default::default(),
+        );
+        let wanted = super::parse_batch(expected.as_bytes(), Default::default());
+        assert_eq!(
+            parsed.program, wanted.program,
+            "{input}: {:?}",
+            parsed.diagnostics
+        );
+        assert!(
+            parsed.diagnostics.is_empty(),
+            "{input}: {:?}",
+            parsed.diagnostics
+        );
+    }
+    let mut query = Splitter::new(Default::default());
+    query.push(b"query q=x: ");
+    let (tail, diagnostics) = query.provisional().unwrap();
+    assert!(diagnostics.is_empty());
+    assert_eq!(tail.header.as_ref().unwrap().rhs, 3);
+    assert_eq!(
+        tail.tokens
+            .iter()
+            .map(|t| t.token.text.as_str())
+            .collect::<Vec<_>>(),
+        vec!["query", "q", "="]
+    );
+}
+
+#[test]
 fn recovery_metadata_survives_every_expression_container() {
     for (literal, recovered) in nested(Expr::null())
         .into_iter()

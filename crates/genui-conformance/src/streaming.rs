@@ -519,6 +519,26 @@ mod tests {
         )))
     }
     #[test]
+    fn explicit_program_mode_does_not_extract_a_model_message() {
+        let library = Arc::new(genui_std::std_library().unwrap());
+        let input = b"Here is UI:\n```ui\nroot=Divider()\n```\n";
+        let mut program = Session::new(SessionOptions::program(library.clone()));
+        program.push(input);
+        program.finish();
+        assert!(
+            program
+                .diagnostics()
+                .iter()
+                .any(|d| d.code == genui_core::diag::Code::BadChar)
+        );
+        assert!(program.segments().is_empty());
+        let mut message = Session::new(SessionOptions::new(library));
+        message.push(input);
+        message.finish();
+        assert!(message.diagnostics().is_empty());
+        assert!(matches!(&message.segments()[0], Segment::Markdown(s) if s == "Here is UI:\n"));
+    }
+    #[test]
     fn strings_escapes_numbers_failure_and_new_definition_sealing_are_live() {
         let mut s = session();
         s.push(b"root=Text(\"kept");
@@ -678,6 +698,24 @@ mod tests {
         assert_eq!(s.dirty().instances["root/children:@stable"], old);
         assert!(!s.dirty().dirty.contains("stable"));
         assert!(update.patches.unwrap().ops.iter().all(|op|!matches!(op,genui_core::patch::Op::SetProps{id,..}|genui_core::patch::Op::AppendText{id,..}|genui_core::patch::Op::Remove{id}|genui_core::patch::Op::SetStatus{id,..}if id.starts_with("root/children:@stable"))));
+    }
+    #[test]
+    fn dependency_revisions_include_both_binary_and_index_operands() {
+        let mut s = session();
+        s.push(b"left=2\nright=3\nrows=[1,2]\ni=0\ntotal=left+right\nitem=rows[i]\nroot=Column([Stat(\"Total\",total),Stat(\"Item\",item)])\n");
+        assert_eq!(s.dirty().reverse["left"], ["total".into()].into());
+        assert_eq!(s.dirty().reverse["right"], ["total".into()].into());
+        assert_eq!(s.dirty().reverse["rows"], ["item".into()].into());
+        assert_eq!(s.dirty().reverse["i"], ["item".into()].into());
+        let revision = &s.dirty().instances["root"];
+        assert_eq!(revision.origin_rev, 1);
+        assert_eq!(
+            revision.dep_revs,
+            ["left", "right", "rows", "i", "total", "item"]
+                .into_iter()
+                .map(|n| (n.to_string(), 1))
+                .collect()
+        );
     }
     #[test]
     fn snapshot_reset_and_diagnostic_deltas_have_no_sequence_gaps() {

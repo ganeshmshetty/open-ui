@@ -1,0 +1,167 @@
+{
+  "accepted": false,
+  "kind": "focused discovery, not full milestone acceptance",
+  "generated": 34,
+  "counts": {
+    "MissedMutant": 8,
+    "CaughtMutant": 26
+  },
+  "outcomes": [
+    {
+      "name": "crates/genui-core/src/session.rs:42:13: delete field input from struct Self expression in SessionOptions::program",
+      "summary": "MissedMutant"
+    },
+    {
+      "name": "crates/genui-core/src/session.rs:629:9: delete match arm Expr::Binary{left, right, ..} | Expr::Index{base:left, index:right,} in dependencies",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/lexer.rs:82:13: delete field cursor from struct Self expression in Lexer::provisional_events",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/lexer.rs:81:13: delete field start from struct Self expression in Lexer::provisional_events",
+      "summary": "MissedMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/lexer.rs:168:26: delete field end from struct Span expression in Lexer::emit",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/lexer.rs:174:25: delete field end from struct Span expression in Lexer::diagnose",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/lexer.rs:458:30: replace + with - in Lexer::number",
+      "summary": "MissedMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/lexer.rs:458:30: replace + with * in Lexer::number",
+      "summary": "MissedMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/parser.rs:136:46: replace == with != in parse_split",
+      "summary": "MissedMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/source.rs:17:13: delete field tracking from struct Self expression in Source::tracked",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/source.rs:67:56: replace + with - in Source::push",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/source.rs:67:56: replace + with * in Source::push",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/source.rs:95:46: replace == with != in Source::push",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/splitter.rs:97:9: replace Splitter::source -> &str with \"\"",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/splitter.rs:97:9: replace Splitter::source -> &str with \"xyzzy\"",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/splitter.rs:114:33: replace > with >= in Splitter::diagnostics",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/splitter.rs:149:16: delete ! in Splitter::provisional",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/splitter.rs:149:34: replace + with - in Splitter::provisional",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/splitter.rs:149:34: replace + with * in Splitter::provisional",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/splitter.rs:151:26: delete ! in Splitter::provisional",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/splitter.rs:156:34: replace <= with > in Splitter::provisional",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/splitter.rs:163:21: replace && with || in Splitter::provisional",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/splitter.rs:162:21: replace && with || in Splitter::provisional",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/splitter.rs:161:50: replace == with != in Splitter::provisional",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/splitter.rs:162:26: replace >= with < in Splitter::provisional",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/splitter.rs:162:34: replace + with - in Splitter::provisional",
+      "summary": "MissedMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/splitter.rs:162:34: replace + with * in Splitter::provisional",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/splitter.rs:168:44: replace - with / in Splitter::provisional",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/splitter.rs:255:48: replace < with <= in ScanState::suppressed",
+      "summary": "MissedMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/splitter.rs:258:66: replace && with || in ScanState::suppressed",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/splitter.rs:258:53: replace < with == in ScanState::suppressed",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/splitter.rs:258:53: replace < with > in ScanState::suppressed",
+      "summary": "CaughtMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/splitter.rs:258:53: replace < with <= in ScanState::suppressed",
+      "summary": "MissedMutant"
+    },
+    {
+      "name": "crates/genui-core/src/syntax/splitter.rs:447:17: delete field end from struct Span expression in ScanState::check_size",
+      "summary": "CaughtMutant"
+    }
+  ],
+  "raw_outcomes_sha256": "a8de2a11a47c455794aabd4060633a2e473a0265ab2107a5a52363ca96721128",
+  "subsequent_regressions": [
+    {
+      "mutation": "crates/genui-core/src/session.rs: delete input: InputMode::Program,",
+      "regression": "explicit_program_mode_does_not_extract_a_model_message",
+      "exit_code": 101,
+      "killed": true,
+      "log": "explicit_program_mode_does_not_extract_a_model_message.log",
+      "log_sha256": "31c5d9b16ab22d33cc37c874b1dc6214d18dc650a112b88a2cbcef641efd5966"
+    },
+    {
+      "mutation": "crates/genui-core/src/syntax/lexer.rs: delete start: self.start.clone(),",
+      "regression": "provisional_numeric_span_stays_relative_to_its_original_token",
+      "exit_code": 101,
+      "killed": true,
+      "log": "provisional_numeric_span_stays_relative_to_its_original_token.log",
+      "log_sha256": "0ddd27aac418e59482bfca84f159e901b516da3ea54e4e1204a626c247fdd90a"
+    }
+  ],
+  "note": "26 caught / 8 survivors in the first focused run; six reviewed equivalents and two additional assertion gaps. The two new regressions kill both additional mutations explicitly. Full fresh eight-shard gate is still required."
+}

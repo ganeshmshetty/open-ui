@@ -1,0 +1,18 @@
+{
+  "non_acceptance_runs": [
+    {
+      "log": "smoke.log",
+      "engine_seconds": 61,
+      "executions": 224333,
+      "exit_code": 0,
+      "reason": "Discovery smoke; shorter than the mandatory 600 seconds."
+    },
+    {
+      "log": "interrupted-provisional-alias.log",
+      "executions": 89119,
+      "exit_code": 72,
+      "reason": "Stopped to fix the provisional action alias regression before acceptance."
+    }
+  ],
+  "acceptance": "acceptance.json"
+}

@@ -11,8 +11,14 @@
     "ci.json": "2397bbf6505d01bb2d493a9b9b22a8f679a0efaf8545c91e6c1c0754409da681",
     "fixtures.log": "a0a2561c953967fb1a0daf44e9485d29a42da71baa5cc16eedef1cbf0be69e35",
     "preserve.log": "2d8aa3ab32274ca0a4a59dbbd0d9613249ea76cd5b91246def09af8617cbb289",
+    "regressions-clippy.log": "345598841c620aab2a3c33b20d5c00c6e735c5da90d7f823d98dc25c22e0a701",
+    "regressions-fixtures.log": "387472b82727bef51528223d7c777389f466411a79d2ee78ea24dbcf120c4d4a",
+    "regressions-preserve.log": "1410c2cd92f6598b3e81795e55fd1f88cd37f4d1b8613954aa029e4b5b665e73",
+    "regressions-spec-check.log": "2e97b1148ffba7e46b616659b138b10fc2c5ecf6a498fa99f25ea10b98bf76bd",
+    "regressions-tests.log": "b3fa896de24508b73f43a7badc1f53b9942f59a375e222e18449a1b13bfa1d2c",
     "spec-check.log": "1aa5946140926396406eaf4a1eec34e788edca1fe93a03a8b8ef36a64deec619",
     "workspace.log": "748795bf9763922879debb517c043bbd96da2e735cf7fe585bfab82066a52386"
   },
-  "cpu": "Apple M2"
+  "cpu": "Apple M2",
+  "follow_up": "cfg(test)-only mutation regressions; production commit ffd602f unchanged; see fuzz/runs/m3/test-only-follow-up.json"
 }

@@ -1,0 +1,23 @@
+   Compiling genui-core v0.1.0 (/private/tmp/genui-m3-survivor-source/crates/genui-core)
+   Compiling genui-std v0.1.0 (/private/tmp/genui-m3-survivor-source/crates/genui-std)
+   Compiling genui-prompt v0.1.0 (/private/tmp/genui-m3-survivor-source/crates/genui-prompt)
+   Compiling genui-conformance v0.1.0 (/private/tmp/genui-m3-survivor-source/crates/genui-conformance)
+    Finished `test` profile [optimized] target(s) in 8.32s
+     Running unittests src/lib.rs (target/debug/deps/genui_conformance-08cf1b9a796f9ed4)
+
+running 1 test
+
+thread 'streaming::tests::explicit_program_mode_does_not_extract_a_model_message' (32662011) panicked at crates/genui-conformance/src/streaming.rs:528:9:
+assertion failed: program.diagnostics().iter().any(|d|
+        d.code == genui_core::diag::Code::BadChar)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test streaming::tests::explicit_program_mode_does_not_extract_a_model_message ... FAILED
+
+failures:
+
+failures:
+    streaming::tests::explicit_program_mode_does_not_extract_a_model_message
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 25 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p genui-conformance --lib`

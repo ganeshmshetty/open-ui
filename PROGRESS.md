@@ -730,3 +730,75 @@ ROADMAP 13's replay command is implemented and tested. Final Criterion: 64-byte
 chunk / 1,000 nodes 7.594ms, sampled p99 8.827ms; 200KiB syntax batch 3.745ms,
 validated batch 8.202ms. Chunk target missed; I7 dirty-only maintenance remains
 an explicit external-review issue. Full report: docs/milestones/M3.md.
+
+M2 cutoff issue resolved in M3: fixtures streaming/014–019 exercise all five
+cutoff-sensitive lexer diagnostics, plus retention of an independent earlier
+error, under mandatory byte-by-byte and all other chunkings. Diagnostics inside
+skipped ranges stay provisional and are withdrawn before sealing.
+
+Mutation infrastructure note: shard 4 of run 39777596929 received a runner
+shutdown signal at 12:42 UTC and could not upload evidence. The other seven
+shards remain useful and continue. GitHub rejects a job retry while this run is
+active; retry only missing/failed shards after completion. No incomplete shard
+is acceptance evidence.
+
+### Owner-requested pause and disk cleanup — 2026-10-22
+
+Owner requested stopping local work while CI runs, and reducing repository disk
+usage. Stopped the local shard-4 mutation process and its children, plus the CI
+watch process. GitHub CI was left running for the owner's update; no new runs,
+retries or PR were created. Local shard 4 is explicitly incomplete: baseline
+success, 57 caught, 14 unviable, 2 timeouts, 1 already-reviewed equivalent; its
+partial logs/results remain in /private/tmp/genui-m3-local-shard4 and are not
+acceptance evidence.
+
+Removed only generated Cargo build artifacts: workspace dev cache (cargo reports
+17.3 GiB logical bytes), fuzz target cache (905 MiB), and an obsolete M2 temporary
+source target cache (293 MiB). Stopping mutations also cleaned its isolated build
+copies. Source, fixtures, committed benchmark/fuzz evidence, release outputs and
+Criterion results are preserved. No source changes or fresh tests were needed
+for this cleanup; do not rebuild until the owner resumes work.
+
+M3 remains incomplete: full I7 dirty-only maintenance and complete mutation
+acceptance are open. Code commit ffd602f is pushed; local evidence commit 4c14fbc
+and subsequent progress/report/history notes remain to be pushed/committed.
+No PR exists yet, and no self-merge occurred. Next: wait for the owner to report
+CI completion, inspect complete results and resolve the remaining blockers.
+
+### M3 mutation follow-up after owner reported three failed jobs
+
+Normal CI is green. Mutation shards 1 and 6 failed on assertion gaps; shard 4
+received a runner shutdown and uploaded no evidence. Seven complete shards
+cover 846 candidates: 388 caught, 346 test timeouts, 86 unviable, 26 survivors.
+Preserved as non-acceptance discovery in conformance/mutations/m3/discovery.json.
+
+Added direct regressions for binary/index dependency edges and revisions, explicit
+Program-vs-Message input, provisional numeric spans, repaired raw endpoints,
+CRLF endpoints, normalized splitter source, complete/incomplete lambda heads,
+named-key/token tails, and active cutoff diagnostic filtering. Existing goldens
+and production core behavior are unchanged. One additional mathematically
+redundant bound is reviewed with its precise invariant; six total equivalent
+mutants have source-matched rationales. A focused 34-candidate recheck caught 26
+and left six equivalents plus two new gaps; explicit mutant applications prove
+the final two added regressions kill both remaining gaps. This focused work is
+not full milestone acceptance.
+
+Mutation builds now use opt-level 1 tests and no debug symbols, retaining debug
+assertions/full workspace tests. Local workspace runtime drops to ~7 seconds and
+build artifacts stay around 1 GiB instead of ~13 GiB. The inventory remains
+967 names. All eight shards must be rerun against the same updated audited
+source hashes; mixing old passing shards with new source would fail the gate.
+Production/fuzz-target hashes remain unchanged; the cfg(test)-only follow-up
+is documented in fuzz/runs/m3/test-only-follow-up.json, preserving the original
+601s fuzz evidence. Final local gates and one fresh CI campaign are next; pause
+local work while CI runs, as requested by the owner. I7 remains unresolved and
+M3 is not marked done; no PR or merge yet.
+
+Follow-up local gates pass with clean crate artifacts: 90 Rust tests, also with
+serde_json/preserve_order, all 323 fixtures / 73,503 chunkings / 400 permutations,
+spec-check, fmt, Clippy -D warnings and source checks. The manual mutation recheck
+initially contaminated a shared build cache; affected workspace crate artifacts
+were removed and every final gate was rebuilt cleanly. No mutated source touched
+the repository. Final logs are in docs/milestones/evidence/m3/regressions-*.log.
+A single fresh eight-shard campaign will be triggered by this follow-up commit;
+pause local jobs/monitoring after push and wait for the owner's CI update.

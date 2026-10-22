@@ -1990,7 +1990,13 @@ cover the frozen inventory exactly once and use identical current source hashes;
 each baseline must pass, and every survivor needs a source-matched rationale.
 Build timeouts fail the gate; test timeouts are killed mutants under the mutation
 tool's model. Direct public API contracts and nested
-recovery metadata need assertions as well as end-to-end fixtures. Lexical cases
+recovery metadata need assertions as well as end-to-end fixtures. Streaming
+assertions include both operands of binary/index dependencies, raw byte endpoints
+after UTF-8 repair and CRLF normalization, exact closed-copy lambda/named-argument
+tails, and live cutoff diagnostic retention/suppression before resynchronization.
+Mutation builds may optimize tests and omit debug symbols; all workspace tests,
+the complete inventory and the source-matched survivor review remain mandatory.
+Lexical cases
 include EOF without a terminating newline for pending symbols, `$`, `\u` and
 `\u{...`; token and recovery spans are asserted directly. Expression-depth
 cutoff cases retain enclosing delimiters and siblings while skipping nested

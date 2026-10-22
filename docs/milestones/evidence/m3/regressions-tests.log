@@ -1,0 +1,175 @@
+   Compiling genui-core v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-core)
+   Compiling genui-std v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-std)
+   Compiling genui-prompt v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-prompt)
+   Compiling genui-conformance v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-conformance)
+   Compiling genui-gpui v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-gpui)
+   Compiling genui-cli v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-cli)
+    Finished `test` profile [optimized] target(s) in 10.52s
+     Running unittests src/main.rs (target/debug/deps/genui_cli-266cd18cc04a8ac1)
+
+running 1 test
+test tests::bad_arguments_fail ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/replay.rs (target/debug/deps/replay-06cf3d5c177a67f6)
+
+running 1 test
+test replay_exact_output_and_bad_chunk_arguments ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.61s
+
+     Running tests/tree.rs (target/debug/deps/tree-c11a4f8745aa3423)
+
+running 2 tests
+test tree_requires_one_readable_path ... ok
+test tree_output_and_exit_status_match_fixtures ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests src/lib.rs (target/debug/deps/genui_conformance-08cf1b9a796f9ed4)
+
+running 26 tests
+test chunks::tests::explicit_stream_must_preserve_source ... ok
+test chunks::tests::all_chunkings_preserve_bytes_and_include_internal_utf8_and_crlf_splits ... ok
+test chunks::tests::large_inputs_skip_two_way_splits ... ok
+test spec_check::syntax_gate_tests::invalid_tag_requires_actual_diagnostics ... ok
+test spec_check::tests::extracts_only_ui_fences_outside_other_fences ... ok
+test spec_check::syntax_gate_tests::lexically_valid_syntax_errors_fail_complete_and_fragment_examples ... ok
+test spec_check::tests::unicode_prose_does_not_panic ... ok
+test spec_check::tests::bad_examples_and_unclosed_fences_fail ... ok
+test streaming::tests::dependency_revisions_include_both_binary_and_index_operands ... ok
+test streaming::tests::explicit_program_mode_does_not_extract_a_model_message ... ok
+test streaming::tests::parse_once_counters_and_cutoff_sensitive_diagnostics_are_live ... ok
+test streaming::tests::pending_named_colon_does_not_invent_a_positional_argument ... ok
+test streaming::tests::late_state_rebinds_and_canonical_budgets_remove_previously_visible_nodes ... ok
+test spec_check::version_gate_tests::fence_versions_use_the_protocol_extractor ... ok
+test streaming::tests::provisional_state_queries_and_actions_cannot_escape ... ok
+test streaming::tests::snapshot_reset_and_diagnostic_deltas_have_no_sequence_gaps ... ok
+test tests::diagnostics_are_compared_as_a_multiset ... ok
+test streaming::tests::unchanged_static_subtrees_are_reused_and_do_not_emit_prop_updates ... ok
+test streaming::tests::strings_escapes_numbers_failure_and_new_definition_sealing_are_live ... ok
+test tests::schema_checking_preserves_semantic_map_source_order ... ok
+test semantic::audit_tests::every_spec_code_is_covered_or_explicitly_deferred ... ok
+test semantic::audit_tests::all_declared_recovery_variants_have_fixtures ... ok
+test spec_check::tests::checked_in_spec_parses ... ok
+test tests::schemas_reject_unknown_fields_and_bad_types ... ok
+test properties::tests::generated_streams_equal_batch ... ok
+test tests::checked_in_conformance ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.72s
+
+     Running unittests src/lib.rs (target/debug/deps/genui_core-0b83aa1d4ed283ad)
+
+running 55 tests
+test limits::tests::all_semantic_limits_have_hard_ceilings ... ok
+test canonical::tests::every_json_control_escape_has_fixed_bytes ... ok
+test canonical::tests::reordered_objects_have_identical_bytes ... ok
+test ir::tests::collision_compares_strings_and_rehashes ... ok
+test ir::tests::typed_keys_escape_only_reserved_characters ... ok
+test limits::tests::zero_is_a_valid_lowered_limit ... ok
+test canonical::tests::byte_vectors_sort_every_object_without_changing_array_order ... ok
+test patch::tests::epochs_gaps_and_repair_snapshots_are_explicit ... ok
+test patch::tests::unknown_ids_bad_indices_and_ancestor_moves_request_repair_without_panicking ... ok
+test patch::tests::wire_maps_preserve_entry_order_and_reserved_keys_without_backend_dependence ... ok
+test patch::tests::diff_coalesces_props_appends_reorders_and_kind_replacements ... ok
+test patch::tests::replay_orders_children_removes_subtrees_and_marks_only_touched_nodes ... ok
+test syntax::properties::no_duplicate_utf8_diagnostic_for_multiple_bad_sequences ... ok
+test syntax::properties::scanner_holds_growing_tokens_utf8_and_cr ... ok
+test syntax::properties::query_and_state_ast_are_distinct ... ok
+test syntax::properties::resync_seals_previous_statement_before_next_line_ends ... ok
+test syntax::properties::size_recovery_keeps_token_locations_in_the_original_program ... ok
+test syntax::properties::printer_preserves_float_type_escapes_and_lambda_keys ... ok
+test syntax::quality_tests::closed_tail_keeps_complete_lambda_bodies_and_removes_only_unfinished_heads ... ok
+test syntax::quality_tests::extractor_public_batch_and_segment_views_preserve_text ... ok
+test syntax::properties::long_left_associative_expression_prints_without_extra_depth ... ok
+test syntax::quality_tests::incomplete_number_suffixes_keep_exact_token_spans ... ok
+test syntax::quality_tests::live_splitter_source_and_committed_cutoff_diagnostics_are_exact ... ok
+test syntax::quality_tests::malformed_escape_spans_include_only_the_consumed_escape ... ok
+test syntax::quality_tests::printer_preserves_multiple_map_entries_and_lambda_child_precedence ... ok
+test syntax::quality_tests::provisional_numeric_span_stays_relative_to_its_original_token ... ok
+test syntax::quality_tests::every_retained_expression_respects_its_enclosing_budget ... ok
+test syntax::quality_tests::recovery_metadata_survives_every_expression_container ... ok
+test syntax::quality_tests::splitter_preserves_empty_binder_and_suppresses_only_cutoff_repairs ... ok
+test syntax::quality_tests::splitter_public_tokens_keep_synthetic_spellings_and_cutoff_spans ... ok
+test syntax::quality_tests::statement_headers_require_every_contextual_query_condition ... ok
+test syntax::quality_tests::tracked_source_preserves_raw_endpoints_for_repairs_and_crlf ... ok
+test syntax::quality_tests::splitter_sealed_view_uses_early_line_decisions_without_losing_continuations ... ok
+test syntax::splitter::tests::lookahead_releases_decidable_non_header_prefixes ... ok
+test syntax::tests::recovery_codes_have_normative_severity_and_recovery ... ok
+test syntax::tests::tab_counts_as_one_column_and_newlines_reset_it ... ok
+test validate::tests::expression_sharing_preserves_recovered_null_metadata ... ok
+test validate::tests::extension_cannot_mutate_or_remove_base_definitions ... ok
+test validate::tests::expression_errors_stop_required_prop_cascades ... ok
+test validate::tests::custom_actions_are_typed_data ... ok
+test validate::tests::invalid_action_step_does_not_erase_good_steps ... ok
+test validate::tests::rejected_version_stops_semantic_recovery ... ok
+test validate::tests::root_cycle_is_detected_at_first_recursive_use ... ok
+test validate::tests::literal_only_validation_never_calls_library_functions ... ok
+test validate::tests::builder_examples_share_the_statement_parser ... ok
+test validate::tests::static_state_lists_are_capped_before_allocation ... ok
+test value::tests::map_deserialization_keeps_insertion_order ... ok
+test value::tests::cloned_containers_share_storage ... ok
+test value::tests::wire_values_keep_number_kinds ... ok
+test syntax::quality_tests::printer_round_trips_every_binary_operator_pair_in_both_positions ... ok
+test validate::tests::nested_container_aliases_remain_bounded_expression_plans ... ok
+test validate::tests::long_name_chains_use_heap_worklists ... ok
+test syntax::properties::print_parse_preserves_ast ... ok
+test validate::tests::appending_and_dropping_preserves_source_paths ... ok
+test validate::tests::semantic_permutations_are_identical ... ok
+
+test result: ok. 55 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running unittests src/lib.rs (target/debug/deps/genui_gpui-2e8ab93bf02addc4)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/genui_prompt-7d388f4a5bb21b0f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/genui_std-344e4a80a8277050)
+
+running 5 tests
+test tests::dynamic_nodes_keep_plans_and_validate_free_names ... ok
+test tests::forms_hold_scopes_and_actions_without_executing ... ok
+test tests::fallback_preserves_dynamic_source_and_terminal_capability ... ok
+test tests::catalog_and_independent_hash_golden ... ok
+test tests::every_component_example_validates ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+   Doc-tests genui_conformance
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests genui_core
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests genui_gpui
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests genui_prompt
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests genui_std
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

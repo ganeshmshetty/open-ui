@@ -1,5 +1,15 @@
 # Spec changelog
 
+## 2026-10-22 — M3 mutation regression assertions (§12.8)
+
+- Require direct assertions for binary/index dependency edges, repaired raw-byte
+  endpoints, provisional closed-copy tails and active cutoff suppression. Two
+  mutation shards exposed missing assertions despite final stream/batch equality.
+  No DSL, recovery or production core behavior changes in this follow-up.
+- Optimize mutation test builds and omit debug symbols to reduce full live-harness
+  timeouts and disk use; preserve every workspace test and the complete inventory.
+  A separate shard was interrupted by a runner shutdown and has no acceptance.
+
 ## 2026-10-22 — M3 streaming and wire clarifications (§3, §5.5, §6, §12.7, §13)
 
 - Preserve selected raw program bytes alongside normalized extraction segments and seal at a completed closing fence. A CRLF budget fixture exposed M2 counting normalized message bytes, contrary to §2.5.

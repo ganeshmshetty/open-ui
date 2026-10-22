@@ -1,0 +1,60 @@
+   Compiling num-traits v0.2.19
+   Compiling percent-encoding v2.3.2
+   Compiling zerocopy v0.8.63
+   Compiling aho-corasick v1.1.5
+   Compiling scopeguard v1.2.0
+   Compiling getrandom v0.3.4
+   Compiling ref-cast v1.0.27
+   Compiling idna v1.1.0
+   Compiling lock_api v0.4.14
+   Compiling parking_lot_core v0.9.12
+   Compiling form_urlencoded v1.2.2
+   Compiling bit-vec v0.8.0
+   Compiling borrow-or-share v0.2.4
+   Compiling once_cell v1.21.4
+   Compiling fluent-uri v0.3.2
+   Compiling parking_lot v0.12.5
+   Compiling url v2.5.8
+   Compiling bit-set v0.8.0
+   Compiling uuid v1.28.0
+   Compiling lazy_static v1.5.1
+   Compiling num-integer v0.1.47
+   Compiling num-complex v0.4.6
+   Compiling vsimd v0.8.0
+   Compiling num-bigint v0.4.8
+   Compiling num-iter v0.1.46
+   Compiling regex-automata v0.4.18
+   Compiling genui-core v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-core)
+   Compiling outref v0.5.2
+   Compiling email_address v0.2.9
+   Compiling num-cmp v0.1.0
+   Compiling uuid-simd v0.8.0
+   Compiling bytecount v0.6.9
+   Compiling base64 v0.22.1
+   Compiling num-rational v0.4.2
+   Compiling num v0.4.3
+   Compiling fraction v0.15.4
+   Compiling regex v1.13.1
+   Compiling fancy-regex v0.16.2
+   Compiling genui-prompt v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-prompt)
+   Compiling genui-std v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-std)
+   Compiling ahash v0.8.12
+   Compiling referencing v0.33.0
+   Compiling jsonschema v0.33.0
+   Compiling genui-conformance v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-conformance)
+   Compiling genui-cli v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-cli)
+    Finished `dev` profile [unoptimized] target(s) in 4.90s
+     Running `target/debug/genui-cli fixtures`
+PASS: 323 fixtures, 73503 chunkings, 400 seeded permutations (M3 live invariants and static validation).
+  extract: 28 fixtures, 6326 chunkings
+  fuzz-regress: 2 fixtures, 486 chunkings
+  grammar: 37 fixtures, 8383 chunkings
+  ir: 15 fixtures, 3082 chunkings
+  lex: 35 fixtures, 7975 chunkings
+  library: 36 fixtures, 4535 chunkings
+  limits: 22 fixtures, 7875 chunkings
+  patches: 5 fixtures, 1177 chunkings
+  resolve: 18 fixtures, 4292 chunkings
+  schema: 62 fixtures, 14875 chunkings
+  statements: 40 fixtures, 8943 chunkings
+  streaming: 23 fixtures, 5554 chunkings

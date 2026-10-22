@@ -1,5 +1,23 @@
 # Spec changelog
 
+## 2026-10-22 — GPUI spike findings (§6.5, §10.1, §10.3, §10.6, §12.7, DESIGN §10)
+
+Approves the six proposals in docs/spikes/gpui.md:
+- §10.1: patches are applied before the frame through the window handle (`apply`
+  with `&mut Window`); `enqueue` is only a fallback, because notifications from
+  draining in `render` landed a frame late. Adds a one-batch freshness test.
+- §10.1, §10.6: nested `AnyView::cached` does not hold (an ancestor cache miss
+  re-renders cached descendants), so caching is limited to fixed-size, expensive
+  subtrees; containers are not cached.
+- §10.1, §10.3: use `gpui_kit::open_window` (it installs `Root`); Card is a
+  DESIGN-styled container, not kit `GroupBox`.
+- §6.5: canonical JSON is written by the core's own encoder, independent of
+  `serde_json`'s map backend, because GPUI enables `preserve_order` and feature
+  unification changed the Library Spec bytes. CI checks this with the feature on.
+- §12.7: the gallery screenshots use windowed `render_to_image`; headless driving
+  is investigated separately.
+- DESIGN §10: explicit adapter from gpui-base's named tokens; DESIGN's scales win.
+
 ## 2026-10-22 — Exhaustive printer pairs and faster mutation scheduling (§12.8)
 
 - A prior timeout became a survivor in the renewed CI run: deleting the additive

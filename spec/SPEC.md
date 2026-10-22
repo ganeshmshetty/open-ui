@@ -1025,6 +1025,8 @@ The renderer SHOULD apply at most one batch per frame, merging queued batches in
 
 Batches are serde types. The reference encoding is JSON Lines, one batch per line, used for fixtures, logs and replay. Other encodings are out of scope for phase 1.
 
+**Canonical bytes.** Every canonical JSON output (patch fixtures, IR, the Library Spec and its hash in 8.2) is written by the core's own canonical encoder: object keys sorted by byte order by the encoder itself, no insignificant whitespace, fixed number formatting. It MUST NOT depend on the map backend of `serde_json` or any other crate. GPUI turns on `serde_json`'s `preserve_order` feature, and Cargo feature unification would otherwise change the bytes when the renderer is in the same build (found in the GPUI spike). A CI job builds and tests the core with `serde_json/preserve_order` enabled and MUST produce identical goldens.
+
 | Item | Encoding |
 | --- | --- |
 | `NodeId` | The node's path string, for example `"root/children:@filters"`. |
@@ -1568,19 +1570,21 @@ impl EventEmitter<UiEvent> for UiView {}
 
 impl UiView {
     pub fn new(theme: UiTheme, window: &mut Window, cx: &mut Context<Self>) -> Self;
-    /// Queue a batch; the view applies queued batches at the start of its next render.
+    /// Primary path: apply a batch now, before the next frame, with the window available.
+    pub fn apply(&mut self, batch: PatchBatch, window: &mut Window, cx: &mut Context<Self>);
+    /// Fallback for callers without window access: applied at the start of the next render
+    /// (may show one frame later).
     pub fn enqueue(&mut self, batch: PatchBatch, cx: &mut Context<Self>);
     pub fn capabilities() -> Capabilities;
 }
-impl Render for UiView { /* drains the queue with &mut Window available, then renders */ }
 ```
 
-**Why the queue.**
+**Applying patches.**
 
-- gpui-kit's stateful widgets need `&mut Window` to construct, including `SelectState::new(delegate, selected, window, cx)`, `InputState`, `TextareaState` and `TableState`.
-- A context without a window cannot create them.
-- So batches are queued by `enqueue` and applied inside `render`, where a `Window` is available.
-- Kit state entities are created lazily the first time a node renders.
+- gpui-kit's stateful widgets need `&mut Window` to construct, including `SelectState::new(delegate, selected, window, cx)`, `InputState` (an alias of `InputBaseState<InputMode>`), `TextareaState` and `TableState`. Kit state entities are created lazily the first time a node renders.
+- The host applies each batch through the window handle, so it lands before the frame is drawn: `window_handle.update(cx, |_, window, cx| view.update(cx, |v, cx| v.apply(batch, window, cx)))`. `apply` mutates the retained tree and notifies only the affected node entities.
+- `enqueue` exists for code that has no window handle. Notifications raised while draining the queue during `render` can land one frame late (measured in the GPUI spike, `docs/spikes/gpui.md`), so `enqueue` is not used on the streaming path.
+- **Freshness test (M6).** Apply a single batch, capture the window with no further trigger, and the capture MUST show the batch.
 
 **Event delivery.**
 
@@ -1591,12 +1595,13 @@ impl Render for UiView { /* drains the queue with &mut Window available, then re
 **Setup the host must do.**
 
 - Call `gpui_kit::init(cx)` once at startup.
-- Mount every window's content inside the kit `Root`, which provides the overlay layer for `Select` popups and tooltips.
+- Open windows with `gpui_kit::open_window`, which installs the kit `Root` (the overlay layer for `Select` popups and tooltips) and returns the window handle and content entity. Do not wrap the content in another `Root`.
 
 **Internals.**
 
 - **Retained tree.** A `HashMap<NodeId, NodeEntry>` plus child index lists.
-- **Container nodes and inputs** (Column, Row, Grid, Card, Form, List, Tabs, Table, and every focusable input) are `Entity<NodeView>`s. A parent embeds each child with `AnyView::from(entity).cached(style)`, so a child that was not notified reuses its previous element tree.
+- **Container nodes and inputs** (Column, Row, Grid, Card, Form, List, Tabs, Table, and every focusable input) are `Entity<NodeView>`s, so a change notifies only the entities it touches.
+- **View caching is limited.** `AnyView::cached` needs definite dimensions, and a cache miss in an ancestor re-renders its cached descendants, so nested caching does not hold (measured in the GPUI spike). Phase 1 uses `cached` only for subtrees whose size is known from the IR and that are expensive to rebuild: a Chart's plot area, an Image, and the viewport of a virtualized Table or List. Containers are not cached. M6 measures whether this meets 10.6 before adding any other cache boundary.
 - **Stateless leaves** (Text, Heading, Badge, Divider, Image) are not entities. Their parent builds them with `RenderOnce`.
 - **The component registry** maps `ComponentId` to `fn(&NodeEntry, &Children, &mut Window, &mut App) -> AnyElement`.
 - **The crate does no I/O.** It owns no networking, no tool logic and no model access. Images arrive as bytes from the host.
@@ -1613,7 +1618,7 @@ These names were checked on docs.rs for `gpui-component 0.8.0` and `gpui-pre 0.3
 | --- | --- | --- |
 | `Column`, `Row` | `v_flex()` / `h_flex()` (kit helpers over `div().flex()`) | Gap and padding from tokens. |
 | `Grid` | `div().grid().grid_cols(n)` | Fixed `cols`. No responsive breakpoints in phase 1. |
-| `Card` | `group_box::GroupBox` (`GroupBoxVariant`) | Titled, bordered region. |
+| `Card` | A styled `v_flex` built to DESIGN.md §6 rule 6 (border, `xl` radius, 16 px padding, title row) | Not kit `GroupBox`, whose default look does not match DESIGN.md. |
 | `Divider` | `separator::Separator` | |
 | `Heading` | styled `div` text (`text_xl()` and similar per level) | `label::Label` is for form labels. |
 | `Text` | `label::Label` or a styled `div` | Plain text. Long text appends via `append_text` (10.6). |
@@ -1671,7 +1676,7 @@ The full visual design language (tokens, layout rules, component anatomy, stream
 | --- | --- |
 | Frame time while a 100 tokens/s stream grows a 2,000-node program | p99 under 8 ms of app work per frame |
 | Applying a batch of up to 50 ops | under 1 ms |
-| Appending to a long `Text` | the parent's cached view is reused. Layout cost outside the changed node is *unverified*, because GPUI recomputes layout for non-cached subtrees each frame. Measure in M6. |
+| Appending to a long `Text` | only that node's entity is notified. Containers are not view-cached (10.1), so measure in M6 that layout of the whole message stays within the frame budget. |
 | Large tables | virtualized; construction cost independent of rows above 100 |
 | Memory | under 40 MB for 5,000 nodes, excluding images |
 | Coalescing | at most one drain of the queue per frame |
@@ -1902,7 +1907,7 @@ Conformance fixtures prove the core. These checks prove the whole system works a
 | `genui-cli tree <file.ui>` | M2 | Prints the validated IR as an indented tree (kind, key props, NodeId path) plus diagnostics. The quickest way to see whether a program does what it should. |
 | `genui-cli replay <file.ui> [--chunk N]` | M3 | Streams the file in N-byte chunks and prints each patch batch and the tree after each chunk. Shows how the UI grows and catches flicker or churn. |
 | Scripted GPUI interaction tests | M7 | Headless GPUI tests (the gpui test context) that load a program, simulate clicks, typing, selection, submit and focus changes, and assert the exact `UiEvent`s, state and resulting patches. Behaviour is tested here, not by looking at screenshots. |
-| Gallery app and screenshot loop | M6 | A demo binary renders every `examples/*.ui` and a per-component state sheet (all states from DESIGN.md §7) in light and dark. `--screenshot <dir>` writes one PNG per example and mode. At the end of M6, M7 and M8, the screenshot set is reviewed against DESIGN.md; each finding is fixed or logged in PROGRESS.md with a reason. Screenshots are not golden-compared in phase 1. |
+| Gallery app and screenshot loop (backend: windowed `Window::render_to_image` from gpui-kit's test-support feature, dev-only; headless frame driving is a separate investigation; capture timing is excluded from performance numbers) | M6 | A demo binary renders every `examples/*.ui` and a per-component state sheet (all states from DESIGN.md §7) in light and dark. `--screenshot <dir>` writes one PNG per example and mode. At the end of M6, M7 and M8, the screenshot set is reviewed against DESIGN.md; each finding is fixed or logged in PROGRESS.md with a reason. Screenshots are not golden-compared in phase 1. |
 | Real-model loop | M8 | The sample host streams a live model reply into the UI. The run is recorded as a transcript (prompt, chunks with timing, events) and replayed deterministically. Screenshots are taken at 25%, 50%, 75% and 100% of the stream to check that partial UIs look intentional. |
 
 `tree` uses genui-std and the default host policy (no tool/ref catalog). It reads

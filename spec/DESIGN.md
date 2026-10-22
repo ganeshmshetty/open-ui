@@ -329,6 +329,7 @@ These are rules for the model, not the renderer. They go into the generated prom
 
 - **`UiTheme`** lives in `<name>-gpui::theme`. It holds every token in this document and is the only module allowed to contain literal colors or sizes (AGENTS.md quality bar).
 - **Built on gpui-base.** It is built from gpui-base `SemanticThemeTokens` (colors, radius, spacing, typography), plus the additions here: `surface_subtle`, our `accent`, the tones, the chart palette and control heights.
+- **Token adapter.** gpui-base's spacing, type and radius tokens are named (7 spacing entries, for example), not this document's numeric scales. The theme module maps them explicitly, and **this document's scales are authoritative**: gpui-base supplies default colors, and every size comes from §2, §3 and §5 here. `Theme::global` returns resolved `Hsla` colors; semantic tokens live under `theme_tokens`.
 - **Light and dark** follow the active gpui-kit theme mode.
 - **Host overrides.** A host MAY override:
   - any color role or tone;

@@ -17,3 +17,8 @@ This directory contains milestone metadata, not conformance cases.
 The two Span.end mutants are equivalent because emit overwrites the temporary
 field. Negating the private namespace tag bijectively renames its two classes,
 without changing name-set membership. No production fix is needed for these.
+
+The skipped-range endpoint comparison is also equivalent: its exclusive end is
+EOF or a valid header Name/State token, neither of which can start one of the
+five filtered lexer errors. The rationale is limited to current scanner behavior;
+M3 must still hold skipped-range diagnostics provisional.

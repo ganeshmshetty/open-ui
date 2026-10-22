@@ -377,3 +377,28 @@ Current local gates pass: 290 conformance fixtures / 65,690 chunkings /
 full spec-check, fmt, Clippy, dependency/source/history checks and fuzz builds.
 Renewed parser/validator fuzz acceptance is recorded above. The final CI mutation
 result, final review and self-merge remain pending. No spike/M3 work is started.
+
+### Final CI survivor audit checkpoint
+
+The first complete four-shard CI campaign (39716792722) finished with
+499 caught, 75 unviable, 9 test timeouts and 26 survivors. The gate correctly
+failed for 23 unreviewed survivors; three were already justified equivalents.
+Regular CI 39716792529 remains green. Added four fixture-first container/index
+budget cases and direct printer/header/splitter regressions: 294 conformance
+fixtures / 66,555 chunkings / 400 permutations. The survivor recheck is running.
+No production implementation changed in this checkpoint; only test/spec/report
+sources changed, so the existing 601-second fuzz runs cover the same executable
+parser/validator implementation. Further equivalent reviews require exact reasons
+and a complete fresh CI campaign before self-merge.
+
+The expanded suite now has 65 Rust tests, including exact early-lookahead
+release assertions. The additional endpoint comparison survivor is equivalent:
+filtered lexer errors cannot start at EOF or at the valid Name/State token that
+ends a skipped range. Its source-matched rationale is in review.json; the other
+three known equivalents remain unchanged. No batch diagnostic is suppressed by
+this justification beyond existing behavior. All 609 mutant names are unchanged.
+
+The local survivor-focused campaign caught the parser/printer/header/token
+regressions. Four remaining assertion gaps (three early-lookahead timing checks
+and a size cutoff inside a token) received exact tests. The full final CI run
+will recheck all 609 mutations; no focused result is substituted for acceptance.

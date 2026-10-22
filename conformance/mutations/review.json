@@ -1,11 +1,13 @@
 {
   "source_sha256": {
     "crates/genui-core/src/syntax/lexer.rs": "49fb48aa950021ab4508eaa8bbb29fed89c62b500a253929a55cb5555fcca286",
-    "crates/genui-core/src/syntax/parser.rs": "fb9d70012e2a02f6e132f2fe842d5855f49b4adcb2a6bddb82ea1e481ab21871"
+    "crates/genui-core/src/syntax/parser.rs": "fb9d70012e2a02f6e132f2fe842d5855f49b4adcb2a6bddb82ea1e481ab21871",
+    "crates/genui-core/src/syntax/splitter.rs": "2cbe5e2d354d860b35fbd0c6c543ae3274550f7774817d33d6904388e94637db"
   },
   "survivors": {
     "crates/genui-core/src/syntax/lexer.rs:419:30: replace + with - in Lexer::number": "Equivalent: this changes only the temporary Span.end passed to Lexer::emit, which unconditionally overwrites end with the explicit cursor.start argument before recording the token. Span.start/column and every observable output are unchanged.",
     "crates/genui-core/src/syntax/lexer.rs:419:30: replace + with * in Lexer::number": "Equivalent: this changes only the temporary Span.end passed to Lexer::emit, which unconditionally overwrites end with the explicit cursor.start argument before recording the token. Span.start/column and every observable output are unchanged.",
-    "crates/genui-core/src/syntax/parser.rs:129:46: replace == with != in parse_split": "Equivalent: replacing is_state with its negation bijectively renames the boolean namespace tag in every name-set insertion. Equality/duplicate membership and separation of state vs non-state namespaces are unchanged."
+    "crates/genui-core/src/syntax/parser.rs:129:46: replace == with != in parse_split": "Equivalent: replacing is_state with its negation bijectively renames the boolean namespace tag in every name-set insertion. Equality/duplicate membership and separation of state vs non-state namespaces are unchanged.",
+    "crates/genui-core/src/syntax/splitter.rs:112:52: replace < with <= in Splitter::finish": "Equivalent: a skipped range ends at EOF or at the first Name/State token of a recognized column-zero statement header. None of the five filtered lexer diagnostic kinds starts at EOF (all cover a consumed scalar), nor can any start at a valid header Name/State token. Thus no filtered diagnostic has span.start equal to that exclusive endpoint; changing < to <= cannot change overlap membership. This does not change the provisional-diagnostic requirement for M3."
   }
 }

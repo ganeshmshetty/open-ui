@@ -1,0 +1,21 @@
+{
+  "statements": [
+    {
+      "kind": "Bind",
+      "name": "root",
+      "value": {
+        "kind": "Call",
+        "name": "f",
+        "args": [
+          {
+            "name": null,
+            "value": {
+              "kind": "Int",
+              "value": 1
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

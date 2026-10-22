@@ -445,3 +445,22 @@ fn dangling(kind: K) -> bool {
             | K::Not
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lookahead_releases_decidable_non_header_prefixes() {
+        // Once resync is impossible, consume the prefix without waiting for LF.
+        // Valid starts still seal via statement_start; these exercise continuations.
+        for prefix in ["[ ", "$x + ", "query x + "] {
+            let mut splitter = Splitter::default();
+            splitter.push(b"root=[\n");
+            splitter.push(prefix.as_bytes());
+            assert!(splitter.state.line_decided, "{prefix}");
+            assert!(splitter.state.prefix.is_empty(), "{prefix}");
+            assert!(splitter.sealed().is_empty(), "{prefix}");
+        }
+    }
+}

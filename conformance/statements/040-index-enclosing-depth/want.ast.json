@@ -1,0 +1,22 @@
+{
+  "statements": [
+    {
+      "kind": "Bind",
+      "name": "root",
+      "value": {
+        "kind": "Index",
+        "base": {
+          "kind": "Name",
+          "name": "a"
+        },
+        "index": {
+          "kind": "Unary",
+          "op": "Not",
+          "expr": {
+            "kind": "Null"
+          }
+        }
+      }
+    }
+  ]
+}

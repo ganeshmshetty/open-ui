@@ -1,0 +1,12 @@
+{
+  "title": "039-call-prefix-depth",
+  "tier": "core",
+  "tags": [
+    "depth",
+    "mutation"
+  ],
+  "notes": "SPEC \u00a72.5: container prefixes and index operands consume their enclosing expression budget.",
+  "limits": {
+    "max_expr_depth": 2
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "statements": [
+    {
+      "kind": "Bind",
+      "name": "root",
+      "value": {
+        "kind": "List",
+        "items": [
+          {
+            "kind": "Int",
+            "value": 1
+          },
+          {
+            "kind": "Int",
+            "value": 2
+          }
+        ]
+      }
+    }
+  ]
+}

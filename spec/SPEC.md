@@ -1954,7 +1954,7 @@ include EOF without a terminating newline for pending symbols, `$`, `\u` and
 `\u{...`; token and recovery spans are asserted directly. Expression-depth
 cutoff cases retain enclosing delimiters and siblings while skipping nested
 call/list/map syntax. Negative grammar cases distinguish invalid separator,
-member-key and map-key tokens from missing-comma recovery.
+member-key and map-key tokens from missing-comma recovery. Container prefixes and index operands are checked against enclosing expression budgets. Public splitter token spellings, cutoff spans and empty binders, contextual header rejection, and multi-entry map printing have exact assertions.
 
 ## 13. Public Rust API sketch
 

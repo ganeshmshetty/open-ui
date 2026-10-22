@@ -1,0 +1,14 @@
+{
+  "basis_commit": "9b9f8e4b918dce5c040196ecba919262b61f4cb2",
+  "reason": "Only cfg(test) code changed after the accepted campaigns: added assertions in quality_tests.rs and appended a cfg(test) module in splitter.rs. All executable fuzz-target inputs and production implementation files/portions are unchanged. The original manifests remain the exact historical source hashes.",
+  "changed_files": {
+    "crates/genui-core/src/syntax/quality_tests.rs": {
+      "fuzzed_sha256": "a726233a68246e76f183c251fcb53b662d15166082bcaf388c1263d0eec2f142",
+      "current_sha256": "2671faa49d7bb6593f2cf3fccc0a418fb01b910be069c800d6dcc34bff52034a"
+    },
+    "crates/genui-core/src/syntax/splitter.rs": {
+      "fuzzed_sha256": "b11c7027b86361d6407f9ef8a8706a9677816fcfa1abbab78c8ca1eb3cd5a974",
+      "current_sha256": "2cbe5e2d354d860b35fbd0c6c543ae3274550f7774817d33d6904388e94637db"
+    }
+  }
+}

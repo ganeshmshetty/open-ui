@@ -1,5 +1,13 @@
 # Spec changelog
 
+## 2026-10-22 — Final mutation regression coverage (§12.8)
+
+- Extend exact assertions to container-prefix/index budgets, multi-entry map
+  printing, contextual header rejection and public splitter token/span output.
+  The first complete CI campaign exposed assertion gaps in these existing rules;
+  four new statement fixtures and focused API tests preserve current behavior.
+  No production implementation or diagnostic contract changed.
+
 ## 2026-10-22 — Contextual expression budgets (§2.5)
 
 - Clarify that growing binary/postfix prefixes consume the remaining budget after

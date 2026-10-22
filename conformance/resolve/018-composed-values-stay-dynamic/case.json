@@ -1,0 +1,8 @@
+{
+  "title": "Containers over references remain Dynamic",
+  "tier": "core",
+  "tags": [
+    "M2"
+  ],
+  "notes": "SPEC \u00a75.5: no data evaluation in M2, including referenced literal containers."
+}

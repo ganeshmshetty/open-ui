@@ -47,7 +47,7 @@ fn run(args: Vec<String>) -> Result<(), String> {
         }
         _ => {
             return Err(format!(
-                "unknown command {command:?}; M1 supports fixtures and spec-check"
+                "unknown command {command:?}; M2 supports fixtures and spec-check"
             ));
         }
     }

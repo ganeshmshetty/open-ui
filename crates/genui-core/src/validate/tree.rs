@@ -895,7 +895,13 @@ impl Validator<'_> {
         for (i, a) in def.args.iter().enumerate() {
             let value = node.props.get(&PropId(i as u16));
             let replacement = match value {
-                Some(Prop::Static(PropValue::Value(v))) => display(v),
+                Some(Prop::Static(PropValue::Value(v))) => {
+                    dynamic |= matches!(
+                        v,
+                        Value::Float(_) | Value::List(_) | Value::Map(_) | Value::Ref(_)
+                    );
+                    display(v)
+                }
                 Some(Prop::Static(PropValue::Token { value, .. })) => display(value),
                 None => String::new(),
                 _ => {
@@ -920,10 +926,16 @@ impl Validator<'_> {
         text = text.replace("{value}", "").replace("{values}", "");
         let descendants = self.descendants(node);
         dynamic |= descendants.iter().any(|n| {
-            n.props
-                .values()
-                .any(|p| matches!(p, Prop::Dynamic(_) | Prop::Static(PropValue::Binding(_))))
-                || n.slots.iter().any(|s| !s.plans.is_empty())
+            n.props.values().any(|p| {
+                matches!(
+                    p,
+                    Prop::Dynamic(_)
+                        | Prop::Static(PropValue::Binding(_))
+                        | Prop::Static(PropValue::Value(
+                            Value::Float(_) | Value::List(_) | Value::Map(_) | Value::Ref(_)
+                        ))
+                )
+            }) || n.slots.iter().any(|s| !s.plans.is_empty())
         });
         let mut props = BTreeMap::new();
         for (i, a) in replacement.args.iter().enumerate() {

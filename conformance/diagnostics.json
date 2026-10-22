@@ -2,7 +2,8 @@
   "covered": {
     "cap.fallback": [
       "schema/011-cap-fallback",
-      "schema/012-cap-markdown-fallback"
+      "schema/012-cap-markdown-fallback",
+      "schema/062-data-fallback-plan"
     ],
     "expr.fmt_args": [
       "schema/025-fmt-count"

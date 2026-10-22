@@ -1,4 +1,4 @@
-//! M0 lexical diagnostics. Codes and recoveries follow SPEC §4.3.
+//! Stable diagnostic catalog and recoveries (SPEC §4.3).
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]

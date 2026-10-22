@@ -1,4 +1,4 @@
-//! Syntax limits needed by M1; semantic/runtime limits are added in M2/M4.
+//! Syntax, semantic and runtime limit configuration (SPEC §7.1).
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

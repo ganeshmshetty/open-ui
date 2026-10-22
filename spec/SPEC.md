@@ -948,6 +948,13 @@ references inside these plans; no definition is lost when a template is deferred
 Action handles index ordered typed steps, bound to their owning node and form
 scope. Capability fallbacks whose text depends on data retain the original node,
 descendants and `to_text` template beside the Dynamic expression, for M4 to render.
+This includes literal data tables and floats: M2 does not substitute JSON or
+platform number formatting for the specified text/table formatter.
+Non-literal list/map constructors (including containers over statement references)
+remain expression plans. M2 does not fold data through the value table; this also
+keeps long alias/container chains from recursively growing cached value types.
+Direct aliases of literal constants can still resolve statically.
+
 These arenas are process-local validation output; M3 patches serialize resolved
 wire values according to §6.5, not these static snapshot markers.
 
@@ -1305,7 +1312,7 @@ The Library Spec is a JSON document generated from the Rust definitions. It hold
 {
   "spec_version": 1,
   "id": "std", "version": "0.1.0", "language_major": 1,
-  "groups": [{"name": "Layout", "order": 1, "notes": "Use Column for vertical stacks and Row for horizontal ones."}],
+  "groups": [{"name": "Layout", "order": 1, "notes": "Use `Column` for vertical stacks and `Row` for horizontal ones."}],
   "types": {
     "ButtonTone": {"kind": "enum", "values": ["primary", "secondary", "ghost", "danger"]},
     "Space": {"kind": "token", "scale": "space", "min": 0, "max": 8}
@@ -1865,6 +1872,9 @@ For every chunking it checks:
 
 - A new diagnostic code, builtin, grammar rule or component needs fixtures in the same change.
 - `<name>-cli spec-check` extracts every ```` ```ui ```` block from SPEC.md and validates it against `<name>-std` with zero diagnostics at Warning or above. Blocks fenced as ```` ```ui-fragment ```` are partial programs, validated the same way except that `name.no_root`, `name.unresolved`, `name.orphan` and `state.undeclared` are allowed. Blocks fenced as ```` ```ui-invalid ```` are expected to produce diagnostics. CI runs it.
+- Fence info versions are checked through the same protocol extractor as model
+  replies, including fragment and invalid examples; documentation validation
+  does not ignore an unsupported major.
 - `spec-check` also validates every `examples/*.ui` as a complete program, using
   the explicit documentation host context in `conformance/libs/host.json`. It does
   not silently allow arbitrary tool or ref names.

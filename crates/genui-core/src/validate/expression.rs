@@ -54,49 +54,31 @@ impl Validator<'_> {
                     Checked::invalid()
                 }
             },
+            // Fully literal containers returned above. References make these expression
+            // plans: do not evaluate data or recursively grow cached types through aliases.
             Expr::List { items } => {
-                let mut values = Vec::new();
-                let mut ty = T::Any;
-                let mut dynamic = false;
                 let mut valid = true;
                 if items.len() > self.limits.max_list_len {
                     self.limit(Code::ListLen, ctx)
                 }
                 for e in items.iter().take(self.limits.max_list_len) {
-                    let c = self.check_value(e, ctx);
-                    ty = c.ty.clone();
-                    valid &= c.valid;
-                    match c.value {
-                        Some(v) => values.push(v),
-                        None => dynamic = true,
-                    }
+                    valid &= self.check_value(e, ctx).valid;
                 }
-                if !valid {
-                    Checked::invalid()
-                } else if dynamic {
-                    Checked::dynamic(T::list(ty))
+                if valid {
+                    Checked::dynamic(T::list(T::Any))
                 } else {
-                    Checked::literal(Value::List(values.into()))
+                    Checked::invalid()
                 }
             }
             Expr::Map { entries } => {
-                let mut values = Vec::new();
-                let mut dynamic = false;
                 let mut valid = true;
                 for e in entries {
-                    let c = self.check_value(&e.value, ctx);
-                    valid &= c.valid;
-                    match c.value {
-                        Some(v) => values.push((e.key.clone(), v)),
-                        None => dynamic = true,
-                    }
+                    valid &= self.check_value(&e.value, ctx).valid;
                 }
-                if !valid {
-                    Checked::invalid()
-                } else if dynamic {
+                if valid {
                     Checked::dynamic(T::map(T::Any))
                 } else {
-                    Checked::literal(Value::Map(values.into()))
+                    Checked::invalid()
                 }
             }
             Expr::Unary { op, expr } => {

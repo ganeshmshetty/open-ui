@@ -1,4 +1,4 @@
-//! Exact M1 syntax conformance and byte-chunking checks (SPEC §12).
+//! Exact syntax, static validation, chunking and permutation conformance (SPEC §12).
 #![forbid(unsafe_code)]
 
 pub mod chunks;
@@ -157,7 +157,7 @@ pub fn run_suite(root: &Path) -> Result<SuiteReport> {
                     | "limits"
             ) {
                 return Err(format!(
-                    "{}: category is not implemented in M1",
+                    "{}: category is not implemented in M2",
                     path.display()
                 ));
             }

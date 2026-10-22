@@ -1,0 +1,39 @@
+   Compiling genui-core v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-core)
+   Compiling genui-std v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-std)
+   Compiling genui-fuzz v0.0.0 (/Users/ganesh/dev/open-ui/fuzz)
+    Finished `release` profile [optimized + debuginfo] target(s) in 19.27s
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.08s
+     Running `fuzz/target/aarch64-apple-darwin/release/validator -artifact_prefix=/Users/ganesh/dev/open-ui/fuzz/artifacts/validator/ -max_total_time=600 -max_len=32768 -seed=20261022 -dict=fuzz/syntax.dict -print_final_stats=1 fuzz/corpus/m2-validator-final`
+Dictionary: 22 entries
+INFO: Running with entropic power schedule (0xFF, 100).
+INFO: Seed: 20261022
+INFO: Loaded 1 modules   (94447 inline 8-bit counters): 94447 [0x101579ba0, 0x101590c8f), 
+INFO: Loaded 1 PC tables (94447 PCs): 94447 [0x101590c90,0x101701b80), 
+INFO:      278 files found in fuzz/corpus/m2-validator-final
+INFO: seed corpus: files: 278 min: 5b max: 2723b total: 23760b rss: 49Mb
+#279	INITED cov: 6265 ft: 15228 corp: 254/22Kb exec/s: 0 rss: 106Mb
+#280	NEW    cov: 6268 ft: 15232 corp: 255/22Kb lim: 2723 exec/s: 0 rss: 106Mb L: 34/2723 MS: 1 ManualDict- DE: "map("-
+#281	NEW    cov: 6269 ft: 15266 corp: 256/22Kb lim: 2723 exec/s: 0 rss: 106Mb L: 14/2723 MS: 1 ChangeBinInt-
+#282	NEW    cov: 6270 ft: 15269 corp: 257/22Kb lim: 2723 exec/s: 0 rss: 106Mb L: 4/2723 MS: 1 EraseBytes-
+#284	NEW    cov: 6272 ft: 15276 corp: 258/22Kb lim: 2723 exec/s: 0 rss: 107Mb L: 21/2723 MS: 2 ShuffleBytes-PersAutoDict- DE: "map("-
+#286	NEW    cov: 6272 ft: 15277 corp: 259/22Kb lim: 2723 exec/s: 0 rss: 107Mb L: 41/2723 MS: 2 ShuffleBytes-CrossOver-
+#287	NEW    cov: 6272 ft: 15294 corp: 260/22Kb lim: 2723 exec/s: 0 rss: 107Mb L: 20/2723 MS: 1 CMP- DE: "\364\377\377\377"-
+	NEW_FUNC[1/5]: 0x000100fbdf74 in _RINvNtCs7rJgpMQJsBb_4core3ptr9drop_glueINtNtCsiGJ9W6X0UHH_5alloc3vec3VecNtNtCshyShmvegXGi_10genui_core4diag10DiagnosticEEB1c_+0x0 (validator:arm64+0x1000e9f74)
+	NEW_FUNC[2/5]: 0x000101010440 in _RINvNtNtNtCs7rJgpMQJsBb_4core5slice4sort6stable14driftsort_mainNtNtCshyShmvegXGi_10genui_core4diag10DiagnosticNCINvMNtCsiGJ9W6X0UHH_5alloc5sliceSBZ_11sort_by_keyTjNtB11_4CodeENCNvB11_17order_diagnostics0E0INtNtB1S_3vec3VecBZ_EEB13_+0x0 (validator:arm64+0x10013c440)
+[intermediate output omitted; full log hash is in JSON]
+"2\000\000\000" # Uses: 9
+"\377^" # Uses: 9
+"\001\000\000\015" # Uses: 8
+"v\000\000\000\000\000\000\000" # Uses: 7
+"\376\377\377\375" # Uses: 3
+"\360\377\377\377" # Uses: 2
+"\001\000\000\000\000\000\000\005" # Uses: 4
+"\000|" # Uses: 6
+"\021\000\000\000" # Uses: 1
+###### End of recommended dictionary. ######
+Done 448712 runs in 601 second(s)
+stat::number_of_executed_units: 448712
+stat::average_exec_per_sec:     746
+stat::new_units_added:          8582
+stat::slowest_unit_time_sec:    0
+stat::peak_rss_mb:              883

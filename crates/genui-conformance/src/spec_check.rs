@@ -1,8 +1,8 @@
-//! Markdown example extraction for SPEC §12.6. M1 parses syntax; library validation follows in M2.
+//! Full documentation validation through the shared protocol extractor and std library (§12.6).
 use crate::Result;
 use genui_core::{
     diag::{Code, Severity},
-    validate::{Options, validate},
+    validate::{Options, validate_message},
 };
 use std::{fs, path::Path};
 
@@ -18,6 +18,8 @@ pub struct Example {
     pub line: usize,
     pub kind: ExampleKind,
     pub source: String,
+    pub fence: String,
+    pub info: String,
 }
 
 struct Fence {
@@ -26,6 +28,7 @@ struct Fence {
     line: usize,
     kind: Option<ExampleKind>,
     source: String,
+    info: String,
 }
 
 /// Honor surrounding Markdown fences, including four-backtick documentation blocks.
@@ -47,6 +50,8 @@ pub fn extract(markdown: &str) -> Result<Vec<Example>> {
                         line: fence.line,
                         kind,
                         source: std::mem::take(&mut fence.source),
+                        fence: fence.marker.to_string().repeat(fence.width),
+                        info: fence.info.clone(),
                     });
                 }
                 open = None;
@@ -66,6 +71,7 @@ pub fn extract(markdown: &str) -> Result<Vec<Example>> {
                 line: index + 1,
                 kind,
                 source: String::new(),
+                info: info.trim().to_owned(),
             });
         }
     }
@@ -94,7 +100,17 @@ pub fn check_text(markdown: &str) -> Result<SpecReport> {
     let examples = extract(markdown)?;
     let mut report = SpecReport::default();
     for example in examples {
-        let result = validate(example.source.as_bytes(), &library, &options);
+        let suffix = example
+            .info
+            .split_whitespace()
+            .skip(1)
+            .collect::<Vec<_>>()
+            .join(" ");
+        let message = format!(
+            "{}ui {}\n{}{}\n",
+            example.fence, suffix, example.source, example.fence
+        );
+        let (_, result) = validate_message(message.as_bytes(), &library, &options);
         match example.kind {
             ExampleKind::Program => report.programs += 1,
             ExampleKind::Fragment => report.fragments += 1,
@@ -179,7 +195,7 @@ mod tests {
 
     #[test]
     fn extracts_only_ui_fences_outside_other_fences() {
-        let text = "````text\n```ui\n@\n```\n````\n```rust\n@\n```\n  ~~~ui v=1\nroot=Text(\"x\")\n  ~~~~\n```ui-fragment\na=1\n```\n```ui-invalid\n@\n```\n";
+        let text = "````text\n```ui\n@\n```\n````\n```rust\n@\n```\n  ~~~ui v1\nroot=Text(\"x\")\n  ~~~~\n```ui-fragment\na=1\n```\n```ui-invalid\n@\n```\n";
         let report = check_text(text).unwrap();
         assert_eq!(
             (report.programs, report.fragments, report.invalid),
@@ -221,5 +237,24 @@ mod syntax_gate_tests {
         let report =
             check_text("```ui\nroot=Divider()\n```\n```ui-invalid\nx={key 1}\n```\n").unwrap();
         assert_eq!(report.invalid, 1);
+    }
+}
+
+#[cfg(test)]
+mod version_gate_tests {
+    use super::*;
+    #[test]
+    fn fence_versions_use_the_protocol_extractor() {
+        assert!(check_text("```ui v=1\nroot=Divider()\n```\n").is_err());
+        assert!(check_text("```ui v2\nroot=Divider()\n```\n").is_err());
+        assert!(check_text("```ui v1\nroot=Divider()\n```\n").is_ok());
+        assert!(
+            check_text("```ui\nroot=Divider()\n```\n```ui-fragment v2\na=Divider()\n```\n")
+                .is_err()
+        );
+        let result =
+            check_text("```ui\nroot=Divider()\n```\n```ui-invalid v2\nroot=Divider()\n```\n")
+                .unwrap();
+        assert_eq!(result.invalid, 1);
     }
 }

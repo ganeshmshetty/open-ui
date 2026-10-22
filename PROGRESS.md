@@ -218,3 +218,26 @@ Current local acceptance checks pass: 275 fixtures / 62,343 chunkings /
 36 cases, resolve 17, schema 61, ir 15, limits 22. Extra cases cover additive
 extension and Facts at 50, at 51, and with a composed global limit. This remains
 M2 only; the M3 splitter issue above is still open.
+
+
+### M2 formatter-plan checkpoint — 2026-10-22
+
+CI passed on Linux and macOS for nullable correction 3144164:
+https://github.com/ganeshmshetty/open-ui/actions/runs/39707471805 . Its ASan campaign
+completed 601 engine seconds, 448,712 executions, exit 0, with matching frozen
+source hashes and 883 MiB peak RSS. Evidence is retained as
+fuzz/runs/m2/nullable-checkpoint-validator.* .
+
+A final exact fallback fixture then caught literal chart data being printed as
+JSON instead of retaining the required table formatter. Data/float fallback text
+now stays Dynamic with its original node/props until M4, as required by the
+static-only scope. A separate spec-check regression now checks fence versions
+through the shared extractor. The final-source campaign restarts after this fix;
+the earlier clean run is checkpoint evidence, not final acceptance.
+
+The same static-only check now leaves non-literal list/map constructors as
+Dynamic plans instead of folding referenced data. A focused fixture and a
+1,200-statement container-chain test prevent eager evaluation and unbounded
+cached type growth. Final local totals are 277 fixtures, 62,884 chunkings,
+400 permutations and 52 Rust tests; the corrected source is ready for its final
+frozen campaign. No evaluator or additional milestone work was added.

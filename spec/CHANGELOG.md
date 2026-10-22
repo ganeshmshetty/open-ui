@@ -29,7 +29,8 @@
   removal. Code highlighting remains an optional enhancement.
 - §12: define M2 fixture inputs, frozen byte-for-byte Library Spec goldens,
   documentation host context, additive extension recipes, exemplar checks and
-  the audited runtime deferrals.
+  the audited runtime deferrals. Check documentation fence versions through the
+  shared extractor so a syntactically valid v2 body cannot silently pass.
 
 ## 2026-10-21 — M1 syntax and recovery contract (§2.2–2.5, §2.8–2.9, §12)
 

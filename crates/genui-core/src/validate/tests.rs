@@ -230,3 +230,20 @@ fn expression_sharing_preserves_recovered_null_metadata() {
     assert_eq!(ir.intern(&literal), a);
     assert_eq!(ir.intern(&recovered), b);
 }
+
+#[test]
+fn nested_container_aliases_remain_bounded_expression_plans() {
+    let lib = library();
+    let mut source = String::from("root=Leaf(text(len(v0)))\n");
+    for i in 0..1200 {
+        source.push_str(&format!("v{i}=[v{}]\n", i + 1));
+    }
+    source.push_str("v1200=1\n");
+    let r = validate(source.as_bytes(), &lib, &Options::default());
+    assert!(r.diagnostics.is_empty());
+    assert!(r.ir.values["v0"].value.is_none());
+    assert!(matches!(
+        r.ir.nodes.values().next().unwrap().props.get(&PropId(0)),
+        Some(Prop::Dynamic(_))
+    ));
+}

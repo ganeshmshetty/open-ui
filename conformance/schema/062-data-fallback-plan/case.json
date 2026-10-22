@@ -1,0 +1,9 @@
+{
+  "title": "Data fallback retains its formatter plan",
+  "tier": "core",
+  "tags": [
+    "M2",
+    "fallback"
+  ],
+  "notes": "SPEC \u00a7\u00a75.5,8.6,8.8: data formatting belongs to M4; do not substitute JSON for a pipe table."
+}

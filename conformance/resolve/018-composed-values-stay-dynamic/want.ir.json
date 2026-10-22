@@ -1,0 +1,28 @@
+{
+  "id": "root",
+  "kind": "Table",
+  "role": "table",
+  "props": {
+    "rows": {
+      "dynamic": 0
+    },
+    "empty": "No data"
+  },
+  "children": {
+    "columns": [
+      {
+        "id": "root/columns:#0",
+        "kind": "TableColumn",
+        "role": "group",
+        "props": {
+          "header": "Name",
+          "field": "name",
+          "align": "start",
+          "format": "text",
+          "currency": "USD"
+        },
+        "children": {}
+      }
+    ]
+  }
+}

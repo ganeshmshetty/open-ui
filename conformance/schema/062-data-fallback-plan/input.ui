@@ -1,0 +1,1 @@
+root=Chart("bar",[{x:"A",y:1}],"x","y",summary:"One sale")

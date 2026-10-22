@@ -1,0 +1,9 @@
+{
+  "title": "required-order",
+  "tier": "core",
+  "tags": [
+    "M2",
+    "builder"
+  ],
+  "notes": "SPEC §8.1"
+}

@@ -1,0 +1,8 @@
+[
+  {
+    "code": "name.cycle",
+    "stmt": "a",
+    "path": "root/children:@a/children:@a",
+    "recovery": "ChildOmitted"
+  }
+]

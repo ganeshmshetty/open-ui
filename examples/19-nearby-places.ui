@@ -1,0 +1,1 @@
+root=Column([Heading("Places worth trying nearby",level:1),List(each(ref("t4.places"),|place| Card([Row([Image(place.photo,place.name),Column([Heading(place.name,level:3),Text(place.address)])]),Button("Plan a visit",on_click:say(fmt("Plan a visit to {}",place.name)))],title:place.name),key:"id"))])

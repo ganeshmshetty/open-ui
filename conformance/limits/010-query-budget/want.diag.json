@@ -1,0 +1,14 @@
+[
+  {
+    "code": "query.too_many",
+    "stmt": "z",
+    "path": null,
+    "recovery": "StatementDropped"
+  },
+  {
+    "code": "name.orphan",
+    "stmt": "a",
+    "path": null,
+    "recovery": "None"
+  }
+]

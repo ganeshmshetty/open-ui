@@ -1,0 +1,8 @@
+{
+  "title": "optional-enum",
+  "tier": "core",
+  "tags": [
+    "M2"
+  ],
+  "notes": "SPEC §4.3 conditional enum recovery"
+}

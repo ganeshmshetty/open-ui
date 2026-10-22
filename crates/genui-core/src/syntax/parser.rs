@@ -105,6 +105,12 @@ fn parse_split(split: SplitResult, limits: &SyntaxLimits) -> ParseResult {
         program: Program::default(),
         diagnostics: split.diagnostics,
     };
+    let recovered_nulls: BTreeSet<_> = result
+        .diagnostics
+        .iter()
+        .filter(|d| matches!(d.code, Code::Overflow | Code::NonFinite | Code::Depth))
+        .filter_map(|d| d.span.as_ref().map(|s| s.start))
+        .collect();
     let mut names = BTreeSet::new();
     let mut count = 0;
     for statement in split.statements {
@@ -138,6 +144,7 @@ fn parse_split(split: SplitResult, limits: &SyntaxLimits) -> ParseResult {
             diagnostics: Vec::new(),
             lambda_depth: 0,
             depth_reported: false,
+            recovered_nulls: &recovered_nulls,
         };
         let expression = parser.expression(0, 0, false);
         match expression {
@@ -171,6 +178,7 @@ struct ExpressionParser<'a> {
     diagnostics: Vec<Diagnostic>,
     lambda_depth: usize,
     depth_reported: bool,
+    recovered_nulls: &'a BTreeSet<usize>,
 }
 type Parsed<T> = Result<T, ()>;
 impl ExpressionParser<'_> {
@@ -229,7 +237,7 @@ impl ExpressionParser<'_> {
         if depth >= self.limits.max_expr_depth {
             self.depth_limit();
             self.skip_expression();
-            return Ok(Expr::Null);
+            return Ok(Expr::recovered_null());
         }
         let mut left = self.primary(depth, allow_lambda)?;
         let mut used_eq = false;
@@ -264,7 +272,13 @@ impl ExpressionParser<'_> {
     fn primary(&mut self, depth: usize, allow_lambda: bool) -> Parsed<Expr> {
         let token = self.next()?;
         let mut value = match token.token.kind {
-            K::Null => Expr::Null,
+            K::Null => {
+                if self.recovered_nulls.contains(&token.span.start) {
+                    Expr::recovered_null()
+                } else {
+                    Expr::null()
+                }
+            }
             K::True | K::False => Expr::Bool {
                 value: token.token.kind == K::True,
             },
@@ -308,7 +322,12 @@ impl ExpressionParser<'_> {
                         && depth == 0;
                     if name == "tool" && !query_root {
                         self.diagnostic(Code::UnknownFn);
-                        Expr::Null
+                        if let Some(d) = self.diagnostics.last_mut() {
+                            d.hint = Some(
+                                "Use query name = tool(\"tool.id\", args, default: value).".into(),
+                            );
+                        }
+                        Expr::recovered_null()
                     } else {
                         Expr::Call { name, args }
                     }
@@ -464,7 +483,7 @@ impl ExpressionParser<'_> {
         let body = body?;
         if !legal {
             self.diagnostic(Code::LambdaMisuse);
-            Ok(Expr::Null)
+            Ok(Expr::recovered_null())
         } else {
             Ok(Expr::Lambda {
                 params: params.into_iter().map(|t| t.token.text).collect(),

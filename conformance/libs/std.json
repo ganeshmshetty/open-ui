@@ -1,0 +1,1426 @@
+{
+  "actions": [],
+  "components": [
+    {
+      "args": [
+        {
+          "name": "children",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "list",
+            "of": {
+              "accepts": "any",
+              "kind": "node"
+            }
+          }
+        },
+        {
+          "default": 2,
+          "name": "gap",
+          "required": false,
+          "type": {
+            "kind": "named",
+            "name": "Space"
+          }
+        },
+        {
+          "default": "stretch",
+          "name": "align",
+          "required": false,
+          "type": {
+            "kind": "named",
+            "name": "Align"
+          }
+        },
+        {
+          "default": 0,
+          "name": "padding",
+          "required": false,
+          "type": {
+            "kind": "named",
+            "name": "Space"
+          }
+        }
+      ],
+      "doc": "A vertical stack of child nodes.",
+      "examples": [
+        "Column([Text(\"Overview\")])"
+      ],
+      "group": "Layout",
+      "name": "Column",
+      "requires": [],
+      "role": "group",
+      "to_text": "{children}"
+    },
+    {
+      "args": [
+        {
+          "name": "children",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "list",
+            "of": {
+              "accepts": "any",
+              "kind": "node"
+            }
+          }
+        },
+        {
+          "default": 2,
+          "name": "gap",
+          "required": false,
+          "type": {
+            "kind": "named",
+            "name": "Space"
+          }
+        },
+        {
+          "default": "center",
+          "name": "align",
+          "required": false,
+          "type": {
+            "kind": "named",
+            "name": "Align"
+          }
+        },
+        {
+          "default": false,
+          "name": "wrap",
+          "required": false,
+          "type": {
+            "kind": "bool"
+          }
+        }
+      ],
+      "doc": "A horizontal row of child nodes, optionally wrapping.",
+      "examples": [
+        "Row([Badge(\"Ready\"),Button(\"Open\")])"
+      ],
+      "group": "Layout",
+      "name": "Row",
+      "requires": [],
+      "role": "group",
+      "to_text": "{children}"
+    },
+    {
+      "args": [
+        {
+          "name": "children",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "list",
+            "of": {
+              "accepts": "any",
+              "kind": "node"
+            }
+          }
+        },
+        {
+          "default": 2,
+          "max": 4.0,
+          "min": 1.0,
+          "name": "cols",
+          "required": false,
+          "type": {
+            "kind": "int"
+          }
+        },
+        {
+          "default": 2,
+          "name": "gap",
+          "required": false,
+          "type": {
+            "kind": "named",
+            "name": "Space"
+          }
+        }
+      ],
+      "doc": "A responsive grid with one to four columns; use for headline Stat groups.",
+      "examples": [
+        "Grid([Stat(\"Revenue\",42000),Stat(\"Orders\",120)])"
+      ],
+      "group": "Layout",
+      "name": "Grid",
+      "requires": [],
+      "role": "group",
+      "to_text": "{children}"
+    },
+    {
+      "args": [
+        {
+          "name": "children",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "list",
+            "of": {
+              "accepts": "any",
+              "kind": "node"
+            }
+          }
+        },
+        {
+          "name": "title",
+          "required": false,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "default": 4,
+          "name": "padding",
+          "required": false,
+          "type": {
+            "kind": "named",
+            "name": "Space"
+          }
+        }
+      ],
+      "doc": "A titled region grouping related content.",
+      "examples": [
+        "Card([Text(\"Delivery is on schedule\")],title:\"Delivery\")"
+      ],
+      "group": "Layout",
+      "name": "Card",
+      "requires": [],
+      "role": "region",
+      "to_text": "**{title}**\n{children}"
+    },
+    {
+      "args": [],
+      "doc": "A separator between sections.",
+      "examples": [
+        "Divider()"
+      ],
+      "group": "Layout",
+      "name": "Divider",
+      "requires": [],
+      "role": "separator",
+      "to_text": "---"
+    },
+    {
+      "args": [
+        {
+          "name": "text",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "default": 2,
+          "max": 4.0,
+          "min": 1.0,
+          "name": "level",
+          "required": false,
+          "type": {
+            "kind": "int"
+          }
+        }
+      ],
+      "doc": "A section heading with level one to four.",
+      "examples": [
+        "Heading(\"Overview\")"
+      ],
+      "group": "Content",
+      "name": "Heading",
+      "requires": [],
+      "role": "heading",
+      "to_text": "## {text}"
+    },
+    {
+      "args": [
+        {
+          "name": "text",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "default": "md",
+          "name": "size",
+          "required": false,
+          "type": {
+            "kind": "named",
+            "name": "TextSize"
+          }
+        },
+        {
+          "default": "neutral",
+          "name": "tone",
+          "required": false,
+          "type": {
+            "kind": "named",
+            "name": "Tone"
+          }
+        },
+        {
+          "default": false,
+          "name": "bold",
+          "required": false,
+          "type": {
+            "kind": "bool"
+          }
+        },
+        {
+          "default": false,
+          "name": "mono",
+          "required": false,
+          "type": {
+            "kind": "bool"
+          }
+        }
+      ],
+      "doc": "Plain text with semantic size and tone; no inline markup.",
+      "examples": [
+        "Text(\"Revenue grew 12% this month\")"
+      ],
+      "group": "Content",
+      "name": "Text",
+      "requires": [],
+      "role": "paragraph",
+      "to_text": "{text}"
+    },
+    {
+      "args": [
+        {
+          "name": "source",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "text"
+          }
+        }
+      ],
+      "doc": "CommonMark content with policy-checked links; no raw HTML or inline images.",
+      "examples": [
+        "Markdown(\"**Ready** to ship\")"
+      ],
+      "group": "Content",
+      "name": "Markdown",
+      "requires": [
+        "markdown"
+      ],
+      "role": "region",
+      "to_text": "{source}"
+    },
+    {
+      "args": [
+        {
+          "name": "source",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "name": "lang",
+          "required": false,
+          "type": {
+            "kind": "text"
+          }
+        }
+      ],
+      "doc": "A code block; code_highlight enables optional syntax colors.",
+      "examples": [
+        "Code(\"let ready = true;\",lang:\"rust\")"
+      ],
+      "group": "Content",
+      "name": "Code",
+      "requires": [],
+      "role": "code",
+      "to_text": "```{lang}\n{source}\n```"
+    },
+    {
+      "args": [
+        {
+          "name": "text",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "default": "neutral",
+          "name": "tone",
+          "required": false,
+          "type": {
+            "kind": "named",
+            "name": "Tone"
+          }
+        }
+      ],
+      "doc": "A compact status label with a semantic tone.",
+      "examples": [
+        "Badge(\"Active\",tone:\"success\")"
+      ],
+      "group": "Content",
+      "name": "Badge",
+      "requires": [],
+      "role": "status",
+      "to_text": "[{text}]"
+    },
+    {
+      "args": [
+        {
+          "name": "text",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "name": "title",
+          "required": false,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "default": "info",
+          "name": "tone",
+          "required": false,
+          "type": {
+            "kind": "named",
+            "name": "Tone"
+          }
+        }
+      ],
+      "doc": "An important or urgent message with an optional title.",
+      "examples": [
+        "Alert(\"Payment is overdue\",tone:\"warning\")"
+      ],
+      "group": "Content",
+      "name": "Alert",
+      "requires": [],
+      "role": "alert",
+      "to_text": "> **{title}** {text}"
+    },
+    {
+      "args": [
+        {
+          "name": "src",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "url"
+          }
+        },
+        {
+          "name": "alt",
+          "position": 1,
+          "required": true,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "default": "cover",
+          "name": "fit",
+          "required": false,
+          "type": {
+            "kind": "named",
+            "name": "ImageFit"
+          }
+        },
+        {
+          "default": 160,
+          "max": 480.0,
+          "min": 40.0,
+          "name": "height",
+          "required": false,
+          "type": {
+            "kind": "int"
+          }
+        }
+      ],
+      "doc": "A host-fetched image with a required accessible description and URL policy.",
+      "examples": [
+        "Image(\"https://example.com/photo\",\"Mountain trail\")"
+      ],
+      "group": "Content",
+      "name": "Image",
+      "requires": [
+        "images"
+      ],
+      "role": "image",
+      "to_text": "[image: {alt}]"
+    },
+    {
+      "args": [
+        {
+          "name": "label",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "default": "secondary",
+          "name": "tone",
+          "required": false,
+          "type": {
+            "kind": "named",
+            "name": "ButtonTone"
+          }
+        },
+        {
+          "name": "on_click",
+          "required": false,
+          "type": {
+            "kind": "action"
+          }
+        },
+        {
+          "default": false,
+          "name": "submit",
+          "required": false,
+          "type": {
+            "kind": "bool"
+          }
+        },
+        {
+          "default": false,
+          "name": "disabled",
+          "required": false,
+          "type": {
+            "kind": "bool"
+          }
+        }
+      ],
+      "doc": "A labeled action or form submit control.",
+      "examples": [
+        "Button(\"Save\",tone:\"primary\",on_click:say(\"Save my changes\"))"
+      ],
+      "group": "Actions",
+      "name": "Button",
+      "requires": [],
+      "role": "button",
+      "to_text": "[{label}]"
+    },
+    {
+      "args": [
+        {
+          "name": "children",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "list",
+            "of": {
+              "accepts": "any",
+              "kind": "node"
+            }
+          }
+        },
+        {
+          "name": "on_submit",
+          "required": false,
+          "type": {
+            "kind": "action"
+          }
+        }
+      ],
+      "doc": "A field scope with a submit action; fields are checked before submission.",
+      "examples": [
+        "Form([Input(\"Name\"),Button(\"Create account\",submit:true)],on_submit:say(\"Create my account\"))"
+      ],
+      "group": "Actions",
+      "name": "Form",
+      "requires": [],
+      "role": "form",
+      "to_text": "{children}"
+    },
+    {
+      "args": [
+        {
+          "name": "label",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "name": "bind",
+          "required": false,
+          "type": {
+            "kind": "binding",
+            "of": {
+              "kind": "text"
+            }
+          }
+        },
+        {
+          "default": "text",
+          "name": "kind",
+          "required": false,
+          "type": {
+            "kind": "named",
+            "name": "InputKind"
+          }
+        },
+        {
+          "name": "placeholder",
+          "required": false,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "default": false,
+          "name": "required",
+          "required": false,
+          "type": {
+            "kind": "bool"
+          }
+        },
+        {
+          "name": "min_len",
+          "required": false,
+          "type": {
+            "kind": "int"
+          }
+        },
+        {
+          "name": "max_len",
+          "required": false,
+          "type": {
+            "kind": "int"
+          }
+        },
+        {
+          "name": "min",
+          "required": false,
+          "type": {
+            "kind": "number"
+          }
+        },
+        {
+          "name": "max",
+          "required": false,
+          "type": {
+            "kind": "number"
+          }
+        }
+      ],
+      "doc": "A labeled single-line text field, optionally bound to string state.",
+      "examples": [
+        "Input(\"Email\",kind:\"email\",required:true)"
+      ],
+      "group": "Actions",
+      "name": "Input",
+      "requires": [
+        "text_input"
+      ],
+      "role": "text_input",
+      "to_text": "{label}: {value}"
+    },
+    {
+      "args": [
+        {
+          "name": "label",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "name": "bind",
+          "required": false,
+          "type": {
+            "kind": "binding",
+            "of": {
+              "kind": "text"
+            }
+          }
+        },
+        {
+          "name": "placeholder",
+          "required": false,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "default": false,
+          "name": "required",
+          "required": false,
+          "type": {
+            "kind": "bool"
+          }
+        },
+        {
+          "name": "max_len",
+          "required": false,
+          "type": {
+            "kind": "int"
+          }
+        },
+        {
+          "default": 4,
+          "max": 12.0,
+          "min": 2.0,
+          "name": "rows",
+          "required": false,
+          "type": {
+            "kind": "int"
+          }
+        }
+      ],
+      "doc": "A labeled multiline text field with bounded rows.",
+      "examples": [
+        "TextArea(\"Notes\",max_len:500)"
+      ],
+      "group": "Actions",
+      "name": "TextArea",
+      "requires": [
+        "text_input"
+      ],
+      "role": "multi_line_input",
+      "to_text": "{label}: {value}"
+    },
+    {
+      "args": [
+        {
+          "name": "label",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "name": "options",
+          "position": 1,
+          "required": true,
+          "type": {
+            "kind": "options"
+          }
+        },
+        {
+          "name": "bind",
+          "required": false,
+          "type": {
+            "kind": "binding",
+            "of": {
+              "kind": "text"
+            }
+          }
+        },
+        {
+          "name": "placeholder",
+          "required": false,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "default": false,
+          "name": "required",
+          "required": false,
+          "type": {
+            "kind": "bool"
+          }
+        }
+      ],
+      "doc": "Choose one value from strings or label/value options.",
+      "examples": [
+        "Select(\"Region\",[\"North\",\"South\"])"
+      ],
+      "group": "Actions",
+      "name": "Select",
+      "requires": [],
+      "role": "select",
+      "to_text": "{label}: {value}"
+    },
+    {
+      "args": [
+        {
+          "name": "label",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "name": "bind",
+          "required": false,
+          "type": {
+            "kind": "binding",
+            "of": {
+              "kind": "bool"
+            }
+          }
+        }
+      ],
+      "doc": "A labeled boolean checkbox, optionally bound to state.",
+      "examples": [
+        "Checkbox(\"Email updates\")"
+      ],
+      "group": "Actions",
+      "name": "Checkbox",
+      "requires": [],
+      "role": "checkbox",
+      "to_text": "[ ] {label}"
+    },
+    {
+      "args": [
+        {
+          "name": "label",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "name": "options",
+          "position": 1,
+          "required": true,
+          "type": {
+            "kind": "options"
+          }
+        },
+        {
+          "name": "bind",
+          "required": false,
+          "type": {
+            "kind": "binding",
+            "of": {
+              "kind": "list",
+              "of": {
+                "kind": "text"
+              }
+            }
+          }
+        },
+        {
+          "default": false,
+          "name": "required",
+          "required": false,
+          "type": {
+            "kind": "bool"
+          }
+        }
+      ],
+      "doc": "Choose multiple string values from labeled options.",
+      "examples": [
+        "CheckboxGroup(\"Topics\",[\"News\",\"Releases\"])"
+      ],
+      "group": "Actions",
+      "name": "CheckboxGroup",
+      "requires": [],
+      "role": "checkbox_group",
+      "to_text": "{label}: {values}"
+    },
+    {
+      "args": [
+        {
+          "name": "label",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "name": "options",
+          "position": 1,
+          "required": true,
+          "type": {
+            "kind": "options"
+          }
+        },
+        {
+          "name": "bind",
+          "required": false,
+          "type": {
+            "kind": "binding",
+            "of": {
+              "kind": "text"
+            }
+          }
+        },
+        {
+          "default": false,
+          "name": "required",
+          "required": false,
+          "type": {
+            "kind": "bool"
+          }
+        }
+      ],
+      "doc": "Choose one string value from labeled radio options.",
+      "examples": [
+        "RadioGroup(\"Delivery\",[\"Standard\",\"Express\"])"
+      ],
+      "group": "Actions",
+      "name": "RadioGroup",
+      "requires": [],
+      "role": "radio_group",
+      "to_text": "{label}: {value}"
+    },
+    {
+      "args": [
+        {
+          "name": "label",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "name": "bind",
+          "required": false,
+          "type": {
+            "kind": "binding",
+            "of": {
+              "kind": "bool"
+            }
+          }
+        }
+      ],
+      "doc": "A labeled boolean on/off control.",
+      "examples": [
+        "Switch(\"Notifications\")"
+      ],
+      "group": "Actions",
+      "name": "Switch",
+      "requires": [],
+      "role": "switch",
+      "to_text": "{label}: on/off"
+    },
+    {
+      "args": [
+        {
+          "name": "items",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "list",
+            "of": {
+              "accepts": "any",
+              "kind": "node"
+            }
+          }
+        },
+        {
+          "default": false,
+          "name": "ordered",
+          "required": false,
+          "type": {
+            "kind": "bool"
+          }
+        }
+      ],
+      "doc": "An ordered or unordered list of child nodes.",
+      "examples": [
+        "List([Text(\"Prepare\"),Text(\"Ship\")])"
+      ],
+      "group": "Data",
+      "name": "List",
+      "requires": [],
+      "role": "list",
+      "to_text": "{items}"
+    },
+    {
+      "args": [
+        {
+          "min_items": 1,
+          "name": "columns",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "list",
+            "of": {
+              "accepts": [
+                "TableColumn"
+              ],
+              "kind": "node"
+            }
+          }
+        },
+        {
+          "name": "rows",
+          "position": 1,
+          "required": true,
+          "type": {
+            "kind": "data",
+            "of": {
+              "kind": "map",
+              "of": {
+                "kind": "any"
+              }
+            }
+          }
+        },
+        {
+          "default": "No data",
+          "name": "empty",
+          "required": false,
+          "type": {
+            "kind": "text"
+          }
+        }
+      ],
+      "doc": "A record table whose columns are TableColumn helpers.",
+      "examples": [
+        "Table([TableColumn(\"Name\",\"name\")],[{name:\"Ada\"}])"
+      ],
+      "group": "Data",
+      "name": "Table",
+      "requires": [],
+      "role": "table",
+      "to_text": "{columns}\n{rows}"
+    },
+    {
+      "allowed_in": [
+        "Table.columns"
+      ],
+      "args": [
+        {
+          "name": "header",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "name": "field",
+          "position": 1,
+          "required": true,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "default": "start",
+          "name": "align",
+          "required": false,
+          "type": {
+            "kind": "named",
+            "name": "ColumnAlign"
+          }
+        },
+        {
+          "default": "text",
+          "name": "format",
+          "required": false,
+          "type": {
+            "kind": "named",
+            "name": "ColFormat"
+          }
+        },
+        {
+          "default": "USD",
+          "name": "currency",
+          "required": false,
+          "type": {
+            "kind": "text"
+          }
+        }
+      ],
+      "doc": "A structural column declaration, valid only in Table.columns.",
+      "examples": [
+        "Table([TableColumn(\"Revenue\",\"revenue\",format:\"currency\")],[{revenue:42000}])"
+      ],
+      "group": "Data",
+      "name": "TableColumn",
+      "requires": [],
+      "role": "group",
+      "to_text": ""
+    },
+    {
+      "args": [
+        {
+          "name": "label",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "name": "value",
+          "position": 1,
+          "required": true,
+          "type": {
+            "kind": "scalar"
+          }
+        },
+        {
+          "name": "delta",
+          "required": false,
+          "type": {
+            "kind": "number"
+          }
+        },
+        {
+          "default": "up",
+          "name": "good",
+          "required": false,
+          "type": {
+            "kind": "named",
+            "name": "GoodDirection"
+          }
+        },
+        {
+          "default": "number",
+          "name": "format",
+          "required": false,
+          "type": {
+            "kind": "named",
+            "name": "ColFormat"
+          }
+        },
+        {
+          "default": "USD",
+          "name": "currency",
+          "required": false,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "name": "caption",
+          "required": false,
+          "type": {
+            "kind": "text"
+          }
+        }
+      ],
+      "doc": "A headline number or text value with optional trend, formatting and caption.",
+      "examples": [
+        "Stat(\"Revenue\",42000,delta:12,format:\"currency\")"
+      ],
+      "group": "Data",
+      "name": "Stat",
+      "requires": [],
+      "role": "group",
+      "to_text": "**{label}:** {value}{delta}"
+    },
+    {
+      "args": [
+        {
+          "name": "items",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "data",
+            "of": {
+              "kind": "map",
+              "of": {
+                "kind": "any"
+              }
+            }
+          }
+        },
+        {
+          "default": 1,
+          "max": 2.0,
+          "min": 1.0,
+          "name": "columns",
+          "required": false,
+          "type": {
+            "kind": "int"
+          }
+        }
+      ],
+      "doc": "A details panel of text labels and values, limited to 50 records.",
+      "examples": [
+        "Facts([{label:\"Owner\",value:\"Ada\"},{label:\"Region\",value:\"North\"}])"
+      ],
+      "group": "Data",
+      "name": "Facts",
+      "requires": [],
+      "role": "list",
+      "to_text": "{items}"
+    },
+    {
+      "args": [
+        {
+          "name": "kind",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "named",
+            "name": "ChartKind"
+          }
+        },
+        {
+          "name": "data",
+          "position": 1,
+          "required": true,
+          "type": {
+            "kind": "data",
+            "of": {
+              "kind": "map",
+              "of": {
+                "kind": "any"
+              }
+            }
+          }
+        },
+        {
+          "name": "x",
+          "position": 2,
+          "required": true,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "name": "y",
+          "position": 3,
+          "required": true,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "name": "title",
+          "required": false,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "name": "summary",
+          "required": false,
+          "type": {
+            "kind": "text"
+          }
+        }
+      ],
+      "doc": "A single-series bar or line chart; provide an accessible summary.",
+      "examples": [
+        "Chart(\"bar\",[{month:\"Jan\",sales:10},{month:\"Feb\",sales:12},{month:\"Mar\",sales:14},{month:\"Apr\",sales:18}],\"month\",\"sales\",summary:\"Sales rose from 10 to 18\")"
+      ],
+      "group": "Data",
+      "name": "Chart",
+      "requires": [
+        "charts"
+      ],
+      "role": "chart",
+      "to_text": "{summary}\n{data}"
+    },
+    {
+      "args": [
+        {
+          "min_items": 1,
+          "name": "tabs",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "list",
+            "of": {
+              "accepts": [
+                "Tab"
+              ],
+              "kind": "node"
+            }
+          }
+        },
+        {
+          "name": "bind",
+          "required": false,
+          "type": {
+            "kind": "binding",
+            "of": {
+              "kind": "text"
+            }
+          }
+        }
+      ],
+      "doc": "A collection of Tab panels with optional bound selection.",
+      "examples": [
+        "Tabs([Tab(\"Overview\",[Text(\"Ready\")]),Tab(\"Details\",[Text(\"All systems operational\")])])"
+      ],
+      "group": "Data",
+      "name": "Tabs",
+      "requires": [],
+      "role": "tab_list",
+      "to_text": "{tabs}"
+    },
+    {
+      "allowed_in": [
+        "Tabs.tabs"
+      ],
+      "args": [
+        {
+          "name": "label",
+          "position": 0,
+          "required": true,
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "name": "children",
+          "position": 1,
+          "required": true,
+          "type": {
+            "kind": "list",
+            "of": {
+              "accepts": "any",
+              "kind": "node"
+            }
+          }
+        },
+        {
+          "name": "value",
+          "required": false,
+          "type": {
+            "kind": "text"
+          }
+        }
+      ],
+      "doc": "A structural panel in Tabs.tabs; value defaults to its label.",
+      "examples": [
+        "Tabs([Tab(\"Overview\",[Text(\"Ready\")])])"
+      ],
+      "group": "Data",
+      "name": "Tab",
+      "requires": [],
+      "role": "tab_panel",
+      "to_text": "{label}\n{children}"
+    }
+  ],
+  "formats": [],
+  "functions": [],
+  "groups": [
+    {
+      "name": "Layout",
+      "notes": "`Column` for vertical stacks; `Row` for horizontal ones.",
+      "order": 1
+    },
+    {
+      "name": "Content",
+      "notes": "`Heading` leads; `Text` explains; `Badge` marks status.",
+      "order": 2
+    },
+    {
+      "name": "Actions",
+      "notes": "`Button` labels use verbs; `Form` groups related fields.",
+      "order": 3
+    },
+    {
+      "name": "Data",
+      "notes": "`Stat` for headline numbers; `Facts` for details; `Table` for records.",
+      "order": 4
+    }
+  ],
+  "hash": "d19a769bd510997ce786ade4d60db23d",
+  "id": "std",
+  "language_major": 1,
+  "spec_version": 1,
+  "types": {
+    "Align": {
+      "kind": "enum",
+      "values": [
+        "start",
+        "center",
+        "end",
+        "stretch"
+      ]
+    },
+    "ButtonTone": {
+      "kind": "enum",
+      "values": [
+        "primary",
+        "secondary",
+        "ghost",
+        "danger"
+      ]
+    },
+    "ChartKind": {
+      "kind": "enum",
+      "values": [
+        "bar",
+        "line"
+      ]
+    },
+    "ColFormat": {
+      "kind": "enum",
+      "values": [
+        "text",
+        "number",
+        "compact",
+        "currency",
+        "percent",
+        "delta",
+        "date"
+      ]
+    },
+    "ColumnAlign": {
+      "kind": "enum",
+      "values": [
+        "start",
+        "end"
+      ]
+    },
+    "GoodDirection": {
+      "kind": "enum",
+      "values": [
+        "up",
+        "down"
+      ]
+    },
+    "ImageFit": {
+      "kind": "enum",
+      "values": [
+        "cover",
+        "contain"
+      ]
+    },
+    "InputKind": {
+      "kind": "enum",
+      "values": [
+        "text",
+        "email",
+        "url",
+        "number",
+        "integer"
+      ]
+    },
+    "Space": {
+      "kind": "token",
+      "max": 8,
+      "min": 0,
+      "scale": "space"
+    },
+    "TextSize": {
+      "kind": "enum",
+      "values": [
+        "sm",
+        "md",
+        "lg"
+      ]
+    },
+    "Tone": {
+      "kind": "enum",
+      "values": [
+        "neutral",
+        "info",
+        "success",
+        "warning",
+        "danger"
+      ]
+    }
+  },
+  "version": "0.1.0"
+}

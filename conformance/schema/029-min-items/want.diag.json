@@ -1,0 +1,8 @@
+[
+  {
+    "code": "schema.min_items",
+    "stmt": "root",
+    "path": "root",
+    "recovery": "NodeDropped"
+  }
+]

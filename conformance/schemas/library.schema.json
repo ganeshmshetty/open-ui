@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "order": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "notes": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "order",
+          "notes"
+        ]
+      }
+    },
+    "types": {
+      "type": "object"
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "group": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "doc": {
+            "type": "string"
+          },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "type": {
+                  "$ref": "#/$defs/type"
+                },
+                "position": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "default": {},
+                "min": {
+                  "type": "number"
+                },
+                "max": {
+                  "type": "number"
+                },
+                "min_items": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "name",
+                "required",
+                "type"
+              ]
+            }
+          },
+          "requires": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "to_text": {
+            "type": "string"
+          },
+          "examples": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "allowed_in": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "group",
+          "role",
+          "doc",
+          "args"
+        ]
+      }
+    },
+    "functions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "params": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/type"
+            }
+          },
+          "result": {
+            "$ref": "#/$defs/type"
+          },
+          "fuel": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "name",
+          "params",
+          "result",
+          "fuel"
+        ]
+      }
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "params": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/type"
+            }
+          },
+          "doc": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "params",
+          "doc"
+        ]
+      }
+    },
+    "formats": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "groups",
+    "components"
+  ],
+  "$defs": {
+    "type": {
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "of": {
+          "$ref": "#/$defs/type"
+        },
+        "accepts": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

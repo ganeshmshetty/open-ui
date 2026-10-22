@@ -1,0 +1,14 @@
+{
+  "id": "root",
+  "kind": "Input",
+  "role": "text_input",
+  "props": {
+    "label": "Name",
+    "kind": "text",
+    "required": false,
+    "bind": {
+      "bind": "$x"
+    }
+  },
+  "children": {}
+}

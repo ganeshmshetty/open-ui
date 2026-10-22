@@ -1,0 +1,20 @@
+[
+  {
+    "code": "schema.dup_key",
+    "stmt": "root",
+    "path": "root/items:e0#3",
+    "recovery": "Replaced"
+  },
+  {
+    "code": "schema.bad_key",
+    "stmt": "root",
+    "path": "root/items:e0#4",
+    "recovery": "Replaced"
+  },
+  {
+    "code": "schema.bad_key",
+    "stmt": "root",
+    "path": "root/items:e0#5",
+    "recovery": "Replaced"
+  }
+]

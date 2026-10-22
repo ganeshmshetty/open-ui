@@ -1,0 +1,1 @@
+root=Column([Heading("Recent orders",level:1),Text("Orders are supplied by the commerce workspace"),Table([TableColumn("Order","id"),TableColumn("Customer","customer"),TableColumn("Total","total",align:"end",format:"currency"),TableColumn("Status","status")],ref("t4.orders"))])

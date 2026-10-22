@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "parent": {
+      "type": "string"
+    },
+    "slot": {
+      "type": "string"
+    },
+    "base": {
+      "type": "string"
+    },
+    "keys": {
+      "type": "array",
+      "items": {
+        "type": [
+          "string",
+          "integer",
+          "boolean",
+          "null"
+        ]
+      }
+    },
+    "keyed": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "parent",
+    "slot",
+    "base",
+    "keys"
+  ]
+}

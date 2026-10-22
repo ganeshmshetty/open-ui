@@ -1,0 +1,14 @@
+[
+  {
+    "code": "name.orphan",
+    "stmt": "tabs",
+    "path": null,
+    "recovery": "None"
+  },
+  {
+    "code": "name.orphan",
+    "stmt": "tab",
+    "path": null,
+    "recovery": "None"
+  }
+]

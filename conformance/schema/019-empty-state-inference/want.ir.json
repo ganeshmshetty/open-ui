@@ -1,0 +1,16 @@
+{
+  "id": "root",
+  "kind": "CheckboxGroup",
+  "role": "checkbox_group",
+  "props": {
+    "label": "Topics",
+    "options": [
+      "News"
+    ],
+    "bind": {
+      "bind": "$tags"
+    },
+    "required": false
+  },
+  "children": {}
+}

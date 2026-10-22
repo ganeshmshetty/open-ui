@@ -1,0 +1,9 @@
+{
+  "title": "typed escaped keys and collision",
+  "tier": "core",
+  "tags": [
+    "M2",
+    "identity"
+  ],
+  "notes": "SPEC §5.2; initial hashes forced to collide."
+}

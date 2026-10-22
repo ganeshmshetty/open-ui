@@ -5,12 +5,15 @@ pub mod diag;
 pub mod syntax;
 
 /// Validated intermediate representation (M2).
-pub mod ir {}
+pub mod ir;
 /// Synchronous evaluator and host interaction (M4).
 pub mod runtime {}
 /// Renderer-independent patch protocol (M3).
 pub mod patch {}
+/// Component library model and builder (M2).
+#[path = "library.rs"]
+pub mod r#lib;
 /// Host-configurable evaluation and size limits (M2).
 pub mod limits;
-/// Component library model and builder (M2).
-pub mod r#lib {}
+pub mod validate;
+pub mod value;

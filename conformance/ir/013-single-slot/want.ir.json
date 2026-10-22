@@ -1,0 +1,24 @@
+{
+  "id": "root",
+  "kind": "Card",
+  "role": "region",
+  "props": {
+    "padding": {
+      "tok": [
+        "space",
+        4
+      ]
+    }
+  },
+  "children": {
+    "children": [
+      {
+        "id": "root/children:@body",
+        "kind": "Divider",
+        "role": "separator",
+        "props": {},
+        "children": {}
+      }
+    ]
+  }
+}

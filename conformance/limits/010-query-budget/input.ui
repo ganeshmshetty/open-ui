@@ -1,0 +1,3 @@
+query z=tool("z",{},default:[])
+query a=tool("a",{},default:[])
+root=Divider()

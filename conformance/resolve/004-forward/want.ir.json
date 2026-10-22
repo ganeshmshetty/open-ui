@@ -1,0 +1,50 @@
+{
+  "id": "root",
+  "kind": "Column",
+  "role": "group",
+  "props": {
+    "gap": {
+      "tok": [
+        "space",
+        2
+      ]
+    },
+    "align": "stretch",
+    "padding": {
+      "tok": [
+        "space",
+        0
+      ]
+    }
+  },
+  "children": {
+    "children": [
+      {
+        "id": "root/children:@b",
+        "kind": "Text",
+        "role": "paragraph",
+        "props": {
+          "text": "B",
+          "size": "md",
+          "tone": "neutral",
+          "bold": false,
+          "mono": false
+        },
+        "children": {}
+      },
+      {
+        "id": "root/children:@a",
+        "kind": "Text",
+        "role": "paragraph",
+        "props": {
+          "text": "A",
+          "size": "md",
+          "tone": "neutral",
+          "bold": false,
+          "mono": false
+        },
+        "children": {}
+      }
+    ]
+  }
+}

@@ -1,0 +1,4 @@
+root=Column([Heading("Choose a delivery window",level:1),Form([RadioGroup("Delivery speed",["Standard","Express"],bind:$speed,required:true),Select("Window",["Morning","Afternoon","Evening"],bind:$window),Input("Delivery note",bind:$note,max_len:120),Button("Confirm delivery",tone:"primary",submit:true)],on_submit:say("Confirm my delivery",{speed:$speed,window:$window,note:$note}))])
+$speed="Standard"
+$window="Afternoon"
+$note=""

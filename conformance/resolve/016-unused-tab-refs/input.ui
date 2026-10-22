@@ -1,0 +1,3 @@
+tabs=Tabs([tab])
+tab=Tab("A",[])
+root=Divider()

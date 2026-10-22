@@ -1,0 +1,15 @@
+{
+  "id": "root",
+  "kind": "Button",
+  "role": "button",
+  "props": {
+    "label": "Go",
+    "tone": "secondary",
+    "on_click": {
+      "action": 0
+    },
+    "submit": false,
+    "disabled": false
+  },
+  "children": {}
+}

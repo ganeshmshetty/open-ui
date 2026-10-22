@@ -1,0 +1,3 @@
+rows=[{name:"A",items:[{name:"B"}]}]
+inner=Row([Text(x.name),List(each(x.items,|y|Text(y.name)))])
+root=List(each(rows,|x|inner))

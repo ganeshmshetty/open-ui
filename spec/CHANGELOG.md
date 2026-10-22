@@ -1,5 +1,32 @@
 # Spec changelog
 
+## 2026-10-22 — M2 static library, resolution and IR clarifications
+
+- §2.7: spell out builtin arities, lambda shapes and named options; the function
+  list had signatures without complete static call-check rules.
+- §§2.7,2.10–2.11: define lambda shadowing/template scope, non-instantiated
+  orphan checks, root depth/count, single-node roots, alias depth, deferred
+  node plans and the sealed-table scope of permutations, so static validation
+  does not evaluate data or invent multiple root identities.
+- §§2.12–2.15: define deterministic state/query allocation, constant signed
+  literals, state inference order, unused-state handling, malformed tool
+  signatures, literal emit targets, lambda shadowing in actions and action-list
+  recovery. Writes and deliveries remain M4 work.
+- §§4.3–4.4: add the already-referenced cap.fallback/lib.mismatch rows and retain
+  recovered-null metadata outside structural ASTs to prevent duplicate errors.
+- §§5.5,8.1,8.4: describe static Dynamic/node/action/fallback plans; require total
+  terminal fallback targets; clarify builder examples, metadata validation and
+  backtick-marked component references in group prose. Align the fallible std
+  builder example and enforce additive extension without base mutation.
+- §§8.2–8.3: exclude the hash from its own input, specify canonical JSON/hash
+  formatting, and add the missing generic any type used by data and inference.
+- §§8.6,8.8: use terminal Text when markdown is unavailable; fix the stale std
+  count to 29 (27 components plus 2 helpers), and assign TableColumn's structural
+  node the group role. Define malformed literal Facts records and extra-key
+  removal. Code highlighting remains an optional enhancement.
+- §12: define M2 fixture inputs, frozen byte-for-byte Library Spec goldens,
+  documentation host context, exemplar checks and the audited runtime deferrals.
+
 ## 2026-10-21 — M1 syntax and recovery contract (§2.2–2.5, §2.8–2.9, §12)
 
 - Specify one-token recovery for overlong names, underscore conversion and null

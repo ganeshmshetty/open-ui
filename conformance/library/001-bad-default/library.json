@@ -1,0 +1,29 @@
+{
+  "id": "test",
+  "version": "0.1.0",
+  "groups": [
+    {
+      "name": "G",
+      "order": 0,
+      "notes": ""
+    }
+  ],
+  "components": [
+    {
+      "name": "Foo",
+      "group": "G",
+      "role": "group",
+      "doc": "Test.",
+      "args": [
+        {
+          "name": "x",
+          "required": false,
+          "type": {
+            "kind": "int"
+          },
+          "default": "wrong"
+        }
+      ]
+    }
+  ]
+}

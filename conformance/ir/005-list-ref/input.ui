@@ -1,0 +1,2 @@
+items=[Divider(),Divider()]
+root=Column([items,items])

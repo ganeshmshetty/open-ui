@@ -1,0 +1,47 @@
+{
+  "id": "root",
+  "kind": "Column",
+  "role": "group",
+  "props": {
+    "gap": {
+      "tok": [
+        "space",
+        2
+      ]
+    },
+    "align": "stretch",
+    "padding": {
+      "tok": [
+        "space",
+        0
+      ]
+    }
+  },
+  "children": {
+    "children": [
+      {
+        "id": "root/children:#0",
+        "kind": "Input",
+        "role": "text_input",
+        "props": {
+          "label": "Text",
+          "kind": "text",
+          "required": false,
+          "bind": {
+            "bind": "$v"
+          }
+        },
+        "children": {}
+      },
+      {
+        "id": "root/children:#1",
+        "kind": "Checkbox",
+        "role": "checkbox",
+        "props": {
+          "label": "Flag"
+        },
+        "children": {}
+      }
+    ]
+  }
+}

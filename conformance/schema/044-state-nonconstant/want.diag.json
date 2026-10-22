@@ -1,0 +1,8 @@
+[
+  {
+    "code": "state.const_default",
+    "stmt": "x",
+    "path": null,
+    "recovery": "StatementDropped"
+  }
+]

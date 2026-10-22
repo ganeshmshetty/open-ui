@@ -1,0 +1,9 @@
+{
+  "id": "root",
+  "kind": "Checkbox",
+  "role": "checkbox",
+  "props": {
+    "label": "Flag"
+  },
+  "children": {}
+}

@@ -1,0 +1,8 @@
+[
+  {
+    "code": "schema.bind_target",
+    "stmt": "root",
+    "path": "root",
+    "recovery": "BindingDropped"
+  }
+]

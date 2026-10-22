@@ -35,7 +35,7 @@ fn quoted(value: &str, out: &mut String) {
 
 fn expression(expr: &Expr, out: &mut String) {
     match expr {
-        Expr::Null => out.push_str("null"),
+        Expr::Null { .. } => out.push_str("null"),
         Expr::Bool { value } => out.push_str(if *value { "true" } else { "false" }),
         Expr::Int { value } => {
             let _ = write!(out, "{value}");

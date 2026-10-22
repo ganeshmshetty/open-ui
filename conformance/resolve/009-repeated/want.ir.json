@@ -1,0 +1,45 @@
+{
+  "id": "root",
+  "kind": "Column",
+  "role": "group",
+  "props": {
+    "gap": {
+      "tok": [
+        "space",
+        2
+      ]
+    },
+    "align": "stretch",
+    "padding": {
+      "tok": [
+        "space",
+        0
+      ]
+    }
+  },
+  "children": {
+    "children": [
+      {
+        "id": "root/children:@a",
+        "kind": "Divider",
+        "role": "separator",
+        "props": {},
+        "children": {}
+      },
+      {
+        "id": "root/children:@a~2",
+        "kind": "Divider",
+        "role": "separator",
+        "props": {},
+        "children": {}
+      },
+      {
+        "id": "root/children:@a~3",
+        "kind": "Divider",
+        "role": "separator",
+        "props": {},
+        "children": {}
+      }
+    ]
+  }
+}

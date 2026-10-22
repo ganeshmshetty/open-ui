@@ -6,6 +6,9 @@ publish.workspace = true
 
 [dependencies]
 serde.workspace = true
+serde_json.workspace = true
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+url = "2"
 
 [dev-dependencies]
 proptest = "1"

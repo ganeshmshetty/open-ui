@@ -1,0 +1,17 @@
+{
+  "id": "root",
+  "kind": "Facts",
+  "role": "list",
+  "props": {
+    "items": [
+      {
+        "label": "Owner",
+        "value": "Ada"
+      }
+    ],
+    "columns": {
+      "i": 1
+    }
+  },
+  "children": {}
+}

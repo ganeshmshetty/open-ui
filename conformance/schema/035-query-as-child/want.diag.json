@@ -1,0 +1,8 @@
+[
+  {
+    "code": "schema.slot_kind",
+    "stmt": "q",
+    "path": "root/children:@q",
+    "recovery": "ChildOmitted"
+  }
+]

@@ -1,0 +1,3 @@
+root=Column([Heading("Three steps remain before launch",level:1),List(each(tasks,|task,i| Row([Text(fmt("{}. {}",i+1,task.title)),Badge(task.owner)]),key:"id"),ordered:true),Switch("Show launch checklist",bind:$details),if($details,Card([Facts([{label:"Release owner",value:"Maya"},{label:"Launch date",value:"November 6"}])],title:"Launch checklist"),null)])
+$details=false
+tasks=[{id:"test",title:"Finish acceptance tests",owner:"Ada"},{id:"docs",title:"Publish release notes",owner:"Rohan"},{id:"deploy",title:"Deploy release",owner:"Maya"}]

@@ -1,0 +1,8 @@
+[
+  {
+    "code": "query.unknown_tool",
+    "stmt": "q",
+    "path": null,
+    "recovery": "KeptLastGood"
+  }
+]

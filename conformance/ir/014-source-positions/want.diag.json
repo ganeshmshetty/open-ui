@@ -1,0 +1,14 @@
+[
+  {
+    "code": "schema.type",
+    "stmt": "root",
+    "path": "root/children:#1",
+    "recovery": "NodeDropped"
+  },
+  {
+    "code": "schema.unknown_component",
+    "stmt": "root",
+    "path": "root/children:#3",
+    "recovery": "NodeDropped"
+  }
+]

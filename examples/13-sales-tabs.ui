@@ -1,0 +1,2 @@
+root=Column([Heading("Orders grew 8% this month",level:1),Tabs([Tab("Overview",[Grid([Stat("Orders",324,delta:8),Stat("Revenue",42800,format:"currency")]),Facts([{label:"Period",value:"October"},{label:"Currency",value:"USD"}])]),Tab("Orders",[Table([TableColumn("Order","id"),TableColumn("Total","total",format:"currency")],ref("t4.orders"))])],bind:$tab)])
+$tab="Overview"

@@ -1,0 +1,8 @@
+[
+  {
+    "code": "schema.unknown_component",
+    "stmt": "root",
+    "path": "root",
+    "recovery": "NodeDropped"
+  }
+]

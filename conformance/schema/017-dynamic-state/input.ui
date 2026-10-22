@@ -1,0 +1,2 @@
+$x="ok"
+root=Text(upper($x))

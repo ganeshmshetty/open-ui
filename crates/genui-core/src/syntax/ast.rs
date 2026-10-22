@@ -61,7 +61,10 @@ pub enum BinaryOp {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(tag = "kind", deny_unknown_fields)]
 pub enum Expr {
-    Null,
+    Null {
+        #[serde(skip)]
+        origin: NullOrigin,
+    },
     Bool {
         value: bool,
     },
@@ -111,4 +114,27 @@ pub enum Expr {
         params: Vec<String>,
         body: Box<Expr>,
     },
+}
+
+/// Recovery metadata is deliberately excluded from structural AST equality and JSON.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct NullOrigin {
+    pub recovered: bool,
+}
+impl PartialEq for NullOrigin {
+    fn eq(&self, _: &Self) -> bool {
+        true
+    }
+}
+impl Expr {
+    pub fn null() -> Self {
+        Self::Null {
+            origin: NullOrigin { recovered: false },
+        }
+    }
+    pub(crate) fn recovered_null() -> Self {
+        Self::Null {
+            origin: NullOrigin { recovered: true },
+        }
+    }
 }

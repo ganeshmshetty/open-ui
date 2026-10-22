@@ -1,0 +1,30 @@
+{
+  "id": "test",
+  "version": "0.1.0",
+  "groups": [
+    {
+      "name": "G",
+      "order": 0,
+      "notes": ""
+    }
+  ],
+  "components": [
+    {
+      "name": "Foo",
+      "group": "G",
+      "role": "group",
+      "doc": "A test component.",
+      "args": [
+        {
+          "name": "label",
+          "required": true,
+          "position": 0,
+          "type": {
+            "kind": "text"
+          },
+          "default": "default"
+        }
+      ]
+    }
+  ]
+}

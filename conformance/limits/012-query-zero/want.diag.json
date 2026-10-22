@@ -1,0 +1,8 @@
+[
+  {
+    "code": "query.too_many",
+    "stmt": "q",
+    "path": null,
+    "recovery": "StatementDropped"
+  }
+]

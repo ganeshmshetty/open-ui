@@ -1,0 +1,8 @@
+[
+  {
+    "code": "schema.dup_arg",
+    "stmt": "root",
+    "path": "root",
+    "recovery": "ArgOmitted"
+  }
+]

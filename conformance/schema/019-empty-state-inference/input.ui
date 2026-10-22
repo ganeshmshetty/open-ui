@@ -1,0 +1,2 @@
+$tags=[]
+root=CheckboxGroup("Topics",["News"],bind:$tags)

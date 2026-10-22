@@ -1,0 +1,3 @@
+root=Column([Heading("Choose the work you want to follow",level:1),Form([Select("Team",["Platform","Product","Operations"],bind:$team,required:true),CheckboxGroup("Topics",["Releases","Incidents","Research"],bind:$topics,required:true),Button("Start following",tone:"primary",submit:true)],on_submit:say("Follow these workspace topics",{team:$team,topics:$topics}))])
+$team="Platform"
+$topics=[]

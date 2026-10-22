@@ -1,0 +1,8 @@
+[
+  {
+    "code": "schema.unknown_arg",
+    "stmt": "root",
+    "path": "root",
+    "recovery": "ArgOmitted"
+  }
+]

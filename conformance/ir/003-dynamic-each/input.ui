@@ -1,0 +1,1 @@
+root=List(each([{id:1,name:"A"}],|x|Text(x.name),key:"id"))

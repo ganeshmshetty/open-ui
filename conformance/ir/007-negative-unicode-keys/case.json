@@ -1,0 +1,9 @@
+{
+  "title": "negative-unicode-keys",
+  "tier": "core",
+  "tags": [
+    "M2",
+    "identity"
+  ],
+  "notes": "SPEC §5.2"
+}

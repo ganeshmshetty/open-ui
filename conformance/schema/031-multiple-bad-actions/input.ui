@@ -1,0 +1,1 @@
+root=Button("Go",on_click:[say(1),say("good")])

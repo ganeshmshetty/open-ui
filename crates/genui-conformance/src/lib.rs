@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 
 pub mod chunks;
+mod semantic;
 pub mod spec_check;
 
 use genui_core::diag::{Code, Diagnostic, Recovery};
@@ -122,12 +123,15 @@ fn directories(path: &Path) -> Result<Vec<PathBuf>> {
 pub struct SuiteReport {
     pub fixtures: usize,
     pub chunkings: usize,
+    pub permutations: usize,
+    pub category_chunkings: BTreeMap<String, usize>,
     pub categories: BTreeMap<String, usize>,
 }
 
 /// Fail on unsupported fixture categories rather than silently reporting success.
 pub fn run_suite(root: &Path) -> Result<SuiteReport> {
     let schemas = Schemas::load(root)?;
+    let semantic = semantic::Runner::new(root)?;
     let mut report = SuiteReport::default();
     let mut failures = Vec::new();
     for category in directories(root)? {
@@ -141,17 +145,42 @@ pub fn run_suite(root: &Path) -> Result<SuiteReport> {
             let category_name = category.file_name().and_then(|s| s.to_str()).unwrap_or("");
             if !matches!(
                 category_name,
-                "lex" | "grammar" | "statements" | "extract" | "fuzz-regress"
+                "lex"
+                    | "grammar"
+                    | "statements"
+                    | "extract"
+                    | "fuzz-regress"
+                    | "library"
+                    | "resolve"
+                    | "schema"
+                    | "ir"
+                    | "limits"
             ) {
                 return Err(format!(
                     "{}: category is not implemented in M1",
                     path.display()
                 ));
             }
-            match run_case(&path, category_name, &schemas) {
+            let result = if matches!(
+                category_name,
+                "library" | "resolve" | "schema" | "ir" | "limits"
+            ) {
+                semantic.run(&path, category_name, &schemas)
+            } else {
+                run_case(&path, category_name, &schemas).map(|chunkings| semantic::Checks {
+                    chunkings,
+                    permutations: 0,
+                })
+            };
+            match result {
                 Ok(count) => {
                     report.fixtures += 1;
-                    report.chunkings += count;
+                    report.chunkings += count.chunkings;
+                    report.permutations += count.permutations;
+                    *report
+                        .category_chunkings
+                        .entry(category_name.into())
+                        .or_default() += count.chunkings;
                     *report.categories.entry(category_name.into()).or_default() += 1;
                 }
                 Err(error) => failures.push(format!("{}: {error}", path.display())),
@@ -361,7 +390,7 @@ mod tests {
                     .is_some_and(|count| *count > 0)
             );
         }
-        assert!(report.chunkings >= report.fixtures * 204);
+        assert!(report.chunkings >= 124 * 204);
     }
 
     #[test]

@@ -1,0 +1,13 @@
+{
+  "id": "root",
+  "kind": "Text",
+  "role": "paragraph",
+  "props": {
+    "text": "a",
+    "size": "md",
+    "tone": "neutral",
+    "bold": false,
+    "mono": false
+  },
+  "children": {}
+}

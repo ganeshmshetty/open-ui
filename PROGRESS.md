@@ -1,6 +1,6 @@
 # Progress
 
-Updated: 2026-10-21. Milestones follow SPEC §14.1 in order. Update this file after
+Updated: 2026-10-22. Milestones follow SPEC §14.1 in order. Update this file after
 **every milestone**, recording acceptance evidence and any remaining limitations.
 A milestone is complete only after its acceptance checks pass and CI is green.
 
@@ -8,7 +8,7 @@ A milestone is complete only after its acceptance checks pass and CI is green.
 | --- | --- | --- |
 | M0 — Workspace and verification scaffolding | Complete | 21 lex fixtures / 4,743 chunkings; 7 spec examples; Linux and macOS CI green. |
 | M1 — Batch syntax | Complete | 124 fixtures / 28,225 chunkings; 23 tests including 2,048 generated round trips; four clean 600-second fuzz campaigns; Linux/macOS CI green. |
-| M2 — Library, validation, IR and limits | Not started | Category fixtures, diagnostic coverage, full spec validation. |
+| M2 — Library, validation, IR and limits | In progress | M1 merged into main; milestone/m2 created from main. Fixtures and contract clarifications first. |
 | M3 — Streaming and patches | Not started | Live invariant checks, patch replay, 100k generated programs. |
 | M4 — Runtime | Not started | Evaluation and interactive fixture categories. |
 | M5 — Prompt, feedback and messages | Not started | Golden output and cross-platform determinism. |
@@ -140,3 +140,57 @@ M1 is complete. No known unresolved syntax issue. Semantic library resolution,
 constant-state validation, general builtin/type checking, IR, provisional tails,
 statement hashes and patch invariants remain M2–M4 work. The dormant IR/runtime/
 library/GPUI scaffolds are explicitly outside M1. Next milestone: M2.
+
+## M2 — work in progress
+
+Approved M1 was fast-forwarded into main and pushed (38d8912). Work continues on
+milestone/m2 from main. Re-read AGENTS.md, PROGRESS.md, ROADMAP.md, CHANGELOG and
+the requested syntax, diagnostic, IR, library and conformance sections.
+ROADMAP item 2 is due: 20–30 complete exemplar programs and full spec-check.
+
+### Open issue for M3 (M1 review)
+
+`Splitter::finish()` suppresses lexer diagnostics (`BadChar`, `BadEscape`,
+`UnterminatedString`, `Overflow`, `NonFinite`) inside size-cutoff skipped ranges.
+In streaming, push would already have emitted them. M3 must hold them provisional
+until the cutoff decision, or stream != batch. Preserve a regression test when
+adding live diagnostic emission; M2 must not claim this is solved.
+
+M2 evaluation is static only. State reads, query results, refs and expressions
+requiring evaluation retain typed Dynamic plans. No evaluator is implemented.
+Acceptance evidence and diagnostic coverage/deferred-code audit will be added
+before completion. Unrelated research/marketing files remain untouched.
+
+### M2 implementation checkpoint — 2026-10-22
+
+Fixtures were authored before implementation (initial 62 cases, then focused
+regressions before each affected change). Current totals: 256 fixtures, including
+132 new M2 cases; 55,802 byte chunkings and 360 seeded sealed-table permutations.
+All five M2 categories pass: library 20, resolve 17, schema 61, ir 15, limits 19.
+The 49 Rust tests include 2,048 AST round-trip cases and two 512-case semantic
+properties (permutation invariance and path stability across append/recovery).
+
+Built the checked builder, additive extension guards, complete 29-entry std
+catalog (including Stat/Facts), canonical Library Spec and independent xxh3-128
+hash golden, static resolver/validator, bottom-up recovery, typed values/props,
+path allocator with collision rehash, state/query declarations, action/form plans,
+capability fallbacks, node-template plans, and bounded static limits. Deferred
+plans retain their node definitions and lambda environments. Only concrete
+instances consume node/depth budgets or report path cycles; M4 instantiates data.
+
+Full spec-check passes: 3 complete SPEC programs, 4 fragments and all 24 complete
+exemplars. ROADMAP item 2 is done. Every std component example validates with no
+Warning+ diagnostics. Golden hash: d19a769bd510997ce786ade4d60db23d,
+independently calculated with Python xxhash, then compared byte for byte by Rust.
+
+The audited 69-code table has 59 codes covered by fixtures and 10 explicit
+execution/replay/renderer deferrals; see conformance/diagnostics.json. Conditional
+recovery variants are also audited. New spec clarifications and their reasons
+are listed in spec/CHANGELOG.md. There is no evaluator, host request dispatch,
+query/ref delivery, live patch stream or renderer in this milestone.
+
+Local fmt, Rust 1.99 Clippy, workspace tests, fixtures, spec-check and stable fuzz
+build pass. A 21-second ASan smoke run completed 36,562 executions with exit 0;
+that smoke predates final template/slot hardening and is not acceptance evidence.
+The frozen-source 600-second validator campaign and hosted Linux/macOS CI are
+next. M2 remains in progress until both succeed and final evidence is committed.

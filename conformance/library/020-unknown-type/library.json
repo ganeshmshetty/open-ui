@@ -1,0 +1,30 @@
+{
+  "id": "test",
+  "version": "0.1.0",
+  "groups": [
+    {
+      "name": "G",
+      "order": 0,
+      "notes": ""
+    }
+  ],
+  "components": [
+    {
+      "name": "Foo",
+      "group": "G",
+      "role": "group",
+      "doc": "Foo.",
+      "args": [
+        {
+          "name": "a",
+          "required": true,
+          "position": 0,
+          "type": {
+            "kind": "named",
+            "name": "Missing"
+          }
+        }
+      ]
+    }
+  ]
+}

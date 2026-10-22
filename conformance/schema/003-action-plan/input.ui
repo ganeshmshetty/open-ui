@@ -1,0 +1,4 @@
+$x=1
+query q=tool("known",{},default:[])
+go=[set($x,2),refresh(q),say("Go",{x:$x})]
+root=Button("Go",on_click:go)

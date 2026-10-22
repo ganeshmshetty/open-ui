@@ -1,0 +1,8 @@
+[
+  {
+    "code": "schema.range",
+    "stmt": "root",
+    "path": "root",
+    "recovery": "Clamped"
+  }
+]

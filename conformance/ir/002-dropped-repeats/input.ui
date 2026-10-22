@@ -1,0 +1,2 @@
+bad=Text(1)
+root=Column([bad,Divider(),bad])

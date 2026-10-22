@@ -1,0 +1,14 @@
+[
+  {
+    "code": "schema.slot_kind",
+    "stmt": "root",
+    "path": "root/children:#0",
+    "recovery": "ChildOmitted"
+  },
+  {
+    "code": "schema.slot_kind",
+    "stmt": "root",
+    "path": "root/children:#1",
+    "recovery": "ChildOmitted"
+  }
+]

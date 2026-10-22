@@ -1,0 +1,3 @@
+root=Column([Heading("Manage notification preferences",level:1),Card([Switch("Daily digest",bind:$digest),Checkbox("Notify me about urgent incidents",bind:$urgent),Button("Save preferences",tone:"primary",on_click:say("Save my notification preferences",{digest:$digest,urgent:$urgent}))],title:"Notifications")])
+$digest=true
+$urgent=true

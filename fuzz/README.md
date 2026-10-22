@@ -38,3 +38,15 @@ M0's four no-op future fuzz targets were removed. Validator, evaluator, prompt
 and renderer targets will be added when their entry points are implemented in
 M2, M4, M5 and M6. They are not part of M1's coverage. CI formats and compiles the
 four implemented targets; timed campaigns are separately recorded.
+
+M2 adds the live `validator` target. It uses the actual std library, varied static
+limits and capabilities, and checks byte-chunk equality, sealed-table permutation
+invariance, concrete-tree reachability, unique path/ID identity and node/depth
+budgets. It performs no evaluation or host effects.
+
+```sh
+cargo +nightly fuzz run validator fuzz/corpus/m2-validator-acceptance -- -max_total_time=600 -max_len=32768 -seed=20261022 -dict=fuzz/syntax.dict -print_final_stats=1
+```
+
+The corpus is seeded from all fixture and exemplar DSL inputs. M2 acceptance
+metrics, source hashes and retained startup/final log excerpts live in `runs/m2/`.

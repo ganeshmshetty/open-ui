@@ -1,0 +1,16 @@
+{
+  "id": "root",
+  "kind": "Select",
+  "role": "select",
+  "props": {
+    "label": "Region",
+    "options": [
+      {
+        "label": "North America",
+        "value": "na"
+      }
+    ],
+    "required": false
+  },
+  "children": {}
+}

@@ -1,0 +1,4 @@
+$v=null
+b=Checkbox("Flag",bind:$v)
+a=Input("Name",bind:$v)
+root=Column([a,b])

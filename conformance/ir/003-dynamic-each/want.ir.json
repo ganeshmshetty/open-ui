@@ -1,0 +1,11 @@
+{
+  "id": "root",
+  "kind": "List",
+  "role": "list",
+  "props": {
+    "ordered": false
+  },
+  "children": {
+    "items": []
+  }
+}

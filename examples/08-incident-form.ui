@@ -1,0 +1,4 @@
+root=Column([Heading("Record an incident update",level:1),Form([Input("Incident title",bind:$title,required:true,max_len:80),TextArea("Customer impact",bind:$impact,required:true,max_len:1000),Checkbox("Customer communication sent",bind:$notified),Button("Save incident update",tone:"primary",submit:true)],on_submit:say("Save this incident update",{title:$title,impact:$impact,notified:$notified}))])
+$title=""
+$impact=""
+$notified=false

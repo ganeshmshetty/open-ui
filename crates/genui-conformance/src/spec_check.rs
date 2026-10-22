@@ -1,6 +1,9 @@
 //! Markdown example extraction for SPEC §12.6. M1 parses syntax; library validation follows in M2.
 use crate::Result;
-use genui_core::{limits::SyntaxLimits, syntax::parse_batch};
+use genui_core::{
+    diag::{Code, Severity},
+    validate::{Options, validate},
+};
 use std::{fs, path::Path};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -80,13 +83,18 @@ pub struct SpecReport {
     pub programs: usize,
     pub fragments: usize,
     pub invalid: usize,
+    pub exemplars: usize,
 }
 
 pub fn check_text(markdown: &str) -> Result<SpecReport> {
+    let library = genui_std::std_library().map_err(|e| format!("std build: {e:?}"))?;
+    let options: Options =
+        serde_json::from_str(include_str!("../../../conformance/libs/host.json"))
+            .map_err(|e| e.to_string())?;
     let examples = extract(markdown)?;
     let mut report = SpecReport::default();
     for example in examples {
-        let result = parse_batch(example.source.as_bytes(), SyntaxLimits::default());
+        let result = validate(example.source.as_bytes(), &library, &options);
         match example.kind {
             ExampleKind::Program => report.programs += 1,
             ExampleKind::Fragment => report.fragments += 1,
@@ -101,10 +109,25 @@ pub fn check_text(markdown: &str) -> Result<SpecReport> {
                 continue;
             }
         }
-        if !result.diagnostics.is_empty() {
+        let bad: Vec<_> = result
+            .diagnostics
+            .iter()
+            .filter(|d| {
+                if example.kind == ExampleKind::Fragment
+                    && matches!(
+                        d.code,
+                        Code::NoRoot | Code::Unresolved | Code::Orphan | Code::Undeclared
+                    )
+                {
+                    return false;
+                }
+                d.severity != Severity::Info
+            })
+            .collect();
+        if !bad.is_empty() {
             return Err(format!(
-                "line {}: syntax diagnostics in {:?} example: {:?}",
-                example.line, example.kind, result.diagnostics
+                "line {}: validation diagnostics in {:?} example: {:?}",
+                example.line, example.kind, bad
             ));
         }
     }
@@ -116,7 +139,30 @@ pub fn check_text(markdown: &str) -> Result<SpecReport> {
 
 pub fn check_file(path: &Path) -> Result<SpecReport> {
     let markdown = fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
-    check_text(&markdown).map_err(|e| format!("{}: {e}", path.display()))
+    let mut report = check_text(&markdown).map_err(|e| format!("{}: {e}", path.display()))?;
+    let examples = path
+        .parent()
+        .and_then(Path::parent)
+        .map(|p| p.join("examples"));
+    if let Some(directory) = examples.filter(|p| p.is_dir()) {
+        let entries = fs::read_dir(&directory)
+            .map_err(|e| e.to_string())?
+            .collect::<std::io::Result<Vec<_>>>()
+            .map_err(|e| e.to_string())?;
+        let mut paths: Vec<_> = entries
+            .into_iter()
+            .map(|e| e.path())
+            .filter(|p| p.extension().is_some_and(|s| s == "ui"))
+            .collect();
+        paths.sort();
+        for file in paths {
+            let source = fs::read_to_string(&file).map_err(|e| e.to_string())?;
+            check_text(&format!("```ui\n{source}\n```\n"))
+                .map_err(|e| format!("{}: {e}", file.display()))?;
+            report.exemplars += 1;
+        }
+    }
+    Ok(report)
 }
 
 #[cfg(test)]
@@ -144,14 +190,14 @@ mod tests {
     #[test]
     fn bad_examples_and_unclosed_fences_fail() {
         assert!(check_text("```ui\n@\n```\n").is_err());
-        assert!(check_text("```ui\nroot=1\n").is_err());
-        assert!(check_text("```ui\nroot=1\n```\n```ui-fragment\n@\n```\n").is_err());
+        assert!(check_text("```ui\nroot=Divider()\n").is_err());
+        assert!(check_text("```ui\nroot=Divider()\n```\n```ui-fragment\n@\n```\n").is_err());
         assert!(check_text("```ui-fragment\nx=1\n```\n").is_err());
     }
 
     #[test]
     fn unicode_prose_does_not_panic() {
-        assert!(check_text("😀😀 prose\n```ui\nroot=1\n```\n").is_ok());
+        assert!(check_text("😀😀 prose\n```ui\nroot=Divider()\n```\n").is_ok());
     }
 }
 
@@ -162,13 +208,18 @@ mod syntax_gate_tests {
     #[test]
     fn lexically_valid_syntax_errors_fail_complete_and_fragment_examples() {
         assert!(check_text("```ui\nroot={key 1}\n```\n").is_err());
-        assert!(check_text("```ui\nroot=1\n```\n```ui-fragment\nx={key 1}\n```\n").is_err());
+        assert!(
+            check_text("```ui\nroot=Divider()\n```\n```ui-fragment\nx={key 1}\n```\n").is_err()
+        );
     }
 
     #[test]
     fn invalid_tag_requires_actual_diagnostics() {
-        assert!(check_text("```ui\nroot=1\n```\n```ui-invalid\nx=1\n```\n").is_err());
-        let report = check_text("```ui\nroot=1\n```\n```ui-invalid\nx={key 1}\n```\n").unwrap();
+        assert!(
+            check_text("```ui\nroot=Divider()\n```\n```ui-invalid\nroot=Divider()\n```\n").is_err()
+        );
+        let report =
+            check_text("```ui\nroot=Divider()\n```\n```ui-invalid\nx={key 1}\n```\n").unwrap();
         assert_eq!(report.invalid, 1);
     }
 }

@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "anyOf": [
+    {
+      "type": "null"
+    },
+    {
+      "$ref": "#/$defs/node"
+    }
+  ],
+  "$defs": {
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "group",
+            "region",
+            "heading",
+            "paragraph",
+            "code",
+            "separator",
+            "image",
+            "figure",
+            "status",
+            "alert",
+            "button",
+            "text_input",
+            "multi_line_input",
+            "checkbox",
+            "checkbox_group",
+            "radio_group",
+            "switch",
+            "select",
+            "form",
+            "list",
+            "list_item",
+            "table",
+            "tab_list",
+            "tab",
+            "tab_panel",
+            "chart"
+          ]
+        },
+        "props": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/prop"
+          }
+        },
+        "children": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/node"
+            }
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "role",
+        "props",
+        "children"
+      ]
+    },
+    "value": {
+      "anyOf": [
+        {
+          "type": [
+            "null",
+            "boolean",
+            "string"
+          ]
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/value"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "i": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "i"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "f": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "f"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ref": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "ref"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/value"
+          }
+        }
+      ]
+    },
+    "prop": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/value"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "dynamic": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "dynamic"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "bind": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "bind"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "action"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "tok": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": [
+                    "integer",
+                    "string"
+                  ]
+                }
+              ],
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "required": [
+            "tok"
+          ]
+        }
+      ]
+    }
+  }
+}

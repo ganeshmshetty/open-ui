@@ -1,0 +1,8 @@
+[
+  {
+    "code": "limit.ir_depth",
+    "stmt": "a",
+    "path": "root/children:@a/children:#0",
+    "recovery": "ChildOmitted"
+  }
+]

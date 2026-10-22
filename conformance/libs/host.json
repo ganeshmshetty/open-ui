@@ -1,0 +1,13 @@
+{
+  "tools": [
+    "sales.by_month",
+    "tickets.list"
+  ],
+  "refs": [
+    "t4.places",
+    "t4.orders"
+  ],
+  "url_hosts": [
+    "example.com"
+  ]
+}

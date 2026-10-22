@@ -1,0 +1,12 @@
+{
+  "id": "root",
+  "kind": "Button",
+  "role": "button",
+  "props": {
+    "label": "Export",
+    "tone": "secondary",
+    "submit": false,
+    "disabled": false
+  },
+  "children": {}
+}

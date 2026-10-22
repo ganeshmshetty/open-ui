@@ -1,0 +1,1 @@
+root=Tabs(each([],|x|Text("wrong")))

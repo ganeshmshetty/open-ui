@@ -5,7 +5,7 @@ Each item has a "due by" milestone. When starting a milestone, pick up every ite
 | # | Item | Due by | Output |
 | --- | --- | --- | --- |
 | 1 | Design language: tokens, layout rules, component anatomy and states, streaming visuals | M6 (start) | `spec/DESIGN.md` (draft 0.1 done; style-guide demo window due M6) |
-| 2 | Exemplar programs: 20–30 hand-written ideal DSL programs (dashboards, forms, lists, data by ref) used as prompt examples, fixtures and GPUI demos | M2 | `examples/*.ui`, checked by `spec-check` |
+| 2 | Exemplar programs: 20–30 hand-written ideal DSL programs (dashboards, forms, lists, data by ref) used as prompt examples, fixtures and GPUI demos | M2 — done | 24 complete `examples/*.ui`, checked by full `spec-check`; dashboards, Stat/Facts, forms, refs, tables, charts and tabs |
 | 3 | Prompt text: the actual wording of sections S1–S11 (§9.1) | M5 | `crates/*-prompt` templates + golden |
 | 4 | Model evaluation set: tasks, scoring (valid-program rate, diagnostics per program, tokens vs JSON baseline), recorded transcripts; answers open questions 2 and 3 | M5 | `eval/` + report |
 | 5 | Developer inspector: tree view, patch log, diagnostics list (debug-only view in `-gpui`) | M6 | spec §10 addition |

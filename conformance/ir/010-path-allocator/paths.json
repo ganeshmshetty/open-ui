@@ -1,0 +1,13 @@
+{
+  "parent": "root",
+  "slot": "items",
+  "base": "e0",
+  "keys": [
+    "1",
+    1,
+    "a/b:c%~#",
+    "1",
+    true,
+    null
+  ]
+}

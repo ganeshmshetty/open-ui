@@ -1,0 +1,8 @@
+[
+  {
+    "code": "schema.missing_required",
+    "stmt": "root",
+    "path": "root",
+    "recovery": "Defaulted"
+  }
+]

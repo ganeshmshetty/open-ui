@@ -1,0 +1,10 @@
+{
+  "parent": "root",
+  "slot": "items",
+  "base": "e0",
+  "keys": [
+    -12,
+    "é/区"
+  ],
+  "keyed": true
+}

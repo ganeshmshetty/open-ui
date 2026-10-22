@@ -1,0 +1,8 @@
+[
+  {
+    "code": "expr.tainted_url",
+    "stmt": "root",
+    "path": "root",
+    "recovery": "ValueNulled"
+  }
+]

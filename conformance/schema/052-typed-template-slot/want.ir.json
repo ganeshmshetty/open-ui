@@ -1,0 +1,9 @@
+{
+  "id": "root",
+  "kind": "Tabs",
+  "role": "tab_list",
+  "props": {},
+  "children": {
+    "tabs": []
+  }
+}

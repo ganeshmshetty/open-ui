@@ -1,0 +1,15 @@
+{
+  "id": "root",
+  "kind": "Text",
+  "role": "paragraph",
+  "props": {
+    "text": {
+      "dynamic": 0
+    },
+    "size": "md",
+    "tone": "neutral",
+    "bold": false,
+    "mono": false
+  },
+  "children": {}
+}

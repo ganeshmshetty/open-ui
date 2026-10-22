@@ -1,0 +1,2 @@
+body=Divider()
+root=Card(body)

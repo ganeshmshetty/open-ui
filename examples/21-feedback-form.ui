@@ -1,0 +1,3 @@
+root=Column([Heading("Tell us what would help you most",level:1),Form([Select("Feedback type",["Suggestion","Problem","Question"],bind:$kind),TextArea("Feedback",bind:$message,required:true,max_len:2000,rows:6),Button("Send feedback",tone:"primary",submit:true)],on_submit:say("Send product feedback",{kind:$kind,message:$message}))])
+$kind="Suggestion"
+$message=""

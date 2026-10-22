@@ -1,0 +1,2 @@
+tab=Tab("A",[Text(x.name)])
+root=List(each([{name:"A"}],|x|Tabs([tab])))

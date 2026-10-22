@@ -45,3 +45,23 @@ M2 adds Library Spec/IR goldens and semantic validation; M3 adds live invariants
 statement hashes, patch replay, and provisional-effect checks. M1's byte-scanner
 checks do not claim those later guarantees. See `fuzz-regress/` for the reduced
 round-trip budget regression and `fuzz/runs/m1/` for recorded fuzz evidence.
+
+M2 implements `library`, `resolve`, `schema`, `ir` and `limits`. Cases with DSL
+input compare canonical concrete IR and exact diagnostic multisets under every
+byte chunking. `resolve` and `limits` additionally run 10 seeded permutations of
+the sealed non-root statement table. Syntax cutoff diagnostics are retained from
+the original parse. No evaluation occurs: Dynamic props and node plans remain
+symbolic, with focused Rust assertions checking their retained data.
+
+Library cases use strict `library.json` builder input and exact `want.build.json`
+error arrays. Cases with `input.ui` also run all chunkings against that library.
+Focused allocator cases use `paths.json`, `want.paths.json` and exact
+`want.diag.json`; they exercise typed/escaped keys, index fallback and injected
+initial hash collisions without evaluating `each`.
+
+`diagnostics.json` maps every covered code to fixture paths, and records the
+milestone/reason for every deferred code. Tests audit it against the spec's full
+code table and require all conditional static recovery variants. Runtime-only
+limits remain M4 work; every limit's hard ceiling is checked in the core tests.
+The runner reports chunkings and permutations separately from direct builder/
+allocator fixture checks. `spec-check` also checks all 24 exemplar programs.

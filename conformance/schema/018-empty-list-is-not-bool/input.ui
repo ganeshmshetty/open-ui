@@ -1,0 +1,2 @@
+$x=[]
+root=Checkbox("Flag",bind:$x)

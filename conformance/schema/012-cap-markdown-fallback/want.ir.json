@@ -1,0 +1,9 @@
+{
+  "id": "root",
+  "kind": "Markdown",
+  "role": "region",
+  "props": {
+    "source": "[image: A]"
+  },
+  "children": {}
+}

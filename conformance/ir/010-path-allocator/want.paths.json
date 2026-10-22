@@ -1,0 +1,16 @@
+{
+  "paths": [
+    "root/items:e0:s1",
+    "root/items:e0:n1",
+    "root/items:e0:sa%2Fb%3Ac%25%7E%23",
+    "root/items:e0#3",
+    "root/items:e0#4",
+    "root/items:e0#5"
+  ],
+  "codes": [
+    "schema.dup_key",
+    "schema.bad_key",
+    "schema.bad_key"
+  ],
+  "distinct_ids": 6
+}

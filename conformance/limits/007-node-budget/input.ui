@@ -1,0 +1,3 @@
+a=Divider()
+b=Divider()
+root=Column([a,b,a])

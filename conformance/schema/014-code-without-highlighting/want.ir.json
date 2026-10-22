@@ -1,0 +1,10 @@
+{
+  "id": "root",
+  "kind": "Code",
+  "role": "code",
+  "props": {
+    "source": "let x=1;",
+    "lang": "rust"
+  },
+  "children": {}
+}

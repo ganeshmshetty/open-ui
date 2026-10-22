@@ -1,0 +1,8 @@
+[
+  {
+    "code": "expr.type",
+    "stmt": "root",
+    "path": "root/children:#0",
+    "recovery": "ValueNulled"
+  }
+]

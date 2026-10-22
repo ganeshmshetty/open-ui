@@ -1,0 +1,14 @@
+[
+  {
+    "code": "schema.slot_kind",
+    "stmt": "root",
+    "path": "root/items:e0",
+    "recovery": "ChildOmitted"
+  },
+  {
+    "code": "name.orphan",
+    "stmt": "x",
+    "path": null,
+    "recovery": "None"
+  }
+]

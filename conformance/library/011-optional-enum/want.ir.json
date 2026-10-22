@@ -1,0 +1,7 @@
+{
+  "id": "root",
+  "kind": "Foo",
+  "role": "group",
+  "props": {},
+  "children": {}
+}

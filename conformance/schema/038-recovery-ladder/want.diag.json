@@ -1,0 +1,14 @@
+[
+  {
+    "code": "schema.unknown_component",
+    "stmt": "root",
+    "path": "root/columns:#0",
+    "recovery": "NodeDropped"
+  },
+  {
+    "code": "schema.min_items",
+    "stmt": "root",
+    "path": "root",
+    "recovery": "NodeDropped"
+  }
+]

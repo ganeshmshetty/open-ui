@@ -1,0 +1,2 @@
+query q=tool("missing",{},default:[])
+root=Table([TableColumn("A","a")],q)

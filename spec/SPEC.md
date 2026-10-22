@@ -302,7 +302,7 @@ An expression that errors evaluates to `Null` and records a diagnostic. The cons
 
 ### 2.7 Built-in functions (phase 1)
 
-All builtins are pure, total and fuel-metered. Their names are reserved, and library functions MUST NOT shadow them.
+All builtins are pure, total and fuel-metered. Their names are reserved in the call namespace (ordinary and state bindings use their separate value namespaces), and library functions MUST NOT shadow them.
 
 | Group | Functions |
 | --- | --- |
@@ -318,10 +318,24 @@ Semantics:
 
 - **`each`** is the only construct that yields lists of nodes. `key:` is a lambda or a field-path string (`key: "id"`), and keys MUST be strings or integers (`schema.bad_key`). Without `key:`, elements are keyed by index. `each` is capped by `each_max_items` (`limit.list_len`, truncated).
 - **`sort_by`** is stable. Keys must all be numbers or all strings (`expr.type` otherwise). Fuel is charged as `n·ceil(log2 n)`.
-- **Lambdas** bind their parameters, which shadow statement names. Free names resolve as usual.
+- **Lambdas** bind their parameters, which shadow statement names, including a
+  same-named node statement. Parameters are data values, not nodes. Free names in
+  an inline body resolve in the current lambda environment, then the global table.
+  A referenced node-statement template is instantiated in that same environment
+  (so nested `each` through statements can refer to outer parameters). Ordinary
+  value statements are global bindings; they do not capture a caller's parameters.
 - **`fmt`** with too few arguments renders the missing placeholders as empty strings (`expr.fmt_args`, warning). Extra arguments are ignored with the same code.
 - **Fuel.** Every list-producing function charges fuel per element and is capped by `max_list_len`.
 - **Time.** There is no clock builtin, because it would make renders non-reproducible.
+
+**Static call checks.** Arity counts positional arguments: `if` takes 3;
+`coalesce` takes at least 2; `fmt` takes at least 1; `sum` takes 1 or 2;
+`fixed`, `contains`, `join`, `map`, `filter` and `sort_by` take 2; the remaining
+value builtins take 1. `each` takes a collection and a one- or two-parameter
+lambda, plus optional `key:` (a field-path string or a one- or two-parameter
+lambda). `map`, `filter` and `sort_by` take a one-parameter lambda;
+`sort_by` alone accepts optional `desc: bool`. A wrong arity or literal argument
+type is `expr.type`. Library function signatures are checked without calling them.
 
 ### 2.8 Versioning
 
@@ -360,6 +374,16 @@ A name used as a child in several places creates one node instance per use. The 
 - When the walk exceeds a budget, the remaining children of that slot are omitted (`limit.nodes` or `limit.ir_depth`, once per statement).
 - While streaming, the allocation is recomputed after each sealing. Nodes already displayed MAY be removed by a later recomputation. They are nodes, not sealed statements, so I1 still holds.
 
+The root has IR depth 1 and counts as one node. Alias names do not add IR depth.
+The permutation property applies to the sealed statement table after syntax
+cutoffs: lexical byte/count limits necessarily precede semantic allocation.
+Unreachable node statements are checked locally for syntax/schema errors, without
+instantiation: their references do not allocate nodes or report path cycles.
+
+In batch static validation, data-dependent `each`, `if` and `coalesce` retain
+checked node plans. Their instances consume budgets and report path cycles only when M4 instantiates them,
+using this same canonical walk; M2 does not evaluate their collections or conditions.
+
 ### 2.11 Components, arguments and slots
 
 ```ui-fragment
@@ -383,6 +407,12 @@ page = Column([header, body], gap: 3)
 - Deeper nesting is `schema.slot_kind`, and that element is omitted.
 - A slot argument that is a single node expression instead of a list (`List(each(...))`, `Card(body)`) is treated as a one-element list.
 
+The `root` must be a single node expression (possibly conditional), rather than a
+list-valued root. A list at that position is `schema.slot_kind` and nothing renders;
+there is no implicit wrapper component. Other statements may hold lists of nodes.
+A conditional null result may render no node. Statement-kind errors also prevent
+actions from being used as values or children.
+
 **Why this shape.** Adding an optional argument never changes the meaning of an existing program. Adding or reordering required arguments is a breaking library change (8.7).
 
 ### 2.12 State
@@ -398,6 +428,14 @@ $tags = []
 - **Bindings.** `bind: $x` on a bindable prop displays the state and writes user edits back. Elsewhere `$x` is a plain value read.
 - **Writing.** Actions write state: `set($x, expr)` and `restore($x, ...)` (2.13).
 - **Types.** The state type is inferred from the default. An empty list `[]` takes its element type from the first binding that uses it or the first write; until then it is `list<any>`. A `null` default takes its type from the first binding. A write of the wrong type is `state.type_write`, and the write is ignored.
+
+Static default allocation is in state-name order. Its byte cost is the sum of
+compact JSON encodings of the defaults (not their names); exceeding
+`max_state_bytes` ignores that declaration with `limit.state`. Null and empty-list
+inference uses the first syntactic binding in canonical reachable template
+pre-order (including deferred bodies, without evaluating conditions), rather
+than declaration arrival order. Unused state declarations do not produce
+`name.orphan`. A signed numeric literal is a constant; arithmetic and calls are not.
 
 ### 2.13 Actions
 
@@ -415,8 +453,18 @@ An *action-typed* prop (such as `on_click` or `on_submit`) takes an action expre
 
 - Actions are data until a user gesture fires them (7.4).
 - `set`, `restore` and `refresh` name their target. The target expression is not evaluated as a value.
+- `emit` names a declared event with a string literal (`expr.type` otherwise).
+  Its single params value is checked against the registered action signature;
+  zero- or multi-parameter custom actions use their direct registered call.
 - An action-typed statement is allowed: `go = [set($page, 2), refresh(results)]`.
 - Mutations (write tools) are not in phase 1 (Appendix A).
+- M2 checks targets, literal argument types and statement kinds, and records
+  ordered action steps. It neither applies writes nor checks `state.type_write`:
+  that diagnostic describes an executed write in M4, including a literal write.
+  A failed action in a list becomes an absent step; valid siblings remain.
+  Value builtins can be used in step arguments. A value builtin is not itself an
+  action step (`expr.type`); action expressions are registered calls or lists.
+
 
 ### 2.14 Forms
 
@@ -463,7 +511,12 @@ reload = Button("Reload", on_click: refresh(tickets))
 - The tool id is an opaque string. The host registers each tool it allows (7.5). An unregistered id is `query.unknown_tool`.
 - `args` is evaluated when the request is built. A query depends on every `$state` its arguments read, including through referenced statements. A change re-requests it after a 300 ms debounce.
 - `default:` is required. It is the value shown until a result arrives, including during streaming.
-- At most `max_queries` query statements are allowed per program. Extra ones are `query.too_many` and are dropped.
+- At most `max_queries` query statements are allowed per program. Allocation is in
+  query-name order (Unicode code point / UTF-8 lexical order for DSL identifiers),
+  not arrival order. Extra ones are `query.too_many` and are dropped.
+- A malformed `tool` signature, including a missing `default:`, is `expr.type`
+  when the query passed syntax parsing. Static validation checks its arguments and
+  default but performs no host request.
 
 ### 2.16 Examples
 
@@ -716,6 +769,8 @@ Codes are stable once released. A code's severity and recovery are fixed, except
 | `limit.state` | Warning | Ignored | |
 | `limit.event` | Warning | Truncated | |
 | `render.panic` | Error | KeptLastGood or Replaced (placeholder) | |
+| `cap.fallback` | Info | Replaced | |
+| `lib.mismatch` | Info | None | |
 
 ### 4.4 Recovery ladder
 
@@ -730,6 +785,11 @@ Recovery is applied bottom-up. Each step stops the cascade, so a parent sees a c
 7. **Program.** With no `root`, or an unsupported major, nothing renders and the fallback text is shown.
 
 A node drop MUST NOT cascade beyond its parent's slot unless a declared constraint (`min_items`) forces it.
+The parser retains an internal recovered-null annotation for nulls introduced by
+numeric, depth, lambda and contextual-call errors. It is excluded from structural
+AST equality, JSON and printing. Validation uses it to avoid issuing a second
+schema diagnostic for the same recovered value. A literal model-written null has
+no such annotation.
 
 ### 4.5 Fatal diagnostics
 
@@ -877,6 +937,19 @@ pub struct Props(SmallVec<[(PropId, Prop); 6]>);
 - **Keys.** Inside the process, props are keyed by `PropId`, a small integer from the library. Names appear only in serialization.
 - **Types.** Each prop has a `TypeExpr` (8.3). Literals are checked when the IR is built, and dynamic values when they are evaluated.
 - **Tokens.** Design tokens such as `gap: 3` and `tone: "danger"` are checked against token scales. The model never supplies pixels or colors.
+
+For static-only IR snapshots, a Dynamic prop is encoded as `{"dynamic": N}`;
+`N` indexes the deterministic expression arena. Node slots separately retain
+`SlotPlan { base, expression, accepts }` for data-dependent node expressions;
+empty concrete children do not imply an empty plan. Plans preserve source bases,
+lambda scopes and accepted component types without manufacturing instances.
+The IR also retains the canonical node-statement template table used by named
+references inside these plans; no definition is lost when a template is deferred.
+Action handles index ordered typed steps, bound to their owning node and form
+scope. Capability fallbacks whose text depends on data retain the original node,
+descendants and `to_text` template beside the Dynamic expression, for M4 to render.
+These arenas are process-local validation output; M3 patches serialize resolved
+wire values according to §6.5, not these static snapshot markers.
 
 ### 5.6 Statement kinds and node expressions
 
@@ -1211,6 +1284,16 @@ Rules checked by `Library::build()`, with tests:
 - Every type the definition refers to exists.
 - Every public component has `doc` text.
 - Every `example` parses and validates with zero diagnostics at Warning or above.
+  Examples may be an expression (implicitly assigned to `root`) or a complete
+  program. The builder's example context allows model URLs on `example.com` only;
+  runtime URL policy remains host configuration.
+- Groups and argument names are unique, required positions are contiguous, enum
+  scales are nonempty and unique, defaults satisfy their declared types/ranges,
+  function fuel is positive, and structural contexts name an existing slot.
+- Capability-using libraries provide terminal `Text` and `Markdown` definitions,
+  each with one required text argument. `Text` requires no capability; `Markdown`
+  may require only `markdown`. This makes fallback total even with no capabilities.
+`std_library()` is fallible and returns the same checked build result.
 
 A required argument may have a default: `.req_default(name, type, value)`. It stays positional, and if it is missing or invalid it takes the default. This is the `Defaulted` recovery of `schema.missing_required`.
 
@@ -1243,7 +1326,12 @@ The Library Spec is a JSON document generated from the Rust definitions. It hold
 }
 ```
 
-`canonical form` means sorted object keys, no insignificant whitespace, and fixed number formatting. The hash is stamped into stored messages.
+`canonical form` means sorted object keys, no insignificant whitespace, UTF-8 text
+without unnecessary ASCII escaping, and shortest round-trip JSON number formatting
+(preserving `.0` for a float with an integral value). Array order is preserved.
+The `hash` member is excluded from the hashed document. The hash is xxh3-128,
+32 lowercase hexadecimal digits, and is stamped into stored messages.
+The checked-in golden is compared byte for byte; tests never rewrite it.
 
 ### 8.3 Types
 
@@ -1251,6 +1339,7 @@ The Library Spec is a JSON document generated from the Rust definitions. It hold
 
 | Kind | Meaning |
 | --- | --- |
+| `any` | unconstrained value, used for generic map/data contents and pending state inference |
 | `text` | string |
 | `int`, `float`, `number` | numbers (`number` accepts either) |
 | `bool` | boolean |
@@ -1268,14 +1357,14 @@ The Library Spec is a JSON document generated from the Rust definitions. It hold
 
 ### 8.4 Groups
 
-Groups are prompt metadata: an ordered list of `{name, order, notes}`. Every component MUST be in a group, so there is no catch-all bucket. A test checks that every component a group note mentions exists.
+Groups are prompt metadata: an ordered list of `{name, order, notes}`. Every component MUST be in a group, so there is no catch-all bucket. Component references in group notes are enclosed in backticks. The builder checks those references against component names; ordinary prose is not interpreted as a component reference.
 
 ### 8.5 Extension
 
 Phase 1 supports adding to a library and nothing else:
 
 ```rust
-let lib = std_library().extend()
+let lib = std_library()?.extend()
     .component(gauge())
     .function(my_fn)            // pure Rust fn, typed params, declared fuel cost
     .action(emit_def("export")) // custom event delivered via ReqKind::Emit
@@ -1290,7 +1379,7 @@ Override, removal, slot widening and compatibility linting against a previous ha
 - A component may list the flags it `requires`.
 - **When a flag is missing:**
   - The prompt generator omits that component.
-  - If a program uses it anyway (an old message, or a model slip), the core replaces it with a `Markdown` node holding its `to_text` rendering, and reports `cap.fallback` (info). The renderer never sees an unsupported component.
+  - If a program uses it anyway (an old message, or a model slip), the core replaces it with a `Markdown` node holding its `to_text` rendering (or terminal `Text` when `markdown` is also absent), and reports `cap.fallback` (info). The renderer never sees an unsupported component.
 - GPUI reports every phase-1 flag. This mechanism exists so that phase 2 renderers such as ratatui need no core changes.
 - Chained component-to-component fallbacks are deferred.
 
@@ -1365,14 +1454,14 @@ Signatures use the catalog format of 9.1:
 | --- | --- | --- | --- |
 | `List(items: [node]; ordered: bool = false)` | list | `- item` or `1. item` | Each child becomes a list item. Virtualized above 100 items. |
 | `Table(columns: [TableColumn], rows: data; empty: text = "No data")` | table | pipe table | Virtualized above 100 rows. Each cell shows the row's `field` value as text. |
-| `TableColumn(header: text, field: text; align: "start" \| "end" = "start", format: col_format = "text", currency: text = "USD")` | (structural) | | Valid only in `Table.columns` (`schema.slot_kind` elsewhere). |
+| `TableColumn(header: text, field: text; align: "start" \| "end" = "start", format: col_format = "text", currency: text = "USD")` | group (structural) | | Valid only in `Table.columns` (`schema.slot_kind` elsewhere). |
 | `Stat(label: text, value: scalar; delta: number, good: "up" \| "down" = "up", format: col_format = "number", currency: text = "USD", caption: text)` | group | `**{label}:** {value}` plus ` ({delta})` when present | A KPI: label, large value, optional change badge colored by whether `delta`'s direction is `good`. Use inside Card or Grid. |
-| `Facts(items: data; columns: int 1..2 = 1)` | list | `- **{label}:** {value}` per item | Key-value details. Each item is a map with `label` and `value`; extra keys are ignored. At most 50 items (`limit.list_len` beyond). |
+| `Facts(items: data; columns: int 1..2 = 1)` | list | `- **{label}:** {value}` per item | Key-value details. Each item is a map with a text `label` and a `value` (any Value); extra keys are ignored. Malformed literal records are `schema.type` on the required `items` prop. At most 50 items (`limit.list_len` beyond). |
 | `Chart(kind: chart_kind, data: data, x: text, y: text; title: text, summary: text)` | chart | `{summary}` plus a pipe table | requires `charts`. One series. `x` and `y` are field names. |
 | `Tabs(tabs: [Tab]; bind: binding<text>)` | tab_list | each tab's label followed by its children | Without `bind`, the selection is renderer-local and invisible to expressions. |
 | `Tab(label: text, children: [node]; value: text)` | tab_panel | | Valid only in `Tabs.tabs`. `value` defaults to `label`. |
 
-That is 28 entries: 26 components plus the structural helpers `TableColumn` and `Tab`. Deferred components are listed in Appendix A.
+That is 29 entries: 27 components plus the structural helpers `TableColumn` and `Tab`. Deferred components are listed in Appendix A.
 
 **Slot minimums.** `Tabs.tabs` and `Table.columns` have `min_items: 1`. All other slots allow zero items.
 
@@ -1676,7 +1765,8 @@ The parser, validator and evaluator are fuzzed from M1 (cargo-fuzz and proptest)
 ```
 conformance/
   README.md
-  libs/std.json               the Library Spec of <name>-std (golden, regenerated by tests)
+  libs/std.json               the Library Spec of <name>-std (golden, checked byte for byte)
+  libs/host.json              explicit tools, refs and URL policy for documentation examples
   <category>/<NNN-slug>/
     case.json                 title, tier, tags, limits overrides, notes
     input.ui                  whole program, or a full model reply with prose and fence
@@ -1685,7 +1775,10 @@ conformance/
     want.tokens.json          ordered lexical tokens (category lex only)
     want.ast.json             structural AST (M1 syntax categories and fuzz-regress)
     want.segments.json        ordered Markdown/Program text segments (category extract)
-    want.ir.json              canonical IR
+    want.ir.json              canonical IR (M2 concrete nodes; plans tested separately)
+    options.json              optional static host context: tools, refs, capabilities, URL policy
+    library.json              builder input in library fixtures; want.build.json gives exact errors
+    paths.json                allocator probe in focused ir fixtures; want.paths.json gives paths
     want.diag.json            expected diagnostics
     want.patches.json         exact batches (category patches only)
     want.resolved.json        evaluated tree (interactive tier)
@@ -1723,7 +1816,7 @@ For every chunking it checks:
 - G2, G6 and G7: replay equality and no gaps in `seq`;
 - I6: no requests, state or actions from provisional content.
 
-**Permutation property.** In categories `resolve` and `limits`, each fixture is also run with its non-`root` statements permuted (10 seeded permutations). The final result MUST be unchanged, because budgets and cycles are order-independent (2.10).
+**Permutation property.** In categories `resolve` and `limits`, each fixture is also run with its non-`root` statements permuted (10 seeded permutations). The final result MUST be unchanged, because budgets and cycles are order-independent (2.10). M2 permutes the sealed AST table and retains the original syntax diagnostics, so arrival-sensitive lexical truncation is not confused with semantic allocation.
 
 ### 12.4 Categories
 
@@ -1764,6 +1857,14 @@ For every chunking it checks:
 
 - A new diagnostic code, builtin, grammar rule or component needs fixtures in the same change.
 - `<name>-cli spec-check` extracts every ```` ```ui ```` block from SPEC.md and validates it against `<name>-std` with zero diagnostics at Warning or above. Blocks fenced as ```` ```ui-fragment ```` are partial programs, validated the same way except that `name.no_root`, `name.unresolved`, `name.orphan` and `state.undeclared` are allowed. Blocks fenced as ```` ```ui-invalid ```` are expected to produce diagnostics. CI runs it.
+- `spec-check` also validates every `examples/*.ui` as a complete program, using
+  the explicit documentation host context in `conformance/libs/host.json`. It does
+  not silently allow arbitrary tool or ref names.
+- M2's checked-in diagnostic coverage audit lists the codes covered by static
+  fixtures and the codes awaiting M4 (execution/delivery), M5 (stored replay) or
+  M6 (renderer panic). Arithmetic overflow/finiteness codes already have lexical
+  fixtures; their evaluated variants remain M4 work. Every reachable code and
+  every declared conditional recovery variant must have a fixture.
 - **M0 bootstrap.** Before the parser and library exist, `spec-check` requires every `ui` and `ui-fragment` block to lex without diagnostics. It recognizes `ui-invalid` blocks but does not yet assert semantic rejection. At M2 the full validation rule above replaces this lexical-only gate. The M0 chunking harness checks finish-only lexical equality using a byte accumulator. At M1, `ui` and `ui-fragment` must parse without syntax diagnostics, and each `ui-invalid` must produce diagnostics. Every syntax fixture runs through resumable scanners under all 12.3 chunkings and compares final tokens/AST, segments and diagnostics. All entry points use the single 2.4 splitter. The live IR/patch/provisional invariants in 12.3 become mandatory with M3.
 - Fuzz targets: lexer, splitter, extractor, parser, validator, evaluator, prompt generator options, and renderer patch application. Crashes become `fuzz-regress` fixtures.
 - Property tests:
@@ -1886,7 +1987,7 @@ pub fn render_event(ev: &ModelEvent) -> String;
 | Mutations (write tools) and `call(...)` | They carry most of the action-safety risk | Write tools default to host confirmation, and the confirmation shows the host's own tool description and the evaluated arguments. |
 | Refresh timers, duration literals | Removes a token type and timer machinery | |
 | Password or secret fields | Hard to protect from model-authored reads | Design: sensitive bindings are write-only (reads give `Null`) and are excluded from events. |
-| Derive macros | Large M2 cost; the builder covers 26 components | |
+| Derive macros | Large M2 cost; the builder covers 29 catalog entries | |
 | JSON Schema export | No consumer yet | |
 | Binary patch encoding, transport protocol | In-process only | |
 | Library override, removal, slot widening, compatibility lint | One first-party library | |

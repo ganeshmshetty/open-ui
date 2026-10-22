@@ -1,0 +1,8 @@
+[
+  {
+    "code": "state.undeclared",
+    "stmt": "root",
+    "path": "root",
+    "recovery": "ValueNulled"
+  }
+]

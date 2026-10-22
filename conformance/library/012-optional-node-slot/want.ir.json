@@ -1,0 +1,19 @@
+{
+  "id": "root",
+  "kind": "Foo",
+  "role": "group",
+  "props": {},
+  "children": {
+    "children": [
+      {
+        "id": "root/children:#0",
+        "kind": "Foo",
+        "role": "group",
+        "props": {},
+        "children": {
+          "children": []
+        }
+      }
+    ]
+  }
+}

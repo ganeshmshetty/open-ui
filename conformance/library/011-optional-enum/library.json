@@ -1,0 +1,37 @@
+{
+  "id": "test",
+  "version": "0.1.0",
+  "groups": [
+    {
+      "name": "G",
+      "order": 0,
+      "notes": ""
+    }
+  ],
+  "types": {
+    "Mode": {
+      "kind": "enum",
+      "values": [
+        "ok"
+      ]
+    }
+  },
+  "components": [
+    {
+      "name": "Foo",
+      "group": "G",
+      "role": "group",
+      "doc": "Test.",
+      "args": [
+        {
+          "name": "mode",
+          "required": false,
+          "type": {
+            "kind": "named",
+            "name": "Mode"
+          }
+        }
+      ]
+    }
+  ]
+}

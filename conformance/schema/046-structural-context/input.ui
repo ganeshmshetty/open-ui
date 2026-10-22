@@ -1,0 +1,1 @@
+root=Column([TableColumn("A","a"),Tab("A",[])])

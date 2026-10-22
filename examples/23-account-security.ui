@@ -1,0 +1,3 @@
+root=Column([Heading("Your recovery email is verified",level:1),Badge("Verified",tone:"success"),Facts([{label:"Recovery email",value:"ada@example.com"},{label:"Last security review",value:"October 20"}]),Form([Input("Recovery email",bind:$email,kind:"email",required:true),Checkbox("Send sign-in alerts",bind:$alerts),Button("Save security settings",tone:"primary",submit:true)],on_submit:say("Save my security settings",{email:$email,alerts:$alerts}))])
+$email="ada@example.com"
+$alerts=true

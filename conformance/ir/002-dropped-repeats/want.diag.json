@@ -1,0 +1,14 @@
+[
+  {
+    "code": "schema.type",
+    "stmt": "bad",
+    "path": "root/children:@bad",
+    "recovery": "NodeDropped"
+  },
+  {
+    "code": "schema.type",
+    "stmt": "bad",
+    "path": "root/children:@bad~2",
+    "recovery": "NodeDropped"
+  }
+]

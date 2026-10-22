@@ -1,0 +1,21 @@
+{
+  "id": "test",
+  "version": "0.1.0",
+  "groups": [
+    {
+      "name": "G",
+      "order": 0,
+      "notes": "Vertical stacks and horizontal rows."
+    }
+  ],
+  "components": [
+    {
+      "name": "Foo",
+      "role": "group",
+      "group": "G",
+      "doc": "Test.",
+      "args": [],
+      "requires": []
+    }
+  ]
+}

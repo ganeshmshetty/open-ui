@@ -20,9 +20,19 @@ fn run(args: Vec<String>) -> Result<(), String> {
                 .unwrap_or_else(|| root.join("conformance"));
             let report = run_suite(&path)?;
             println!(
-                "PASS: {} syntax fixtures, {} chunkings (M1 resumable scanners).",
-                report.fixtures, report.chunkings
+                "PASS: {} fixtures, {} chunkings, {} seeded permutations (M2 static validation).",
+                report.fixtures, report.chunkings, report.permutations
             );
+            for (category, count) in &report.categories {
+                println!(
+                    "  {category}: {count} fixtures, {} chunkings",
+                    report
+                        .category_chunkings
+                        .get(category)
+                        .copied()
+                        .unwrap_or(0)
+                );
+            }
         }
         "spec-check" => {
             let path = args
@@ -31,8 +41,8 @@ fn run(args: Vec<String>) -> Result<(), String> {
                 .unwrap_or_else(|| root.join("spec/SPEC.md"));
             let report = spec_check::check_file(&path)?;
             println!(
-                "PASS: {} ui programs and {} ui fragments parse without diagnostics; {} ui-invalid blocks recognized (M1 syntax checks; semantic validation begins in M2).",
-                report.programs, report.fragments, report.invalid
+                "PASS: {} ui programs and {} ui fragments validate; {} ui-invalid blocks rejected; {} exemplar programs validate.",
+                report.programs, report.fragments, report.invalid, report.exemplars
             );
         }
         _ => {

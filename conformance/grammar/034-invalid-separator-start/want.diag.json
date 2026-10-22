@@ -1,0 +1,8 @@
+[
+  {
+    "code": "syntax.stmt_shape",
+    "stmt": "root",
+    "path": null,
+    "recovery": "StatementDropped"
+  }
+]

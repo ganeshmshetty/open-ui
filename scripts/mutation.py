@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run the milestone-only syntax/IR gate without copying research or mutating the checkout."""
 import argparse
+from collections import Counter
 import hashlib
 import json
 from pathlib import Path
@@ -31,16 +32,81 @@ def review_outcomes(outcomes, generated, hashes, review):
             matched_source = source_hash is not None and review.get("source_sha256", {}).get(mutant["file"]) == source_hash
             if not reason.strip() or not matched_source:
                 errors.append("unreviewed or stale survivor: " + mutant["name"])
+        elif status == "Timeout" and (not outcome.get("phase_results")
+                or outcome["phase_results"][-1]["phase"] != "Test"):
+            errors.append("build timeout is not a killed mutant: " + mutant["name"])
         elif status not in {"CaughtMutant", "Unviable", "Timeout"}:
             errors.append("unexpected mutant outcome: " + status)
     return errors
 
 
+def inventory_errors(groups, expected):
+    names = [m["name"] for group in groups for m in group]
+    if len(names) != len(set(names)) or len(expected) != len(set(expected)) or set(names) != set(expected):
+        return ["shards overlap or do not cover the complete frozen inventory"]
+    return []
+
+
+def aggregate(directory, review_path):
+    folders = sorted(p for p in directory.iterdir() if p.is_dir())
+    if len(folders) != 4:
+        raise ValueError("expected exactly four mutation shards")
+    review = json.loads(review_path.read_text())
+    groups, results, manifests, raw_hashes = [], [], [], {}
+    errors = []
+    for folder in folders:
+        hashes = json.loads((folder / "source.json").read_text())
+        data_path = folder / "mutants.out/outcomes.json"
+        data = json.loads(data_path.read_text())
+        generated = json.loads((folder / "mutants.out/mutants.json").read_text())
+        errors.extend(review_outcomes(data, generated, hashes, review))
+        groups.append(generated)
+        results.append(data)
+        manifests.append(hashes)
+        raw_hashes[folder.name] = hashlib.sha256(data_path.read_bytes()).hexdigest()
+    expected = json.loads((ROOT / "conformance/mutations/inventory.json").read_text())
+    errors.extend(inventory_errors(groups, expected))
+    if any(m != manifests[0] for m in manifests):
+        errors.append("shards used different source manifests")
+    for name, digest in manifests[0].items():
+        if hashlib.sha256((ROOT / name).read_bytes()).hexdigest() != digest:
+            errors.append("stale mutation source: " + name)
+    if errors:
+        raise ValueError("\n".join(errors))
+    outcomes = []
+    for data in results:
+        for outcome in data["outcomes"]:
+            if outcome["scenario"] != "Baseline":
+                mutant = outcome["scenario"]["Mutant"]
+                outcomes.append({"name": mutant["name"], "file": mutant["file"], "summary": outcome["summary"]})
+    summary = {
+        "acceptance": True,
+        "implementation_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
+        "cargo_mutants_version": sorted({r["cargo_mutants_version"] for r in results}),
+        "shards": 4,
+        "generated": len(outcomes),
+        "counts": dict(sorted(Counter(o["summary"] for o in outcomes).items())),
+        "started_utc": min(r["start_time"] for r in results),
+        "finished_utc": max(r["end_time"] for r in results),
+        "source_sha256": manifests[0],
+        "raw_outcomes_sha256": raw_hashes,
+        "outcomes": sorted(outcomes, key=lambda o: o["name"]),
+    }
+    (directory / "acceptance.json").write_text(json.dumps(summary, indent=2) + "\n")
+    print(json.dumps({k: summary[k] for k in ["acceptance", "generated", "counts"]}))
+
+
 def main():
     parser = argparse.ArgumentParser(__doc__)
-    parser.add_argument("--output", type=Path, required=True)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--output", type=Path)
+    mode.add_argument("--aggregate", type=Path)
+    parser.add_argument("--shard")
     parser.add_argument("--review", type=Path, default=ROOT / "conformance/mutations/review.json")
     args = parser.parse_args()
+    if args.aggregate:
+        aggregate(args.aggregate, args.review)
+        return 0
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="genui-mutations-") as directory:
@@ -65,6 +131,8 @@ def main():
                    "-f", "crates/genui-core/src/syntax.rs", "-f", "crates/genui-core/src/syntax/**",
                    "-f", "crates/genui-core/src/ir.rs", "--test-workspace", "true", "--jobs", "2",
                    "--timeout", "60", "--build-timeout", "300", "--output", str(output)]
+        if args.shard:
+            command.extend(["--shard", args.shard])
         result = subprocess.run(command, cwd=ROOT, check=False)
     outcomes_file = output / "mutants.out/outcomes.json"
     mutants_file = output / "mutants.out/mutants.json"

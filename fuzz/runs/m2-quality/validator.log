@@ -1,0 +1,106 @@
+    Blocking waiting for file lock on build directory
+   Compiling genui-fuzz v0.0.0 (/Users/ganesh/dev/open-ui/fuzz)
+    Finished `release` profile [optimized + debuginfo] target(s) in 39.57s
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.06s
+     Running `fuzz/target/aarch64-apple-darwin/release/validator -artifact_prefix=/Users/ganesh/dev/open-ui/fuzz/artifacts/validator/ -max_total_time=600 -max_len=32768 -seed=20261022 -dict=fuzz/syntax.dict -print_final_stats=1 fuzz/corpus/m2-quality-validator`
+Dictionary: 22 entries
+INFO: Running with entropic power schedule (0xFF, 100).
+INFO: Seed: 20261022
+INFO: Loaded 1 modules   (94380 inline 8-bit counters): 94380 [0x1012b5bd0, 0x1012ccc7c), 
+INFO: Loaded 1 PC tables (94380 PCs): 94380 [0x1012ccc80,0x10143d740), 
+INFO:      300 files found in fuzz/corpus/m2-quality-validator
+INFO: seed corpus: files: 300 min: 1b max: 14637b total: 38912b rss: 49Mb
+#301	INITED cov: 6993 ft: 16580 corp: 273/36Kb exec/s: 0 rss: 147Mb
+#302	NEW    cov: 6996 ft: 16583 corp: 274/36Kb lim: 14637 exec/s: 0 rss: 147Mb L: 15/14637 MS: 1 ChangeBit-
+#304	NEW    cov: 6996 ft: 16585 corp: 275/36Kb lim: 14637 exec/s: 0 rss: 148Mb L: 13/14637 MS: 2 ChangeASCIIInt-EraseBytes-
+#305	NEW    cov: 7013 ft: 16646 corp: 276/36Kb lim: 14637 exec/s: 0 rss: 148Mb L: 114/14637 MS: 1 CrossOver-
+#306	NEW    cov: 7014 ft: 16653 corp: 277/36Kb lim: 14637 exec/s: 0 rss: 148Mb L: 7/14637 MS: 1 InsertByte-
+#307	NEW    cov: 7015 ft: 16660 corp: 278/36Kb lim: 14637 exec/s: 0 rss: 148Mb L: 30/14637 MS: 1 CMP- DE: "\377n"-
+#310	NEW    cov: 7015 ft: 16661 corp: 279/36Kb lim: 14637 exec/s: 0 rss: 149Mb L: 27/14637 MS: 3 CopyPart-ChangeASCIIInt-InsertByte-
+#311	NEW    cov: 7015 ft: 16667 corp: 280/36Kb lim: 14637 exec/s: 0 rss: 149Mb L: 25/14637 MS: 1 CrossOver-
+#317	NEW    cov: 7016 ft: 16669 corp: 281/36Kb lim: 14637 exec/s: 0 rss: 149Mb L: 16/14637 MS: 1 ManualDict- DE: "query q=tool("-
+	NEW_FUNC[1/1]: 0x000100d3ae94 in _RINvNtCs7rJgpMQJsBb_4core3ptr9drop_glueNtNtCshyShmvegXGi_10genui_core6syntax12LocatedTokenEBF_+0x0 (validator:arm64+0x10012ae94)
+#318	NEW    cov: 7027 ft: 16682 corp: 282/36Kb lim: 14637 exec/s: 318 rss: 151Mb L: 25/14637 MS: 1 InsertByte-
+#346	NEW    cov: 7030 ft: 16692 corp: 283/37Kb lim: 14637 exec/s: 346 rss: 158Mb L: 54/14637 MS: 1 InsertByte-
+	NEW_FUNC[1/8]: 0x000100cf9f74 in _RINvNtCs7rJgpMQJsBb_4core3ptr9drop_glueINtNtCsiGJ9W6X0UHH_5alloc3vec3VecNtNtCshyShmvegXGi_10genui_core4diag10DiagnosticEEB1c_+0x0 (validator:arm64+0x1000e9f74)
+	NEW_FUNC[2/8]: 0x000100d4c440 in _RINvNtNtNtCs7rJgpMQJsBb_4core5slice4sort6stable14driftsort_mainNtNtCshyShmvegXGi_10genui_core4diag10DiagnosticNCINvMNtCsiGJ9W6X0UHH_5alloc5sliceSBZ_11sort_by_keyTjNtB11_4CodeENCNvB11_17order_diagnostics0E0INtNtB1S_3vec3VecBZ_EEB13_+0x0 (validator:arm64+0x10013c440)
+#349	NEW    cov: 7208 ft: 16930 corp: 284/37Kb lim: 14637 exec/s: 349 rss: 159Mb L: 126/14637 MS: 3 ChangeBinInt-ShuffleBytes-InsertRepeatedBytes-
+#350	NEW    cov: 7210 ft: 16933 corp: 285/37Kb lim: 14637 exec/s: 350 rss: 159Mb L: 59/14637 MS: 1 ShuffleBytes-
+#351	NEW    cov: 7219 ft: 17030 corp: 286/37Kb lim: 14637 exec/s: 351 rss: 160Mb L: 120/14637 MS: 1 InsertRepeatedBytes-
+#352	NEW    cov: 7221 ft: 17048 corp: 287/37Kb lim: 14637 exec/s: 352 rss: 161Mb L: 118/14637 MS: 1 InsertRepeatedBytes-
+#353	NEW    cov: 7237 ft: 17089 corp: 288/37Kb lim: 14637 exec/s: 353 rss: 162Mb L: 110/14637 MS: 1 InsertRepeatedBytes-
+#354	NEW    cov: 7237 ft: 17093 corp: 289/37Kb lim: 14637 exec/s: 354 rss: 162Mb L: 15/14637 MS: 1 ChangeBinInt-
+#356	NEW    cov: 7239 ft: 17103 corp: 290/37Kb lim: 14637 exec/s: 356 rss: 162Mb L: 38/14637 MS: 2 ChangeBinInt-CrossOver-
+#357	NEW    cov: 7239 ft: 17107 corp: 291/37Kb lim: 14637 exec/s: 357 rss: 162Mb L: 72/14637 MS: 1 CopyPart-
+#358	NEW    cov: 7247 ft: 17158 corp: 292/37Kb lim: 14637 exec/s: 358 rss: 163Mb L: 78/14637 MS: 1 InsertRepeatedBytes-
+#364	NEW    cov: 7247 ft: 17166 corp: 293/37Kb lim: 14637 exec/s: 364 rss: 163Mb L: 29/14637 MS: 1 PersAutoDict- DE: "query q=tool("-
+#366	NEW    cov: 7248 ft: 17172 corp: 294/37Kb lim: 14637 exec/s: 366 rss: 163Mb L: 12/14637 MS: 2 ChangeBinInt-ChangeByte-
+#367	NEW    cov: 7250 ft: 17175 corp: 295/37Kb lim: 14637 exec/s: 367 rss: 164Mb L: 38/14637 MS: 1 CopyPart-
+#371	NEW    cov: 7250 ft: 17178 corp: 296/37Kb lim: 14637 exec/s: 371 rss: 165Mb L: 79/14637 MS: 4 ShuffleBytes-ChangeBinInt-CMP-ChangeBit- DE: "\377\016"-
+#372	NEW    cov: 7250 ft: 17179 corp: 297/37Kb lim: 14637 exec/s: 372 rss: 165Mb L: 50/14637 MS: 1 ChangeByte-
+[middle progress lines omitted; full log hash is recorded in JSON]
+"\377\012" # Uses: 10
+"\001\000\000\000\000\000\000\014" # Uses: 11
+"\377\377\377%" # Uses: 8
+"\004\000" # Uses: 12
+"\375\377\377\377" # Uses: 11
+"\010\000\000\000\000\000\000\000" # Uses: 9
+"\000\021" # Uses: 11
+"\000\000\000\000\000\000\000\011" # Uses: 10
+"\016\000\000\000\000\000\000\000" # Uses: 8
+"\000\000\000\000\000\000\000\016" # Uses: 11
+"\000\021\000\000" # Uses: 13
+"\373\377\377\377" # Uses: 4
+"\000&" # Uses: 6
+"\001\000\0002" # Uses: 7
+"\001\000\000\012" # Uses: 6
+"\001\000\000\000\000\000\000\001" # Uses: 13
+"\001\023" # Uses: 5
+"\000\000\000\000\000\000\000&" # Uses: 9
+"\010\000" # Uses: 13
+"\017\000\000\000\000\000\000\000" # Uses: 9
+"\372\377\377\377" # Uses: 10
+"m\000\000\000" # Uses: 12
+"\377\377\377\362" # Uses: 8
+"\013\000" # Uses: 8
+"\0016" # Uses: 10
+"\376\377\377\350" # Uses: 9
+"\001\034" # Uses: 7
+"\003\000\000\000\000\000\000\000" # Uses: 13
+"\001\000\000\000\000\000\000\006" # Uses: 10
+"\0001" # Uses: 3
+"\000\000\000\013" # Uses: 7
+"\015\000\000\000" # Uses: 9
+"\377\377\377\377\377\377\377\004" # Uses: 7
+"\000\000\000\321" # Uses: 5
+"_\003\000\000\000\000\000\000" # Uses: 2
+"\007\000\000\000\000\000\000\000" # Uses: 3
+"\377\377\377/" # Uses: 5
+"\027\000\000\000\000\000\000\000" # Uses: 5
+"\377(" # Uses: 3
+"\376\377\377\367" # Uses: 3
+"\377m" # Uses: 3
+"\371\377\377\377" # Uses: 10
+"\377 " # Uses: 1
+"\037\000\000\000\000\000\000\000" # Uses: 6
+"8\000\000\000\000\000\000\000" # Uses: 6
+"|\000" # Uses: 6
+"\377\377\377\370" # Uses: 2
+"\001&" # Uses: 1
+"`\000\000\000" # Uses: 1
+"\000=" # Uses: 0
+"\011\000" # Uses: 3
+"\377\377\377\375" # Uses: 1
+"\000\000\000\000\000\000\000\010" # Uses: 2
+"\004\000\000\000" # Uses: 3
+"\376\377\377\372" # Uses: 1
+"\000\000\000\372" # Uses: 0
+"@\000\000\000" # Uses: 1
+"\200\000" # Uses: 1
+###### End of recommended dictionary. ######
+Done 44685 runs in 601 second(s)
+stat::number_of_executed_units: 44685
+stat::average_exec_per_sec:     74
+stat::new_units_added:          2864
+stat::slowest_unit_time_sec:    0
+stat::peak_rss_mb:              686

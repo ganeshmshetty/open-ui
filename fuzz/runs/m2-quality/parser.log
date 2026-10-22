@@ -1,0 +1,106 @@
+   Compiling genui-core v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-core)
+   Compiling genui-std v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-std)
+   Compiling genui-fuzz v0.0.0 (/Users/ganesh/dev/open-ui/fuzz)
+    Finished `release` profile [optimized + debuginfo] target(s) in 31.04s
+    Blocking waiting for file lock on build directory
+    Finished `release` profile [optimized + debuginfo] target(s) in 9.34s
+     Running `fuzz/target/aarch64-apple-darwin/release/parser -artifact_prefix=/Users/ganesh/dev/open-ui/fuzz/artifacts/parser/ -max_total_time=600 -max_len=32768 -seed=20261022 -dict=fuzz/syntax.dict -print_final_stats=1 fuzz/corpus/m2-quality-parser`
+Dictionary: 22 entries
+INFO: Running with entropic power schedule (0xFF, 100).
+INFO: Seed: 20261022
+INFO: Loaded 1 modules   (86969 inline 8-bit counters): 86969 [0x104b95f90, 0x104bab349), 
+INFO: Loaded 1 PC tables (86969 PCs): 86969 [0x104bab350,0x104cfeee0), 
+INFO:      300 files found in fuzz/corpus/m2-quality-parser
+INFO: seed corpus: files: 300 min: 1b max: 14637b total: 38912b rss: 39Mb
+#301	INITED cov: 1958 ft: 6149 corp: 244/35Kb exec/s: 0 rss: 96Mb
+#304	NEW    cov: 1958 ft: 6150 corp: 245/35Kb lim: 14637 exec/s: 0 rss: 96Mb L: 16/14637 MS: 3 ChangeBit-ChangeByte-ManualDict- DE: "||"-
+	NEW_FUNC[1/4]: 0x0001046091b4 in _RINvNtCs7rJgpMQJsBb_4core3ptr9drop_glueINtNtCsiGJ9W6X0UHH_5alloc3vec3VecNtNtCshyShmvegXGi_10genui_core4diag10DiagnosticEEB1c_+0x0 (parser:arm64+0x10007d1b4)
+	NEW_FUNC[2/4]: 0x00010465b680 in _RINvNtNtNtCs7rJgpMQJsBb_4core5slice4sort6stable14driftsort_mainNtNtCshyShmvegXGi_10genui_core4diag10DiagnosticNCINvMNtCsiGJ9W6X0UHH_5alloc5sliceSBZ_11sort_by_keyTjNtB11_4CodeENCNvB11_17order_diagnostics0E0INtNtB1S_3vec3VecBZ_EEB13_+0x0 (parser:arm64+0x1000cf680)
+#305	NEW    cov: 2014 ft: 6222 corp: 246/35Kb lim: 14637 exec/s: 0 rss: 98Mb L: 86/14637 MS: 1 InsertRepeatedBytes-
+#306	NEW    cov: 2014 ft: 6225 corp: 247/35Kb lim: 14637 exec/s: 0 rss: 98Mb L: 24/14637 MS: 1 PersAutoDict- DE: "||"-
+#307	NEW    cov: 2014 ft: 6233 corp: 248/35Kb lim: 14637 exec/s: 0 rss: 98Mb L: 20/14637 MS: 1 CMP- DE: "\377\011"-
+#308	NEW    cov: 2015 ft: 6249 corp: 249/35Kb lim: 14637 exec/s: 0 rss: 98Mb L: 32/14637 MS: 1 CopyPart-
+#309	NEW    cov: 2017 ft: 6251 corp: 250/35Kb lim: 14637 exec/s: 0 rss: 98Mb L: 1/14637 MS: 1 ChangeBit-
+#312	NEW    cov: 2018 ft: 6259 corp: 251/35Kb lim: 14637 exec/s: 0 rss: 98Mb L: 112/14637 MS: 3 PersAutoDict-ChangeByte-InsertRepeatedBytes- DE: "||"-
+#313	NEW    cov: 2018 ft: 6262 corp: 252/36Kb lim: 14637 exec/s: 0 rss: 98Mb L: 84/14637 MS: 1 CopyPart-
+#314	NEW    cov: 2023 ft: 6323 corp: 253/36Kb lim: 14637 exec/s: 0 rss: 99Mb L: 43/14637 MS: 1 InsertRepeatedBytes-
+#317	NEW    cov: 2025 ft: 6330 corp: 254/36Kb lim: 14637 exec/s: 0 rss: 99Mb L: 70/14637 MS: 3 ChangeBinInt-ChangeBinInt-CrossOver-
+#320	NEW    cov: 2025 ft: 6333 corp: 255/36Kb lim: 14637 exec/s: 0 rss: 99Mb L: 14/14637 MS: 3 ChangeASCIIInt-ChangeBinInt-ShuffleBytes-
+#323	NEW    cov: 2025 ft: 6335 corp: 256/36Kb lim: 14637 exec/s: 0 rss: 99Mb L: 68/14637 MS: 3 ShuffleBytes-ShuffleBytes-InsertByte-
+#324	NEW    cov: 2026 ft: 6341 corp: 257/36Kb lim: 14637 exec/s: 0 rss: 99Mb L: 7/14637 MS: 1 InsertByte-
+#325	NEW    cov: 2027 ft: 6344 corp: 258/36Kb lim: 14637 exec/s: 0 rss: 99Mb L: 20/14637 MS: 1 ChangeByte-
+#327	NEW    cov: 2028 ft: 6346 corp: 259/36Kb lim: 14637 exec/s: 0 rss: 100Mb L: 53/14637 MS: 2 InsertRepeatedBytes-ChangeBinInt-
+#330	NEW    cov: 2029 ft: 6376 corp: 260/38Kb lim: 14637 exec/s: 0 rss: 101Mb L: 2358/14637 MS: 3 ChangeBit-CrossOver-CrossOver-
+#331	NEW    cov: 2029 ft: 6378 corp: 261/38Kb lim: 14637 exec/s: 0 rss: 101Mb L: 6/14637 MS: 1 EraseBytes-
+#332	NEW    cov: 2029 ft: 6385 corp: 262/38Kb lim: 14637 exec/s: 0 rss: 101Mb L: 41/14637 MS: 1 CrossOver-
+#333	NEW    cov: 2030 ft: 6386 corp: 263/38Kb lim: 14637 exec/s: 0 rss: 101Mb L: 16/14637 MS: 1 PersAutoDict- DE: "||"-
+#335	NEW    cov: 2030 ft: 6420 corp: 264/39Kb lim: 14637 exec/s: 0 rss: 102Mb L: 386/14637 MS: 2 ChangeBit-InsertRepeatedBytes-
+#341	NEW    cov: 2030 ft: 6422 corp: 265/39Kb lim: 14637 exec/s: 0 rss: 102Mb L: 17/14637 MS: 1 ManualDict- DE: "\\n"-
+#344	NEW    cov: 2030 ft: 6426 corp: 266/39Kb lim: 14637 exec/s: 0 rss: 102Mb L: 19/14637 MS: 3 ShuffleBytes-ShuffleBytes-EraseBytes-
+#349	NEW    cov: 2031 ft: 6429 corp: 267/39Kb lim: 14637 exec/s: 0 rss: 103Mb L: 49/14637 MS: 5 ChangeBit-ChangeBit-ChangeBit-ChangeASCIIInt-InsertRepeatedBytes-
+[middle progress lines omitted; full log hash is recorded in JSON]
+"\351\000" # Uses: 34
+"\000\000\000\357" # Uses: 33
+"\377\377\377\377\377\377\377A" # Uses: 37
+")\000\000\000\000\000\000\000" # Uses: 38
+"\366\377\377\377" # Uses: 31
+"\000\011" # Uses: 37
+"0\000\000\000" # Uses: 38
+"\001/hK\332\022\366\204" # Uses: 30
+"\240\000\000\000\000\000\000\000" # Uses: 43
+"\001\010\000\000\000\000\000\000" # Uses: 29
+"\001\000\0000" # Uses: 28
+"\351\377\377\377" # Uses: 24
+"8\000\000\000\000\000\000\000" # Uses: 30
+"\000\012" # Uses: 29
+"\377\377\377\377\377\377\377\001" # Uses: 33
+"\201\000" # Uses: 26
+"\001\000\000)" # Uses: 31
+"A\000" # Uses: 34
+"\252\252\252\252\252\252\252\002" # Uses: 23
+"]\000" # Uses: 22
+"\012\000\000\000\000\000\000\000" # Uses: 24
+"\001\001" # Uses: 22
+"\377\377\377\356" # Uses: 23
+"\001\000\000\000\000\000\000\005" # Uses: 25
+"\007\000\000\000\000\000\000\000" # Uses: 27
+"M\000\000\000\000\000\000\000" # Uses: 18
+"3\000\000\000\000\000\000\000" # Uses: 20
+"S\000\000\000\000\000\000\000" # Uses: 18
+"\365\377\377\377" # Uses: 27
+"2\000\000\000\000\000\000\000" # Uses: 18
+"A\000\000\000" # Uses: 12
+"\377\377\377\004" # Uses: 26
+"\002\2168\343\2168\343\216" # Uses: 16
+"\001o" # Uses: 13
+"\377%" # Uses: 14
+"\003\000" # Uses: 23
+"\000\000\000\000\000\000\000)" # Uses: 8
+"\377\377" # Uses: 11
+"\001\000\000\000\000\000\000\002" # Uses: 8
+"\001\000\000\000\000\000\000\001" # Uses: 10
+"\377\177" # Uses: 10
+"\001\000\000]" # Uses: 14
+"\377\014" # Uses: 13
+"\000\000\000)" # Uses: 8
+"\321\377\377\377" # Uses: 8
+"=\000" # Uses: 6
+"\000\000\000\000\000\000\000\025" # Uses: 6
+"\324\377\377\377" # Uses: 2
+"\001\000\000?\376\200=T" # Uses: 7
+"\000\000\000\000\000\000\000\004" # Uses: 4
+"\000\000\000u" # Uses: 7
+"<\000\000\000" # Uses: 2
+"\377\377\377'" # Uses: 5
+"\013\000" # Uses: 0
+"\377\377\377\377\377\377\377+" # Uses: 2
+"\376\377\377\357" # Uses: 1
+"\377\377\377\377\377\377\377\021" # Uses: 3
+"(\000\000\000" # Uses: 0
+###### End of recommended dictionary. ######
+Done 95490 runs in 601 second(s)
+stat::number_of_executed_units: 95490
+stat::average_exec_per_sec:     158
+stat::new_units_added:          2823
+stat::slowest_unit_time_sec:    0
+stat::peak_rss_mb:              587

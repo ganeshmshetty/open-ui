@@ -2,12 +2,19 @@ name: Milestone mutation gate
 
 on:
   workflow_dispatch:
+  push:
 
 permissions:
   contents: read
 
 jobs:
   mutation:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[mutation-gate]')
+    name: Syntax / IR shard ${{ matrix.shard }}
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
@@ -16,10 +23,26 @@ jobs:
       - name: Install mutation tester
         run: cargo install cargo-mutants --version 27.1.0 --locked
       - name: Syntax and IR mutations with all workspace tests
-        run: python3 scripts/mutation.py --output mutation-results
+        run: python3 scripts/mutation.py --output mutation-results --shard ${{ matrix.shard }}/4
       - name: Upload complete mutation evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: syntax-ir-mutations
+          name: syntax-ir-mutations-${{ matrix.shard }}
           path: mutation-results/
+  acceptance:
+    name: Verify complete mutation inventory
+    needs: mutation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: syntax-ir-mutations-*
+          path: mutation-shards
+      - name: Verify coverage, source hashes and survivor reviews
+        run: python3 scripts/mutation.py --aggregate mutation-shards
+      - uses: actions/upload-artifact@v4
+        with:
+          name: syntax-ir-acceptance
+          path: mutation-shards/acceptance.json

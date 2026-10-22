@@ -33,7 +33,8 @@ python3 scripts/mutation.py --output /tmp/genui-mutations  # cargo-mutants 27.1.
 ```
 
 Quality gates (§12.8) run in CI. Mutation testing is a milestone gate, run locally
-or through the manual **Milestone mutation gate** workflow. It uses a project-only
+or through **Milestone mutation gate** (manual, or a push whose commit message
+contains `[mutation-gate]`). It uses a project-only
 copy and never copies research. The core's public syntax APIs and
 `genui_core::validate::{validate, validate_message}` are available to applications.
 

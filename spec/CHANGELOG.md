@@ -14,9 +14,12 @@
   fixture map disjoint and audit both against §4.3. Specify source-scan boundaries,
   theme locations, all-target/all-feature dependency scope (including dev edges)
   and per-commit fixture protection so the new
-  gates have a reproducible policy. Retain isolated mutation evidence and add
+  gates have a reproducible policy. Run the milestone mutation job manually or via an explicit commit marker;
+  aggregate four shards against a frozen inventory and current source hashes.
+  Retain isolated mutation evidence and add
   exact nested-recovery/public-extractor, source-span, EOF-token/escape and
-  fence-info and nested expression-cutoff regressions exposed by
+  fence-info, invalid separator/key and nested expression-cutoff regressions
+  exposed by
   mutation testing; existing syntax behavior is unchanged.
 
 ## 2026-10-22 — M2 tree inspection (§12.7)

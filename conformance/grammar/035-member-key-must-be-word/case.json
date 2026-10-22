@@ -1,0 +1,9 @@
+{
+  "title": "member-key-must-be-word",
+  "tier": "core",
+  "tags": [
+    "grammar",
+    "mutation"
+  ],
+  "notes": "SPEC \u00a72.5: invalid separator/member/map-key tokens drop the statement once; a missing comma is inserted only before an expression start."
+}

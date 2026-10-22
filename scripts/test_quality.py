@@ -126,5 +126,55 @@ class MutationReviewTests(unittest.TestCase):
         self.assertTrue(review_outcomes(data, [{"name": "m"}], hashes, review))
 
 
+class MutationInventoryTests(unittest.TestCase):
+    def test_shards_are_disjoint_and_cover_exact_inventory(self):
+        from mutation import inventory_errors
+        groups = [[{"name": "a"}], [{"name": "b"}]]
+        self.assertEqual(inventory_errors(groups, ["a", "b"]), [])
+        self.assertTrue(inventory_errors(groups, ["a", "b", "c"]))
+        self.assertTrue(inventory_errors(groups + [[{"name": "a"}]], ["a", "b"]))
+
+
+class MutationAggregationTests(unittest.TestCase):
+    def test_aggregation_checks_manifests_and_writes_exact_counts(self):
+        import contextlib
+        import hashlib
+        import io
+        import json
+        from pathlib import Path
+        import tempfile
+        from unittest.mock import patch
+        import mutation
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "source.rs").write_text("original")
+            hashes = {"source.rs": hashlib.sha256(b"original").hexdigest()}
+            inventory = [f"m{i}" for i in range(4)]
+            (root / "conformance/mutations").mkdir(parents=True)
+            (root / "conformance/mutations/inventory.json").write_text(json.dumps(inventory))
+            review = root / "review.json"
+            review.write_text('{}')
+            artifacts = root / "artifacts"
+            for i, name in enumerate(inventory):
+                shard = artifacts / f"shard{i}"
+                (shard / "mutants.out").mkdir(parents=True)
+                (shard / "source.json").write_text(json.dumps(hashes))
+                (shard / "mutants.out/mutants.json").write_text(json.dumps([{"name": name}]))
+                data = {"start_time": "start", "end_time": "end", "cargo_mutants_version": "test", "outcomes": [
+                    {"scenario": "Baseline", "summary": "Success"},
+                    {"scenario": {"Mutant": {"name": name, "file": "source.rs"}}, "summary": "CaughtMutant"},
+                ]}
+                (shard / "mutants.out/outcomes.json").write_text(json.dumps(data))
+            with patch.object(mutation, "ROOT", root), patch.object(mutation.subprocess, "check_output", return_value="test-head\n"), contextlib.redirect_stdout(io.StringIO()):
+                mutation.aggregate(artifacts, review)
+                summary = json.loads((artifacts / "acceptance.json").read_text())
+                self.assertTrue(summary["acceptance"])
+                self.assertEqual(summary["generated"], 4)
+                self.assertEqual(summary["counts"], {"CaughtMutant": 4})
+                (root / "source.rs").write_text("changed")
+                with self.assertRaisesRegex(ValueError, "stale mutation source"):
+                    mutation.aggregate(artifacts, review)
+
+
 if __name__ == "__main__":
     unittest.main()

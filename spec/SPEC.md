@@ -1941,14 +1941,20 @@ transitive core graph across targets and optional features, including dev-only
 edges. New UI/async families must be added to this policy when introduced.
 Fixture protection checks each commit independently, including additions,
 deletions and renames; a later spec edit cannot excuse an earlier golden change.
-The milestone-only mutation workflow runs all syntax/IR mutants with workspace
+The milestone-only mutation workflow runs manually or on an explicit
+`[mutation-gate]` push, and checks all syntax/IR mutants with workspace
 tests in an isolated project-only copy. Results, source hashes, tool version and
-any survivor rationale are retained. Direct public API contracts and nested
+any survivor rationale are retained in milestone metadata. Four CI shards must
+cover the frozen inventory exactly once and use identical current source hashes;
+each baseline must pass, and every survivor needs a source-matched rationale.
+Build timeouts fail the gate; test timeouts are killed mutants under the mutation
+tool's model. Direct public API contracts and nested
 recovery metadata need assertions as well as end-to-end fixtures. Lexical cases
 include EOF without a terminating newline for pending symbols, `$`, `\u` and
 `\u{...`; token and recovery spans are asserted directly. Expression-depth
 cutoff cases retain enclosing delimiters and siblings while skipping nested
-call/list/map syntax.
+call/list/map syntax. Negative grammar cases distinguish invalid separator,
+member-key and map-key tokens from missing-comma recovery.
 
 ## 13. Public Rust API sketch
 

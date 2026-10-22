@@ -351,3 +351,29 @@ The contextual-budget fix passes all local gates: 287 conformance fixtures /
 65,047 chunkings / 400 permutations, eight CLI output cases, 59 Rust tests,
 eight Python gate tests, full spec-check and fuzz target builds. The corrected
 source will be frozen for renewed campaigns; M2 follow-up remains in progress.
+
+### Renewed fuzz acceptance — 9b9f8e4
+
+Parser and validator each completed 601 engine seconds under AddressSanitizer:
+95,490 and 44,685 executions respectively, exit 0, with matching frozen source
+hashes. Both now vary max_expr_depth from 0 through 48. Evidence is retained in
+fuzz/runs/m2-quality/. The isolated parser-only mutation restart was intentionally
+interrupted while the discovery pass completed; it is not acceptance evidence.
+The final acceptance campaign will run every syntax/IR mutant in CI against the
+completed regression suite, with survivor rationales checked by the gate script.
+
+### Final quality acceptance candidate
+
+Discovery finished: 609 mutants / 428 caught / 75 unviable / 57 timeouts /
+49 survivors, exit 3. It is explicitly non-acceptance evidence in
+conformance/mutations/discovery.json. The regression suite addresses 46 observed
+survivors; the remaining three have source-matched equivalence reasons. All
+timeouts and survivors are rerun on the final candidate, without carrying forward
+any old outcome. The final CI gate uses four disjoint shards and a frozen
+609-name inventory, and aggregation checks completeness, source hashes and review.
+
+Current local gates pass: 290 conformance fixtures / 65,690 chunkings /
+400 permutations, eight CLI output cases, 59 Rust tests, ten Python gate tests,
+full spec-check, fmt, Clippy, dependency/source/history checks and fuzz builds.
+Renewed parser/validator fuzz acceptance is recorded above. The final CI mutation
+result, final review and self-merge remain pending. No spike/M3 work is started.

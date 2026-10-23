@@ -1,39 +1,13 @@
 [
   {
     "chunk": 0,
-    "equals": {
-      "deferred": {
-        "kind": "Binary",
-        "left": {
-          "kind": "State",
-          "name": "x"
-        },
-        "op": "Add",
-        "right": {
-          "kind": "String",
-          "value": "old"
-        }
-      }
-    },
+    "equals": "old",
     "id": "root/children:@stable",
     "prop": "text"
   },
   {
     "chunk": 1,
-    "equals": {
-      "deferred": {
-        "kind": "Binary",
-        "left": {
-          "kind": "State",
-          "name": "x"
-        },
-        "op": "Add",
-        "right": {
-          "kind": "String",
-          "value": "old"
-        }
-      }
-    },
+    "equals": "old",
     "id": "root/children:@stable",
     "prop": "text"
   }

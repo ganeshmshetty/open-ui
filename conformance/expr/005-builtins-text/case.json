@@ -1,0 +1,1 @@
+{"title":"Text and collection builtins","tier":"core","tags":["runtime"],"notes":"SPEC §2.7: len, first, last, upper and join."}

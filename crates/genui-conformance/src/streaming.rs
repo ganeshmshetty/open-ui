@@ -108,11 +108,30 @@ impl Oracle {
                 "final diagnostics differ\nstream {actual:?}\nbatch {expected:?}"
             ));
         }
-        if replay.tree != Tree::from_ir(&self.batch.ir, &self.library) {
+        let resolved = genui_core::runtime::evaluate_from_ir(
+            &self.batch.ir,
+            &self.library,
+            &self.options.limits,
+        );
+        if replay.tree != Tree::from_ir_resolved(&self.batch.ir, &self.library, &resolved) {
+            return Err("final patch replay differs from evaluated batch tree".into());
+        }
+        let mut runtime: Vec<_> = session
+            .runtime_diagnostics()
+            .iter()
+            .filter(|d| !d.provisional)
+            .map(DiagnosticKey::from)
+            .collect();
+        runtime.sort();
+        let mut expected_runtime: Vec<_> = resolved
+            .diagnostics()
+            .iter()
+            .map(DiagnosticKey::from)
+            .collect();
+        expected_runtime.sort();
+        if runtime != expected_runtime {
             return Err(format!(
-                "final patch replay differs from batch tree: {:?} != {:?}",
-                replay.tree,
-                Tree::from_ir(&self.batch.ir, &self.library)
+                "final runtime diagnostics differ\nstream {runtime:?}\nbatch {expected_runtime:?}"
             ));
         }
         if session.seals() != self.trace {

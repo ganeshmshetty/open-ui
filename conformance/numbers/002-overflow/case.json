@@ -1,0 +1,1 @@
+{"title":"Integer overflow","tier":"core","tags":["runtime"],"notes":"SPEC §§2.6,4.3: checked Int arithmetic reports expr.overflow."}

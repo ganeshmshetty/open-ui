@@ -15,6 +15,19 @@
   limit before all mutants finished; the inventory and per-mutant timeout are
   unchanged.
 
+## 2026-10-23 — M4 runtime evaluation foundation (§§2.6–2.7,5.5,7.1–7.4,12.2)
+
+- Dynamic props are evaluated for live patches to resolved values; a failing
+  expression is `null` with one runtime diagnostic. Query names resolve to their
+  declared default and `ref()` stays a `Ref` placeholder until host delivery.
+- Action plans remain inert; state-writing steps run only through an explicit
+  epoch-bound activation after `finish()`. Host-effect steps are returned as
+  deferred and are not dispatched in this slice.
+- Add runtime fixture categories `numbers`, `expr`, `state` and `actions` with
+  canonical `want.resolved.json` trees. Streaming checkpoint 029 now asserts the
+  evaluated string rather than the retired M3 deferred representation.
+- Clarify resolved-tree comparison bytes. No DSL or recovery rule changed.
+
 ## 2026-10-23 — Static cycle ownership (§2.10)
 
 - Specify canonical ownership for cycles among static value/action definitions,

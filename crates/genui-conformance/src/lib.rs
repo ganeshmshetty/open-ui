@@ -3,6 +3,7 @@
 
 pub mod chunks;
 pub mod properties;
+mod runtime;
 mod semantic;
 pub mod spec_check;
 pub mod streaming;
@@ -76,6 +77,8 @@ struct Schemas {
     stream: jsonschema::Validator,
     ast: jsonschema::Validator,
     segments: jsonschema::Validator,
+    options: jsonschema::Validator,
+    resolved: jsonschema::Validator,
 }
 
 impl Schemas {
@@ -92,6 +95,8 @@ impl Schemas {
             stream: load(root, "stream")?,
             ast: load(root, "ast")?,
             segments: load(root, "segments")?,
+            options: load(root, "options")?,
+            resolved: load(root, "resolved")?,
         })
     }
 }
@@ -161,6 +166,10 @@ pub fn run_suite(root: &Path) -> Result<SuiteReport> {
                     | "limits"
                     | "streaming"
                     | "patches"
+                    | "numbers"
+                    | "expr"
+                    | "state"
+                    | "actions"
             ) {
                 return Err(format!(
                     "{}: category is not implemented in M2",
@@ -169,6 +178,12 @@ pub fn run_suite(root: &Path) -> Result<SuiteReport> {
             }
             let result = if matches!(category_name, "streaming" | "patches") {
                 streaming::run_case(
+                    &path,
+                    &schemas,
+                    std::sync::Arc::new(genui_std::std_library().map_err(|e| format!("{e:?}"))?),
+                )
+            } else if matches!(category_name, "numbers" | "expr" | "state" | "actions") {
+                runtime::run_case(
                     &path,
                     &schemas,
                     std::sync::Arc::new(genui_std::std_library().map_err(|e| format!("{e:?}"))?),

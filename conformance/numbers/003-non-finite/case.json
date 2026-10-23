@@ -1,0 +1,1 @@
+{"title":"Non-finite float","tier":"core","tags":["runtime"],"notes":"SPEC §§2.6,4.3: NaN and infinity never exist."}

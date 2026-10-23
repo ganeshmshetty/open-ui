@@ -997,7 +997,10 @@ Direct aliases of literal constants can still resolve statically.
 These arenas are process-local validation output. In the static-only M3 phase,
 a dynamic prop is carried as `{"deferred": <structural Expr AST>}` in patches,
 without evaluation; unlike an arena index, this survives unrelated arena growth.
-M4 replaces this staging representation with resolved values (§6.5/G9).
+M4 evaluates dynamic props at runtime and sends resolved values (§6.5/G9). A
+prop whose expression errors is `null` with a runtime diagnostic; until host
+delivery exists, a query name evaluates to its declared `default` and `ref()`
+remains a `Ref` placeholder.
 
 ### 5.6 Statement kinds and node expressions
 
@@ -1867,6 +1870,7 @@ If an implementation and a fixture disagree, the disagreement is treated as a sp
 - **IR** goldens are compact canonical JSON followed by one file-terminating LF, and are compared as canonical JSON: sorted keys, `{id, kind, role, props, children}`, absent props omitted, encoded as in 6.5. `children` includes every validated slot, including its empty array. Retained patch-tree comparisons normalize empty slots, since inserts do not carry empty slot declarations.
 - **Diagnostics** are compared as a multiset of `(code, stmt, path, recovery)`. `message` and `hint` are not compared, except in category `feedback`, which compares the rendered `ui-diag` text byte for byte.
 - **Patches** are compared exactly in category `patches`. Elsewhere they are checked by replay: applying them to an empty tree must give `want.ir.json` or `want.resolved.json`.
+- **Resolved trees** (runtime categories and `want.resolved.json`) use the retained-tree canonical JSON: `{id, kind, role, props, status, children}`, with evaluated values encoded as in 6.5. They are compared byte for byte after canonical encoding, like IR.
 - **Prompts and the Library Spec** are compared byte for byte.
 - **Strict schemas.** `want.*` files may not contain unknown fields.
 

@@ -78,6 +78,18 @@ final IR/diagnostic equality, no provisional state/queries/action handles, prose
 reconstruction, checked patch replay and contiguous sequence numbers. Parser work
 counters verify parse-once seals and bounded tail reparsing; they do not prove
 the unresolved dirty-only IR/patch complexity requirement (see M3 report).
+
+M4 begins runtime evaluation. `numbers`, `expr`, `state` and `actions` fixtures
+compare a canonical `want.resolved.json` retained tree (`id`, `kind`, `role`,
+evaluated `props`, `status`, `children`) plus static and runtime diagnostics.
+Dynamic props in live patches are evaluated, so the M3 deferred-object checkpoint
+in streaming 029 now asserts the resolved string. Query names use their declared
+default and `ref()` remains a placeholder in this slice. An optional
+`script.json` may contain `{"op":"activate","node":"<path>","prop":"<name>"}`;
+activation is ignored before `finish()` or for a stale epoch/handle. Host-effect
+steps (`refresh`, `say`, `open`, `emit`) are still inert; only `set` and
+`restore` change state at this boundary. `want.ir.json` remains the symbolic
+validation IR and is not compared in runtime categories.
 Canonical JSON goldens are compact sorted bytes plus one file LF, independently
 encoded by the core. Typed semantic maps retain entry order as tagged pairs.
 

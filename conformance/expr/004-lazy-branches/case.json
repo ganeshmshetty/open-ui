@@ -1,0 +1,1 @@
+{"title":"Lazy if and coalesce","tier":"core","tags":["runtime"],"notes":"SPEC §2.7: if is lazy in both branches; coalesce returns the first non-null."}

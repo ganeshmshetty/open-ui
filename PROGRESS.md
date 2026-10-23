@@ -10,7 +10,7 @@ A milestone is complete only after its acceptance checks pass and CI is green.
 | M1 — Batch syntax | Complete | 124 fixtures / 28,225 chunkings; 23 tests including 2,048 generated round trips; four clean 600-second fuzz campaigns; Linux/macOS CI green. |
 | M2 — Library, validation, IR and limits | Complete, including tree and quality gates | 295 fixtures / 66,772 chunkings / 400 permutations; 66 Rust + 10 gate tests; 8 CLI fixtures; 24 exemplars; renewed parser/validator ASan 601s each; 609 mutations audited; Linux/macOS/quality and mutation CI green. |
 | M3 — Streaming and patches | Complete (mutation advisory) | CI green; fresh 601 s fuzz; 100k property; fixtures/replay. Mutation survivors recorded as backlog per the 2026-10-24 gate change. |
-| M4 — Runtime | Not started | Evaluation and interactive fixture categories. |
+| M4 — Runtime | In progress on milestone/m4 (slice 1) | Evaluator, fuel, state reads/writes, explicit action entry, resolved wire props and 20 runtime fixtures pass. Queries/refs/events, forms, provenance and `each` instantiation remain. |
 | M5 — Prompt, feedback and messages | Not started | Golden output and cross-platform determinism. |
 | M6 — GPUI skeleton | Not started | Live streaming demo and recorded performance. |
 | M7 — Inputs and forms | Not started | Stable editing, keyboard form demo and accessibility. |
@@ -1148,3 +1148,43 @@ mutation never blocks, and adds a demo-first rule: each milestone must end with 
 runnable user-visible demo. ROADMAP items 19–20 add a streaming-dashboard vertical slice and the
 scheduled mutation workflow; chess is explicitly not a milestone. The 32-shard run was cancelled once the new contract
 was recorded; its survivor data remains in the repository for later triage.
+
+## M4 slice 1 — runtime evaluation foundation (2026-10-23)
+
+Fixtures were authored before implementation: `numbers` (6), `expr` (9), `state`
+(4) and `actions` (1), each with a canonical `want.resolved.json` retained tree
+and exact static-plus-runtime diagnostics. Existing streaming checkpoint 029 was
+migrated from the retired M3 `deferred` object to the evaluated string because
+SPEC §5.5 already requires M4 to send resolved values; no other golden changed.
+
+Implemented a UI-free tree-walking evaluator over validated expressions:
+literals, names, state reads, lists/maps, checked Int and finite Float arithmetic,
+comparison/logic with short-circuiting, lazy `if`/`coalesce`, member/index,
+lambdas with locals, `map`/`filter`/stable `sort_by`, aggregation, text/format
+builtins, `ref()` placeholders, query-default reads and per-prop fuel. Errors map
+to `expr.overflow`, `expr.non_finite`, `expr.div_zero`, `expr.index_oob`,
+`expr.type`, `expr.unknown_fn` and `limit.fuel` with the §4.3 recovery. Strings
+honour `max_string_bytes`; list producers honour `max_list_len`.
+
+`Session` now owns the runtime state store and evaluated props, sends evaluated
+Dynamic values in live patches, exposes `runtime_diagnostics()`, `resolved()` and
+`action_handle(path, prop)`, and adds an explicit `activate(node, handle)` entry.
+Activation is inert before `finish()` or for a stale epoch/handle. `set`/`restore`
+run in order with type checks (`state.type_write`) and total byte accounting
+(`limit.state`); `refresh`/`say`/`open`/`emit` are returned as deferred steps and
+are **not** dispatched. Validation and streaming still never execute actions.
+
+Explicitly not implemented in this slice: host query dispatch and delivery,
+ref resolution/delivery, model events and `limit.event`, forms/field status,
+provenance mixing and URL policy enforcement, and `each`/node-producing
+`if`/`coalesce` instantiation. `each` in a value position remains a runtime
+`expr.type` error. The existing I7 review blocker and M3 acceptance state are
+unchanged by this slice.
+
+Local gates: `cargo fmt`, workspace Clippy `-D warnings`, `cargo test --workspace`
+(138 tests: 82 core, 47 conformance, 5 std, 4 CLI/quality, plus empty/doc
+targets), 380 fixtures / 89,161 chunkings / 430 seeded permutations,
+`genui-cli fixtures`, `genui-cli spec-check` (3 programs, 4 fragments, 24
+exemplars) and the `serde_json/preserve_order` workspace tests. No fuzz or
+mutation campaign was run.
+

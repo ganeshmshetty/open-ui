@@ -107,3 +107,23 @@ implementation work; the owner requirement and acceptance conditions are unchang
 - Action steps that create host requests are returned in `Update.requests` and,
   for `say`/custom actions, `Update.model_events`. The host still decides whether
   to send the model event; the core never transmits anything.
+
+## M4 runtime slice 3 decisions (data-dependent nodes)
+
+- Keep `Session::ir()` as the static validated tree and expose the expanded
+  runtime tree as `Session::live_ir()`/`Resolved::ir()`. This preserves the
+  batch/stream IR equality contract while patches, fields, actions and resolved
+  trees see instantiated nodes.
+- Retain a source element index on `SlotPlan` and `Node` rather than reconstruct
+  ordering from path strings; path suffixes are not a total order for repeated
+  names.
+- Runtime drops keep the failing expression's diagnostic recovery (`ValueNulled`)
+  because §4.3 fixes code recovery. A plain `Null` for a required non-nullable
+  argument with no default reports `schema.missing_required`, whose recovery is
+  `NodeDropped`.
+- Action plans instantiated inside `each` capture lambda locals. A static
+  template plan is reused only when its owner path is a prefix of the concrete
+  element path; otherwise steps are rebuilt from the validated expression.
+- Synthetic field/query props (`error`, `touched`, `status`) are emitted by the
+  wire projection and ignored by the stream/batch tree comparison because they
+  are session state, not batch projection.

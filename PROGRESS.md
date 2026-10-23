@@ -10,7 +10,7 @@ A milestone is complete only after its acceptance checks pass and CI is green.
 | M1 — Batch syntax | Complete | 124 fixtures / 28,225 chunkings; 23 tests including 2,048 generated round trips; four clean 600-second fuzz campaigns; Linux/macOS CI green. |
 | M2 — Library, validation, IR and limits | Complete, including tree and quality gates | 295 fixtures / 66,772 chunkings / 400 permutations; 66 Rust + 10 gate tests; 8 CLI fixtures; 24 exemplars; renewed parser/validator ASan 601s each; 609 mutations audited; Linux/macOS/quality and mutation CI green. |
 | M3 — Streaming and patches | Complete (mutation advisory) | CI green; fresh 601 s fuzz; 100k property; fixtures/replay. Mutation survivors recorded as backlog per the 2026-10-24 gate change. |
-| M4 — Runtime | In progress on milestone/m4 (slice 2) | Slice 1 evaluator/state/actions; slice 2 queries, refs, events, forms and provenance: 24 new runtime fixtures, 404 fixtures / 96,248 chunkings. `each` instantiation and status props remain. |
+| M4 — Runtime | In progress on milestone/m4 (slice 3) | Slice 1 evaluator/state/actions; slice 2 queries, refs, events, forms and provenance; slice 3 data-dependent nodes, runtime drop/min_items/budget recovery and synthetic status/field props: 11 iteration fixtures, 415 fixtures / 99,581 chunkings. |
 | M5 — Prompt, feedback and messages | Not started | Golden output and cross-platform determinism. |
 | M6 — GPUI skeleton | Not started | Live streaming demo and recorded performance. |
 | M7 — Inputs and forms | Not started | Stable editing, keyboard form demo and accessibility. |
@@ -1245,3 +1245,62 @@ Remaining M4 work: `each`/node-producing `if`/`coalesce` instantiation, syntheti
 shapes, URL policy for tool arguments, form-scope rendering semantics at M6, and
 fuzz/mutation acceptance for this changed runtime source. M3's I7/review state is
 unchanged by this slice.
+
+## M4 slice 3 — data-dependent nodes and runtime recovery (2026-10-23)
+
+Fixtures first: the new `iteration` category has 11 cases (`001`–`011`) covering
+lambda/index keys, field keys and canonical interleaving, node-producing
+`if`/`coalesce`, nested `each` through a statement template, duplicate and bad
+keys, runtime child drop, `min_items` parent drop, node-budget exhaustion,
+budget rollback after a drop, keyed removal through an action, and action plans
+that capture element locals. Each case runs every §12.3 chunking with exact
+`want.resolved.json` and `want.diag.json`; `009` also has an activation script
+and `011` an interactive script.
+
+Implemented:
+
+- `runtime/instantiate.rs` walks the validated tree in canonical order and
+  evaluates retained `each`/`if`/`coalesce` plans into an expanded IR projection.
+  Static validation IR is untouched (`Session::ir()` still equals batch); patches,
+  replay, field lookup and resolved trees use `Session::live_ir()`/`Resolved::ir()`.
+- `SlotPlan`/`Node` retain a source element index. Concrete children and plans
+  merge by that index, so mixed lists such as `[Text, each(...), Text]` keep
+  source order. Element paths use §5.2 index or typed string/integer keys;
+  duplicate keys fall back to `#index` (`schema.dup_key`) and non-string/integer
+  keys to `#index` (`schema.bad_key`).
+- Runtime instances consume `max_nodes`/`max_ir_depth` in the same walk. A
+  dropped subtree releases its allocation before the next sibling; exceeding a
+  limit omits the remaining children of the directly affected slot.
+- Runtime props apply the §4.4 ladder: failure keeps its own diagnostic, an
+  argument default is used next, an optional argument is omitted, otherwise the
+  node is dropped. A required non-nullable value that is `Null` with no default
+  reports `schema.missing_required` (`NodeDropped`). Slot `min_items` drops the
+  parent after plan expansion.
+- Action props inside `each` reuse a matching static template when present and
+  otherwise rebuild typed steps from the validated expression, interning step
+  arguments into the runtime IR. The plan captures the element lambda environment
+  and is keyed by the concrete element path.
+- Field nodes now carry synthetic `error`/`touched` resolved props and nodes
+  whose props read a query carry an aggregated synthetic `status` prop. They are
+  not library arguments and never visible to expressions. The streaming oracle
+  ignores these session-owned props when comparing batch replay.
+
+Changed existing goldens deliberately, paired with this spec change: six runtime
+fixtures whose required prop now drops the node (`expr/003`, `expr/007`,
+`expr/009`, `numbers/002–004`) now resolve to `null`; forms fixtures gain
+`error`/`touched`; query fixtures gain `status`; one patch golden gains the field
+props. No golden was edited to hide an unexplained failure.
+
+Spec changes are in §2.10–2.11, §4.4, §5.5, §7.3–7.5 and CHANGELOG. Gates:
+`cargo fmt --all -- --check`; workspace Clippy `-D warnings`; `cargo test
+--workspace --locked` and with `--features serde_json/preserve_order` (90 core,
+47 conformance, 5 std, plus CLI/quality and doc targets); `genui-cli fixtures`
+415 fixtures / 99,581 chunkings / 430 permutations; `spec-check` 3 programs,
+4 fragments and 24 exemplars. No fuzz or mutation campaign was run for this
+slice; M3's I7 review blocker and acceptance state are unchanged.
+
+Remaining M4 work: `ToolDescriptor`-driven `auto_run` and argument shapes, URL
+policy for tool arguments, form-scope rendering semantics at M6, and fuzz/mutation
+acceptance for this changed runtime source. Full-form scopes inside `each` have
+not been exercised; action plans capture locals but a form submit plan's
+`submit_scope` is still the static node identity.

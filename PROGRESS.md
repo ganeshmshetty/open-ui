@@ -1106,3 +1106,21 @@ in release (46.62s). No fresh 600-second fuzz campaign, complete mutation campai
 hosted CI or push/merge was run in this checkpoint, so M3 acceptance is still open.
 The 100k property is slower than the pre-retention 6.03s and must be measured before
 any performance claim.
+
+### M3 fresh-source fuzz acceptance — b6f17ed
+
+The changed production source (`session`, `validate/**`, `patch`, arenas and storage)
+completed two fresh 601-second ASan/libFuzzer campaigns with the standard seed,
+dictionary and 32 KiB max length. Both exited 0 with matching frozen source hashes:
+
+| Target | Engine seconds | Executions | Peak RSS |
+| --- | ---: | ---: | ---: |
+| streaming | 602 | 10,900 | 803 MiB |
+| validator | 602 | 19,287 | 558 MiB |
+
+Full logs, `acceptance.json` and `frozen-source.json` are in `fuzz/runs/m3-i7/`.
+The campaigns found and fixed two real defects before this run: retained argument
+diagnostics were not replayed on a rebuilt task, and action plans from a provisional
+reverse closure were still published. Regression tests for both are in
+`crates/genui-conformance/src/streaming.rs`. The mutation gate is still running, so
+M3 is not yet marked complete and nothing is merged.

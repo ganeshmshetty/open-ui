@@ -1,0 +1,86 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+    Finished `release` profile [optimized + debuginfo] target(s) in 3.73s
+    Blocking waiting for file lock on package cache
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.05s
+     Running `fuzz/target/aarch64-apple-darwin/release/streaming -artifact_prefix=/Users/ganesh/dev/open-ui/fuzz/artifacts/streaming/ -max_total_time=601 -print_final_stats=1 /Users/ganesh/dev/open-ui/fuzz/corpus/streaming`
+INFO: Running with entropic power schedule (0xFF, 100).
+INFO: Seed: 542461087
+INFO: Loaded 1 modules   (478392 inline 8-bit counters): 478392 [0x10443d2c0, 0x1044b1f78), 
+INFO: Loaded 1 PC tables (478392 PCs): 478392 [0x1044b1f78,0x104bfeaf8), 
+INFO:     9234 files found in /Users/ganesh/dev/open-ui/fuzz/corpus/streaming
+INFO: -max_len is not provided; libFuzzer will not generate inputs larger than 4096 bytes
+INFO: seed corpus: files: 9234 min: 1b max: 2740b total: 2142398b rss: 82Mb
+#1024	pulse  cov: 9297 ft: 22441 corp: 749/3975b exec/s: 341 rss: 450Mb
+#2048	pulse  cov: 12863 ft: 35252 corp: 1450/12324b exec/s: 256 rss: 489Mb
+#4096	pulse  cov: 19064 ft: 64637 corp: 2669/41Kb exec/s: 170 rss: 553Mb
+#8192	pulse  cov: 23227 ft: 121525 corp: 5640/678Kb exec/s: 31 rss: 813Mb
+
+thread '<unnamed>' (33445275) panicked at fuzz_targets/streaming.rs:37:10:
+called `Result::unwrap()` on an `Err` value: "chunk 22: provisional content created action plans"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+==74582== ERROR: libFuzzer: deadly signal
+    #0 0x000105b1b654 in __sanitizer_print_stack_trace+0x28 (librustc-nightly_rt.asan.dylib:arm64+0x87654)
+    #1 0x000103270d34 in fuzzer::PrintStackTrace()+0x30 (streaming:arm64+0x100ce8d34)
+    #2 0x000103264d70 in fuzzer::Fuzzer::CrashCallback()+0x54 (streaming:arm64+0x100cdcd70)
+    #3 0x000186fb9740 in _sigtramp+0x34 (libsystem_platform.dylib:arm64e+0x3740)
+    #4 0x000186faf8d4 in pthread_kill+0x124 (libsystem_pthread.dylib:arm64e+0x68d4)
+    #5 0x000186eb5974 in abort+0x90 (libsystem_c.dylib:arm64e+0x78974)
+    #6 0x000103e90c2c in _RNvNtNtNtCsizPJRoAZpyg_3std3sys3pal4unix14abort_internal+0x8 (streaming:arm64+0x101908c2c)
+    #7 0x000103e909a0 in _RNvNtCsizPJRoAZpyg_3std7process5abort+0x8 (streaming:arm64+0x1019089a0)
+    #8 0x000103e76ae0 in _RNCNvCs2Puorew5Mde_13libfuzzer_sys10initialize0B3_+0xb8 (streaming:arm64+0x1018eeae0)
+    #9 0x000103db8a60 in _RNvNtCsizPJRoAZpyg_3std9panicking15panic_with_hook+0x26c (streaming:arm64+0x101830a60)
+    #10 0x000103daa2b8 in _RNCNvNtCsizPJRoAZpyg_3std9panicking13panic_handler0B5_+0x40 (streaming:arm64+0x1018222b8)
+    #11 0x000103da3cc0 in _RINvNtNtCsizPJRoAZpyg_3std3sys9backtrace26___rust_end_short_backtraceNCNvNtB6_9panicking13panic_handler0zEB6_+0x8 (streaming:arm64+0x10181bcc0)
+    #12 0x000103daa924 in _RNvCseTBOuNxBJBZ_7___rustc17rust_begin_unwind+0x1c (streaming:arm64+0x101822924)
+    #13 0x000103e91714 in _RNvNtCs7rJgpMQJsBb_4core9panicking9panic_fmt+0x24 (streaming:arm64+0x101909714)
+    #14 0x000103e91a60 in _RNvNvNtCs7rJgpMQJsBb_4core6result13unwrap_failed19unwrap_failed_inner+0x44 (streaming:arm64+0x101909a60)
+    #15 0x000103dda97c in _RINvNtCs7rJgpMQJsBb_4core6result13unwrap_failedNtNtCsiGJ9W6X0UHH_5alloc6string6StringECs29XRWwtxHva_9streaming result.rs:1876
+    #16 0x00010259dfc0 in unwrap<alloc::vec::Vec<genui_core::patch::PatchBatch, alloc::alloc::Global>, alloc::string::String> result.rs:1232
+    #17 0x00010259dfc0 in _RNvNvCs29XRWwtxHva_9streaming1__19___libfuzzer_sys_run streaming.rs:37
+    #18 0x0001025a1f2c in rust_fuzzer_test_input lib.rs:276
+    #19 0x000103263390 in _RINvNvNtCsizPJRoAZpyg_3std9panicking12catch_unwind7do_callNCNvCs2Puorew5Mde_13libfuzzer_sys15test_input_wrap0lEBY_+0xc4 (streaming:arm64+0x100cdb390)
+    #20 0x000103263fc8 in __rust_try+0x18 (streaming:arm64+0x100cdbfc8)
+    #21 0x000103262c60 in LLVMFuzzerTestOneInput+0x16c (streaming:arm64+0x100cdac60)
+    #22 0x0001032665f0 in fuzzer::Fuzzer::ExecuteCallback(unsigned char const*, unsigned long)+0x158 (streaming:arm64+0x100cde5f0)
+    #23 0x000103265c94 in fuzzer::Fuzzer::RunOne(unsigned char const*, unsigned long, bool, fuzzer::InputInfo*, bool, bool*)+0x48 (streaming:arm64+0x100cddc94)
+    #24 0x000103267e50 in fuzzer::Fuzzer::ReadAndExecuteSeedCorpora(std::__1::vector<fuzzer::SizedFile, std::__1::allocator<fuzzer::SizedFile>>&)+0x818 (streaming:arm64+0x100cdfe50)
+    #25 0x000103267fe8 in fuzzer::Fuzzer::Loop(std::__1::vector<fuzzer::SizedFile, std::__1::allocator<fuzzer::SizedFile>>&)+0x88 (streaming:arm64+0x100cdffe8)
+    #26 0x000103287218 in fuzzer::FuzzerDriver(int*, char***, int (*)(unsigned char const*, unsigned long))+0x1aa8 (streaming:arm64+0x100cff218)
+    #27 0x00010329493c in main+0x24 (streaming:arm64+0x100d0c93c)
+    #28 0x000186be44e0 in start+0x1b4c (dyld:arm64e+0x204e0)
+
+NOTE: libFuzzer has rudimentary signal handlers.
+      Combine libFuzzer with AddressSanitizer or similar for better crash reports.
+SUMMARY: libFuzzer: deadly signal
+MS: 0 ; base unit: 0000000000000000000000000000000000000000
+artifact_prefix='/Users/ganesh/dev/open-ui/fuzz/artifacts/streaming/'; Test unit written to /Users/ganesh/dev/open-ui/fuzz/artifacts/streaming/crash-1819e3e4f81a9ac6238acf0b08648f5fdf252d97
+stat::number_of_executed_units: 8901
+stat::average_exec_per_sec:     24
+stat::new_units_added:          0
+stat::slowest_unit_time_sec:    0
+stat::peak_rss_mb:              813
+
+────────────────────────────────────────────────────────────────────────────────
+
+Failing input:
+
+	fuzz/artifacts/streaming/crash-1819e3e4f81a9ac6238acf0b08648f5fdf252d97
+
+Output of `std::fmt::Debug`:
+
+	[114, 111, 111, 116, 61, 67, 111, 108, 117, 109, 110, 40, 91, 72, 101, 97, 100, 105, 110, 103, 40, 34, 67, 104, 111, 111, 115, 101, 32, 97, 32, 112, 108, 97, 110, 32, 102, 111, 114, 32, 121, 111, 117, 114, 32, 116, 101, 97, 109, 34, 44, 108, 101, 118, 101, 108, 58, 49, 41, 44, 71, 114, 105, 100, 40, 91, 67, 97, 114, 100, 40, 91, 83, 116, 97, 116, 40, 34, 77, 111, 110, 116, 104, 108, 121, 32, 112, 114, 105, 99, 101, 34, 44, 48, 57, 44, 102, 111, 114, 109, 97, 116, 58, 34, 99, 117, 114, 114, 101, 110, 99, 192, 121, 34, 41, 44, 70, 97, 99, 116, 115, 40, 91, 123, 108, 97, 98, 101, 108, 58, 34, 77, 101, 109, 98, 101, 114, 115, 34, 44, 118, 97, 108, 117, 101, 58, 34, 53, 34, 125, 44, 123, 108, 97, 98, 101, 108, 58, 34, 83, 116, 111, 114, 97, 103, 101, 34, 44, 118, 97, 108, 117, 101, 58, 34, 50, 48, 32, 71, 66, 34, 125, 93, 41, 44, 66, 117, 116, 116, 111, 110, 40, 34, 67, 104, 111, 111, 115, 101, 32, 83, 116, 97, 114, 116, 101, 114, 34, 44, 111, 110, 95, 99, 108, 105, 99, 107, 58, 115, 97, 121, 40, 34, 67, 104, 111, 111, 115, 101, 32, 116, 104, 101, 32, 83, 116, 97, 114, 116, 101, 114, 32, 112, 108, 97, 110, 34, 41, 41, 93, 44, 116, 105, 116, 108, 101, 58, 34, 83, 116, 97, 114, 116, 101, 114, 34, 41, 44, 67, 97, 114, 100, 40, 91, 66, 97, 100, 103, 101, 40, 34, 82, 101, 99, 111, 109, 109, 101, 110, 100, 101, 100, 34, 44, 116, 111, 110, 101, 58, 34, 115, 117, 99, 99, 101, 115, 115, 34, 41, 44, 83, 116, 97, 116, 40, 34, 77, 111, 110, 116, 104, 108, 121, 32, 112, 114, 105, 99, 101, 34, 44, 52, 57, 44, 102, 111, 114, 109, 97, 116, 58, 34, 99, 117, 114, 114, 101, 110, 99, 121, 34, 41, 44, 70, 97, 99, 116, 115, 40, 91, 123, 108, 97, 98, 101, 108, 58, 34, 77, 101, 109, 98, 143, 101, 114, 115, 34, 44, 118, 97, 108, 117, 101, 58, 34, 50, 53, 34, 125, 44, 123, 108, 97, 98, 101, 108, 58, 34, 83, 116, 111, 114, 97, 103, 101, 34, 44, 118, 97, 108, 117, 101, 58, 34, 49, 48, 48, 32, 71, 66, 34, 125, 93, 41, 44, 66, 117, 116, 116, 111, 110, 40, 34, 67, 104, 79, 111, 115, 101, 32, 84, 101, 97, 109, 34, 44, 116, 111, 110, 101, 58, 34, 112, 114, 105, 109, 97, 114, 121, 34, 44, 111, 110, 95, 99, 108, 105, 99, 107, 58, 115, 97, 121, 40, 34, 67, 104, 111, 111, 115, 101, 32, 1, 0, 0, 128, 0, 0, 0, 11, 116, 104, 101, 32, 84, 101, 97, 109, 32, 112, 108, 97, 110, 34, 41, 41, 93, 44, 116, 105, 116, 108, 101, 58, 34, 84, 101, 97, 109, 34, 41, 44, 67, 97, 114, 100, 40, 91, 83, 116, 97, 116, 40, 34, 77, 111, 110, 116, 104, 108, 121, 32, 112, 114, 105, 113, 61, 121, 140, 140, 140, 140, 50, 46, 49, 44, 102, 111, 114, 109, 97, 116, 58, 34, 99, 117, 114, 114, 101, 110, 99, 121, 34, 41, 44, 83, 116, 97, 116, 40, 34, 67, 111, 110, 118, 101, 114, 115, 105, 111, 110, 34, 44, 48, 46, 48, 51, 50, 44, 102, 111, 114, 109, 97, 116, 58, 34, 112, 101, 114, 99, 101, 110, 116, 34, 41, 93, 44, 99, 111, 108, 115, 58, 52, 41, 44, 67, 97, 114, 100, 40, 91, 116, 114, 101, 110, 100, 93, 44, 116, 105, 116, 108, 101, 58, 34, 82, 101, 118, 101, 110, 117, 101, 32, 116, 114, 101, 110, 100, 44, 41, 44, 70, 97, 99, 116, 115, 40, 91, 123, 108, 97, 98, 101, 108, 58, 34, 82, 101, 112, 111, 114, 116, 105, 110, 103, 32, 112, 101, 114, 105, 111, 100, 34, 44, 118, 97, 108, 117, 101, 58, 34, 76, 97, 115, 116, 32, 51, 48, 32, 100, 97, 121, 115, 34, 125, 44, 123, 108, 97, 98, 101, 108, 9, 0, 0, 0, 0, 0, 0, 128, 34, 44, 118, 97, 108, 117, 101, 58, 34, 78, 111, 114, 116, 104, 32, 65, 109, 101, 114, 105, 99, 97, 34, 125, 93, 44, 99, 111, 108, 117, 109, 110, 115, 58, 50, 41, 93, 41, 10, 116, 114, 101, 110, 100, 61, 67, 104, 97, 114, 116, 40, 34, 108, 105, 110, 101, 34, 44, 91, 123, 119, 101, 101, 107, 58, 34, 87, 101, 101, 107, 32, 49, 34, 44, 114, 101, 118, 101, 110, 117, 101, 58, 56, 50, 48, 48, 125, 44, 123, 119, 101, 101, 107, 58, 34, 87, 101, 101, 107, 32, 50, 34, 44, 114, 101, 118, 101, 110, 117, 101, 58, 49, 48, 52, 48, 48, 125, 44, 123, 119, 101, 101, 107, 58, 34, 87, 101, 101, 107, 32, 51, 34, 44, 114, 101, 118, 101, 110, 117, 101, 58, 49, 49, 50, 48, 48, 125, 44, 123, 119, 101, 101, 107, 58, 34, 87, 101, 101, 107, 32, 52, 34, 44, 114, 101, 118, 101, 110, 117, 101, 58, 49, 51, 48, 48, 48, 125, 93, 44, 34, 119, 101, 101, 107, 34, 44, 34, 114, 101, 118, 101, 110, 117, 101, 34, 44, 115, 117, 109, 109, 97, 114, 121, 58, 140, 162, 162, 162, 162, 162, 162, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 162, 162, 162, 162, 162, 162, 162, 114, 111, 111, 116, 162, 162, 162, 162, 162, 162, 162, 61, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 162, 99, 101, 34, 44, 34, 67, 111, 110, 116, 97, 99, 116, 32, 115, 97, 108, 101, 115, 34, 162, 162, 162, 162, 162, 162, 162, 140, 40, 87, 2, 41, 44, 70, 97, 99, 116, 115, 40, 91, 123, 108, 97, 98, 41, 93, 44, 116, 105, 116, 108, 101, 58, 34, 83, 116, 97, 114, 116, 101, 114, 34, 41, 44, 67, 97, 114, 100, 40, 91, 66, 97, 100, 103, 101, 40, 34, 82, 101, 99, 111, 109, 109, 101, 110, 100, 101, 100, 34, 44, 116, 111, 44, 118, 97, 108, 117, 101, 58, 34, 67, 117, 115, 116, 111, 109, 34, 125, 93, 41, 44, 66, 117, 116, 116, 111, 110, 40, 34, 67, 111, 110, 116, 97, 99, 116, 32, 115, 97, 108, 101, 115, 34, 44, 111, 110, 95, 99, 108, 105, 99, 107, 58, 115, 97, 121, 40, 34, 67, 111, 110, 116, 97, 99, 116, 32, 115, 97, 108, 101, 115, 32, 97, 0, 115, 13, 121, 61, 98, 111, 117, 116, 32, 69, 110, 116, 101, 114, 112, 114, 105, 115, 101, 34, 41, 41, 93, 44, 116, 121, 40, 2, 0, 105, 116, 108, 101, 58, 34, 69, 110, 13, 121, 116, 101, 114, 112, 114, 105, 115, 101, 34, 41, 93, 44, 99, 111, 108, 115, 58, 50, 41, 36, 93, 34, 223, 41, 10]
+
+Reproduce with:
+
+	cargo fuzz run streaming fuzz/artifacts/streaming/crash-1819e3e4f81a9ac6238acf0b08648f5fdf252d97
+
+Minimize test case with:
+
+	cargo fuzz tmin streaming fuzz/artifacts/streaming/crash-1819e3e4f81a9ac6238acf0b08648f5fdf252d97
+
+────────────────────────────────────────────────────────────────────────────────
+
+Error: Fuzz target exited with exit status: 77

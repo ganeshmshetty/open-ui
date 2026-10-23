@@ -1261,6 +1261,82 @@ mod tests {
             "an equal retained output must keep its shared vector"
         );
     }
+    fn retained_pass(
+        lib: &Library,
+        options: &Options,
+        previous: &Validation,
+        cache: &ValidationCache,
+    ) -> (Validation, ValidationCache) {
+        let dirty = BTreeSet::new();
+        let reverse = BTreeMap::new();
+        let (validation, _, _, next) = crate::validate::validate_incremental(
+            lib,
+            options,
+            Some(previous),
+            Changes {
+                dirty: &dirty,
+                sources: &[],
+                reverse: &reverse,
+            },
+            None,
+            Some(cache),
+            Some(cache),
+        );
+        (validation, next)
+    }
+
+    fn active_paths(cache: &ValidationCache) -> Vec<String> {
+        cache
+            .tasks
+            .as_ref()
+            .map(|machine| {
+                machine
+                    .active
+                    .iter()
+                    .map(|id| id.path.clone())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
+    }
+
+    #[test]
+    fn range_stop_changes_activate_and_deactivate_retained_effects() {
+        // §3.6: a moved stop exchanges live effects with the retained range.
+        // Shrinking must deactivate the stopped suffix, and growing it again
+        // must restore those effects even when their retained tasks are reused.
+        let lib = machine_library();
+        let program = parsed(
+            "root=Column([Control(on_click:say(\"a\")), Control(on_click:say(\"bb\")), Control(on_click:say(\"ccc\"))])\n",
+        );
+        let (all, _, cache) = first_pass(&lib, &program);
+        assert!(active_paths(&cache).contains(&"root/children:#2".to_string()));
+
+        let mut options = Options::default();
+        options.limits.max_nodes = 1;
+        let (small, cache) = retained_pass(&lib, &options, &all, &cache);
+        assert!(
+            !active_paths(&cache).contains(&"root/children:#1".to_string()),
+            "{:?}",
+            active_paths(&cache)
+        );
+
+        options.limits.max_nodes = 3;
+        let (_grown, cache) = retained_pass(&lib, &options, &small, &cache);
+        assert!(
+            active_paths(&cache).contains(&"root/children:#1".to_string()),
+            "growing the stop must reactivate the retained suffix: {:?}",
+            active_paths(&cache)
+        );
+
+        options.limits.max_nodes = 1;
+        let (_shrunk, cache) = retained_pass(&lib, &options, &_grown, &cache);
+        assert!(
+            !active_paths(&cache).contains(&"root/children:#1".to_string()),
+            "shrinking the stop must deactivate the suffix: {:?}",
+            active_paths(&cache)
+        );
+    }
+
     #[test]
     fn a_slot_range_restores_its_hidden_prefix() {
         // §3.6: a retained slot range owns its path prefix, so a fresh range

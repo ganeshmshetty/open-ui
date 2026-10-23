@@ -1361,4 +1361,23 @@ mod fuzz_regressions {
             .unwrap();
         }
     }
+
+    /// A provisional draft pulls sealed consumers into its reverse closure. No
+    /// action plan owned by that closure may remain published during preview.
+    #[test]
+    fn provisional_closure_does_not_publish_sealed_action_plans() {
+        let mut session = Session::new(SessionOptions::program(Arc::new(
+            genui_std::std_library().unwrap(),
+        )));
+        session.push(b"root=Column([Button(\"Go\",on_click:say(\"go\")),draft])\ndraft=Text(\"a");
+        assert!(session.ir().actions.is_empty());
+        assert!(session.ir().nodes.values().all(|node| {
+            !node.props.values().any(|prop| {
+                matches!(
+                    prop,
+                    genui_core::ir::Prop::Static(genui_core::ir::PropValue::Action(_))
+                )
+            })
+        }));
+    }
 }

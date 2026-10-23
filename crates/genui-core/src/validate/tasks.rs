@@ -247,6 +247,24 @@ mod tests {
         );
     }
     #[test]
+    fn kind_only_changes_are_projected() {
+        let mut before = crate::ir::Ir::default();
+        let mut after = crate::ir::Ir::default();
+        let id = NodeId(7);
+        let mut old = node(7, "root");
+        old.id = id;
+        old.kind = ComponentId(1);
+        let mut new = old.clone();
+        new.kind = ComponentId(2);
+        assert_eq!(old.props, new.props);
+        assert_eq!(old.status, new.status);
+        before.nodes.insert(id, old);
+        after.nodes.insert(id, new);
+        let projection = Projection::between(&before, &after, None, None);
+        assert!(projection.ids.contains(&id));
+    }
+
+    #[test]
     fn restoring_a_parent_skips_its_still_hidden_descendants() {
         let mut graph = Graph::default();
         graph.insert(node(0, "root"), 1001);

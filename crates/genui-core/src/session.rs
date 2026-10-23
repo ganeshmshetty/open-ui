@@ -676,6 +676,33 @@ impl Session {
                     for id in removed_actions {
                         value.ir.drop_action(&id);
                     }
+                    // A draft's reverse closure includes sealed consumers. While
+                    // any of those are provisional, no action plan owned by them
+                    // may be published, even if the node itself did not change.
+                    let stale: Vec<_> = value
+                        .ir
+                        .actions
+                        .ids()
+                        .filter(|id| {
+                            value.ir.actions.get(id).is_some_and(|plan| {
+                                value.ir.nodes.get(&plan.origin).is_some_and(|node| {
+                                    self.provisional_origins.contains(&node.origin)
+                                })
+                            })
+                        })
+                        .cloned()
+                        .collect();
+                    for id in stale {
+                        let origin = value.ir.actions.get(&id).map(|plan| plan.origin);
+                        if let Some(origin) = origin
+                            && let Some(node) = value.ir.nodes.get_mut(&origin)
+                        {
+                            node.props.retain(|_, prop| {
+                                !matches!(prop, Prop::Static(PropValue::Action(handle)) if *handle == id)
+                            });
+                        }
+                        value.ir.drop_action(&id);
+                    }
                 }
                 if let Some(s) = &candidate
                     && !retained_graph

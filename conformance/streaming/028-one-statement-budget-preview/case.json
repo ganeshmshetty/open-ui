@@ -1,0 +1,12 @@
+{
+  "title": "one-statement-budget-preview",
+  "tier": "core",
+  "tags": [
+    "review",
+    "regression"
+  ],
+  "notes": "Greptile Plus regression; SPEC \u00a7\u00a72.5,3.3\u20133.7,12.3. Expected behavior written before the fix.",
+  "limits": {
+    "max_stmt_count": 1
+  }
+}

@@ -1,0 +1,4 @@
+[
+  "$x=\"\"\nstable=Text($x+\"old\")\nroot=Column([late,stable])\n",
+  "late=Text($x+\"new\")\n"
+]

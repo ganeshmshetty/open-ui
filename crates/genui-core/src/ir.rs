@@ -45,10 +45,18 @@ pub struct PropId(pub u16);
 pub struct NodeId(pub u64);
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct NodePath(pub String);
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct ExprId(pub usize);
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct ActionPlanId(pub usize);
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub struct ExprId {
+    pub hash: u64,
+    pub key: std::sync::Arc<str>,
+}
+impl std::fmt::Debug for ExprId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("ExprId").field(&self.hash).finish()
+    }
+}
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub struct ActionPlanId(pub std::sync::Arc<str>);
 #[derive(Clone, Debug, PartialEq)]
 pub enum Prop {
     Static(PropValue),
@@ -81,8 +89,8 @@ pub struct Node {
 #[derive(Clone, Debug, PartialEq)]
 pub struct IrSlot {
     pub name: String,
-    pub children: Vec<NodeId>,
-    pub plans: Vec<SlotPlan>,
+    pub children: crate::SharedVector<NodeId>,
+    pub plans: crate::SharedVector<SlotPlan>,
 }
 /// A structurally checked expression awaiting M4 data evaluation, with its source identity intact.
 #[derive(Clone, Debug, PartialEq)]
@@ -139,32 +147,54 @@ pub struct QueryDef {
 }
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Ir {
-    pub templates: BTreeMap<String, Expr>,
+    pub templates: crate::SharedMap<String, Expr>,
     pub root: Option<NodeId>,
-    pub nodes: BTreeMap<NodeId, Node>,
-    pub expressions: Vec<Expr>,
-    pub actions: Vec<ActionPlan>,
-    pub fallbacks: BTreeMap<usize, FallbackPlan>,
-    pub values: BTreeMap<String, ValueEntry>,
-    pub states: BTreeMap<String, StateDef>,
-    pub queries: BTreeMap<String, QueryDef>,
+    pub nodes: crate::SharedMap<NodeId, Node>,
+    pub expressions: crate::ExpressionArena,
+    pub actions: crate::ActionArena,
+    pub fallbacks: crate::SharedMap<ExprId, FallbackPlan>,
+    pub values: crate::SharedMap<String, ValueEntry>,
+    pub states: crate::SharedMap<String, StateDef>,
+    pub queries: crate::SharedMap<String, QueryDef>,
     pub root_plan: Option<SlotPlan>,
 }
 impl Ir {
     pub fn intern(&mut self, e: &Expr) -> ExprId {
-        if let Some(i) = self
-            .expressions
-            .iter()
-            .position(|v| v == e && v.recovery_metadata_eq(e))
-        {
-            return ExprId(i);
+        self.expressions.intern(e)
+    }
+    pub(crate) fn begin_owner(&mut self, key: String, order: Vec<u64>) -> crate::arena::Scope {
+        self.expressions.enter(key, order)
+    }
+    pub(crate) fn end_owner(&mut self, scope: crate::arena::Scope) {
+        let (removed, action) = self.expressions.exit(scope);
+        for id in removed {
+            self.fallbacks.remove(&id);
         }
-        let i = self.expressions.len();
-        self.expressions.push(e.clone());
-        ExprId(i)
+        if let Some(owner) = action {
+            self.actions.remove(&ActionPlanId(owner.into()));
+        }
+    }
+    pub(crate) fn intern_action(&mut self, id: ActionPlanId, plan: ActionPlan) -> ActionPlanId {
+        self.expressions.mark_action();
+        self.actions.insert(id.clone(), plan);
+        id
+    }
+    pub(crate) fn drop_action(&mut self, id: &ActionPlanId) {
+        self.actions.remove(id);
+        for expr in self.expressions.remove_owner(&id.0) {
+            self.fallbacks.remove(&expr);
+        }
+    }
+    pub fn expression_indices(&self) -> BTreeMap<ExprId, usize> {
+        self.expressions.canonical_indices()
     }
     pub fn canonical_tree(&self, lib: &crate::r#lib::Library) -> serde_json::Value {
-        fn tree(ir: &Ir, id: NodeId, lib: &crate::r#lib::Library) -> serde_json::Value {
+        fn tree(
+            ir: &Ir,
+            id: NodeId,
+            lib: &crate::r#lib::Library,
+            indices: &BTreeMap<ExprId, usize>,
+        ) -> serde_json::Value {
             use serde_json::{Value as J, json};
             let Some(n) = ir.nodes.get(&id) else {
                 return J::Null;
@@ -179,14 +209,14 @@ impl Ir {
                     Some((
                         c.args.get(id.0 as usize)?.name.clone(),
                         match p {
-                            Prop::Dynamic(i) => json!({"dynamic":i.0}),
+                            Prop::Dynamic(i) => json!({"dynamic":indices.get(i)?}),
                             Prop::Static(p) => match p {
                                 PropValue::Value(v) => v.ir_json(),
                                 PropValue::Token { scale, value } => {
                                     json!({"tok":[scale,value.plain_json()]})
                                 }
                                 PropValue::Binding(b) => json!({"bind":format!("${b}")}),
-                                PropValue::Action(i) => json!({"action":i.0}),
+                                PropValue::Action(i) => json!({"action":i.0.as_ref()}),
                             },
                         },
                     ))
@@ -198,14 +228,20 @@ impl Ir {
                 .map(|s| {
                     (
                         s.name.clone(),
-                        J::Array(s.children.iter().map(|id| tree(ir, *id, lib)).collect()),
+                        J::Array(
+                            s.children
+                                .iter()
+                                .map(|id| tree(ir, *id, lib, indices))
+                                .collect(),
+                        ),
                     )
                 })
                 .collect();
             json!({"id":n.path.0,"kind":c.name,"role":n.role,"props":props,"children":children})
         }
-        self.root
-            .map_or(serde_json::Value::Null, |id| tree(self, id, lib))
+        self.root.map_or(serde_json::Value::Null, |id| {
+            tree(self, id, lib, &self.expressions.canonical_indices())
+        })
     }
 }
 
@@ -256,7 +292,7 @@ impl NodePath {
 }
 #[derive(Clone, Debug, Default)]
 pub struct IdAllocator {
-    paths: BTreeMap<NodeId, NodePath>,
+    paths: crate::SharedMap<NodeId, NodePath>,
 }
 impl IdAllocator {
     pub fn allocate(&mut self, path: &NodePath) -> NodeId {

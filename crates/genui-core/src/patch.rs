@@ -69,12 +69,12 @@ pub struct Entry {
     pub node: NodeInit,
     pub parent: Option<String>,
     pub slot: String,
-    pub children: BTreeMap<String, Vec<String>>,
+    pub children: BTreeMap<String, crate::SharedVector<String>>,
 }
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Tree {
     pub root: Option<String>,
-    pub nodes: BTreeMap<String, Entry>,
+    pub nodes: crate::SharedMap<String, Entry>,
 }
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ApplyReport {
@@ -131,40 +131,345 @@ impl Replay {
     }
 }
 impl Tree {
+    fn props_from_ir(
+        ir: &Ir,
+        library: &Library,
+        id: crate::ir::NodeId,
+        work: &mut crate::MaintenanceWork,
+    ) -> Option<NodeInit> {
+        let n = ir.nodes.get(&id)?;
+        let c = library.components().get(n.kind.0 as usize)?;
+        let mut props = Props::new();
+        for (id, p) in &n.props {
+            work.props_compared += 1;
+            let Some(arg) = c.args.get(id.0 as usize) else {
+                continue;
+            };
+            let value = match p {
+                Prop::Dynamic(e) => {
+                    let Some(e) = ir.expressions.get(e) else {
+                        continue;
+                    };
+                    json!({"deferred":e})
+                }
+                Prop::Static(PropValue::Value(v)) => wire_value(v),
+                Prop::Static(PropValue::Token { scale, value }) => {
+                    json!({"tok":[scale,value.plain_json()]})
+                }
+                Prop::Static(PropValue::Binding(name)) => json!({"bind":format!("${name}")}),
+                Prop::Static(PropValue::Action(id)) => json!({"action":id.0.as_ref()}),
+            };
+            props.insert(arg.name.clone(), value);
+        }
+        Some(NodeInit {
+            id: n.path.0.clone(),
+            kind: c.name.clone(),
+            role: n.role,
+            props,
+            status: n.status,
+        })
+    }
+    pub(crate) fn insert_grafts(
+        &mut self,
+        ir: &Ir,
+        library: &Library,
+        grafts: &[crate::validate::Graft],
+    ) -> (Vec<Op>, crate::MaintenanceWork) {
+        let mut work = crate::MaintenanceWork::default();
+        let mut ops = Vec::new();
+        for graft in grafts {
+            if let Some(id) = &graft.remove {
+                work.wire_nodes_examined += 1;
+                let op = Op::Remove { id: id.clone() };
+                if self.apply_with_position(&op, Some(graft.index)).is_ok() {
+                    ops.push(op);
+                }
+            }
+            let mut queue = Vec::new();
+            for (i, id) in graft.children.iter().enumerate().rev() {
+                queue.push((
+                    *id,
+                    Some(graft.parent.clone()),
+                    graft.slot.clone(),
+                    graft.index + i,
+                ));
+            }
+            while let Some((id, parent, slot, index)) = queue.pop() {
+                work.wire_nodes_examined += 1;
+                let Some(node) = Self::props_from_ir(ir, library, id, &mut work) else {
+                    continue;
+                };
+                let path = node.id.clone();
+                if self
+                    .nodes
+                    .get(&path)
+                    .is_some_and(|old| old.node.kind == node.kind)
+                {
+                    let (changes, charged) = self.update_props(ir, library, &[id]);
+                    work += charged;
+                    ops.extend(changes);
+                } else {
+                    if self.nodes.contains_key(&path) {
+                        let op = Op::Remove { id: path.clone() };
+                        if self.apply(&op).is_ok() {
+                            ops.push(op);
+                        }
+                    }
+                    let op = Op::Insert {
+                        parent,
+                        slot,
+                        index: index as u32,
+                        node,
+                    };
+                    if self.apply(&op).is_ok() {
+                        ops.push(op);
+                    }
+                }
+                if let Some(node) = ir.nodes.get(&id) {
+                    let mut slots = node.slots.iter().collect::<Vec<_>>();
+                    slots.sort_by(|a, b| a.name.cmp(&b.name));
+                    for slot in slots.into_iter().rev() {
+                        for (i, id) in slot.children.iter().enumerate().rev() {
+                            queue.push((*id, Some(path.clone()), slot.name.clone(), i));
+                        }
+                    }
+                }
+            }
+        }
+        (ops, work)
+    }
+    pub(crate) fn maintain(
+        &mut self,
+        ir: &Ir,
+        library: &Library,
+        projection: &crate::validate::Projection,
+    ) -> (Vec<Op>, crate::MaintenanceWork) {
+        use crate::ir::NodeId;
+        let mut work = crate::MaintenanceWork::default();
+        let mut ops = Vec::new();
+        let mut gone = BTreeMap::<String, NodeId>::new();
+        for id in &projection.ids {
+            if let Some(address) = projection.before.get(id) {
+                let path = address.path.clone();
+                if let Some(entry) = self.nodes.get(&path)
+                    && ir.nodes.get(id).is_none_or(|node| {
+                        library
+                            .components()
+                            .get(node.kind.0 as usize)
+                            .is_none_or(|component| component.name != entry.node.kind)
+                    })
+                {
+                    gone.insert(path, *id);
+                }
+            }
+        }
+        let has_ancestor = |path: &str, removed: &BTreeMap<String, NodeId>| {
+            let mut at = path;
+            while let Some((parent, _)) = at.rsplit_once('/') {
+                if removed.contains_key(parent) {
+                    return true;
+                }
+                at = parent;
+            }
+            false
+        };
+        let mut removals: Vec<_> = gone
+            .iter()
+            .filter(|(path, _)| !has_ancestor(path, &gone))
+            .map(|(path, id)| (path.clone(), *id))
+            .collect();
+        removals.sort_by_key(|(_, id)| {
+            projection
+                .before
+                .get(id)
+                .map(|address| address.order.clone())
+        });
+        struct Edits {
+            removed: crate::validate::PrefixCounts,
+            prefix: usize,
+        }
+        let mut edits = BTreeMap::<(Option<String>, String), Edits>::new();
+        for (path, id) in removals {
+            let Some(address) = projection.before.get(&id) else {
+                continue;
+            };
+            let key = (address.parent.clone(), address.slot.clone());
+            let length = address
+                .parent
+                .as_ref()
+                .and_then(|parent| self.nodes.get(parent))
+                .and_then(|parent| parent.children.get(&address.slot))
+                .map_or(0, |children| children.len());
+            let edit = edits.entry(key).or_insert_with(|| Edits {
+                removed: crate::validate::PrefixCounts::empty(length),
+                prefix: 0,
+            });
+            let index = address
+                .index
+                .saturating_sub(edit.removed.prefix(address.index));
+            let op = Op::Remove { id: path };
+            if self.apply_with_position(&op, Some(index)).is_ok() {
+                ops.push(op);
+                edit.removed.set(address.index, 1);
+            }
+            work.wire_nodes_examined += 1;
+        }
+        let mut ordered: Vec<_> = projection
+            .ids
+            .iter()
+            .filter(|id| ir.nodes.contains_key(id))
+            .copied()
+            .collect();
+        ordered.sort_by_key(|id| {
+            projection
+                .after
+                .get(id)
+                .map(|address| address.order.clone())
+        });
+        for id in ordered {
+            let Some(address) = projection.after.get(&id) else {
+                continue;
+            };
+            let Some(node) = ir.nodes.get(&id) else {
+                continue;
+            };
+            let path = node.path.0.clone();
+            let key = (address.parent.clone(), address.slot.clone());
+            let length = address
+                .parent
+                .as_ref()
+                .and_then(|parent| self.nodes.get(parent))
+                .and_then(|parent| parent.children.get(&address.slot))
+                .map_or(0, |children| children.len());
+            let edit = edits.entry(key).or_insert_with(|| Edits {
+                removed: crate::validate::PrefixCounts::empty(length),
+                prefix: 0,
+            });
+            if !self.nodes.contains_key(&path) {
+                work.wire_nodes_examined += 1;
+                let Some(node) = Self::props_from_ir(ir, library, id, &mut work) else {
+                    continue;
+                };
+                let op = Op::Insert {
+                    parent: address.parent.clone(),
+                    slot: address.slot.clone(),
+                    index: address.index as u32,
+                    node,
+                };
+                if self.apply(&op).is_ok() {
+                    ops.push(op);
+                    edit.prefix += 1;
+                }
+            } else {
+                if let Some(old) = projection.before.get(&id) {
+                    // Process the new prefix in canonical order. Original ranks
+                    // lose prior removals/moves and gain the inserted prefix.
+                    let position =
+                        old.index.saturating_sub(edit.removed.prefix(old.index)) + edit.prefix;
+                    if position != address.index
+                        || old.parent != address.parent
+                        || old.slot != address.slot
+                    {
+                        let op = Op::Move {
+                            id: path.clone(),
+                            parent: address.parent.clone(),
+                            slot: address.slot.clone(),
+                            index: address.index as u32,
+                        };
+                        if self.apply_with_position(&op, Some(position)).is_ok() {
+                            ops.push(op);
+                            edit.removed.set(old.index, 1);
+                            edit.prefix += 1;
+                        }
+                    }
+                }
+                let (changes, charged) = self.update_props(ir, library, &[id]);
+                work += charged;
+                ops.extend(changes);
+            }
+        }
+        (ops, work)
+    }
+    pub(crate) fn update_props(
+        &mut self,
+        ir: &Ir,
+        library: &Library,
+        ids: &[crate::ir::NodeId],
+    ) -> (Vec<Op>, crate::MaintenanceWork) {
+        let mut work = crate::MaintenanceWork::default();
+        let mut ops = Vec::new();
+        for id in ids {
+            work.wire_nodes_examined += 1;
+            let Some(target) = Self::props_from_ir(ir, library, *id, &mut work) else {
+                continue;
+            };
+            let Some(entry) = self.nodes.get_mut(&target.id) else {
+                continue;
+            };
+            let old = &entry.node;
+            let mut set = Props::new();
+            let mut appends = Vec::new();
+            for (key, value) in &target.props {
+                work.props_compared += 1;
+                if old.props.get(key) == Some(value) {
+                    continue;
+                }
+                match (old.props.get(key), value) {
+                    (Some(J::String(old)), J::String(new)) if new.starts_with(old) => {
+                        appends.push(Op::AppendText {
+                            id: target.id.clone(),
+                            prop: key.clone(),
+                            text: new[old.len()..].into(),
+                        })
+                    }
+                    _ => {
+                        set.insert(key.clone(), value.clone());
+                    }
+                }
+            }
+            work.props_compared += old.props.len() as u64;
+            let unset = old
+                .props
+                .keys()
+                .filter(|key| !target.props.contains_key(*key))
+                .cloned()
+                .collect::<Vec<_>>();
+            if !set.is_empty() || !unset.is_empty() {
+                ops.push(Op::SetProps {
+                    id: target.id.clone(),
+                    set,
+                    unset,
+                });
+            }
+            ops.extend(appends);
+            if old.status != target.status {
+                ops.push(Op::SetStatus {
+                    id: target.id.clone(),
+                    status: target.status,
+                });
+            }
+            entry.node = target;
+        }
+        (ops, work)
+    }
     pub fn from_ir(ir: &Ir, library: &Library) -> Self {
+        Self::from_ir_measured(ir, library).0
+    }
+    pub(crate) fn from_ir_measured(ir: &Ir, library: &Library) -> (Self, crate::MaintenanceWork) {
+        let mut work = crate::MaintenanceWork::default();
         let mut tree = Self::default();
         let Some(root) = ir.root else {
-            return tree;
+            return (tree, work);
         };
         let mut queue = vec![(root, None, "root".to_string())];
         while let Some((id, parent, slot)) = queue.pop() {
+            work.wire_nodes_examined += 1;
             let Some(n) = ir.nodes.get(&id) else {
                 continue;
             };
-            let Some(c) = library.components().get(n.kind.0 as usize) else {
+            let Some(init) = Self::props_from_ir(ir, library, id, &mut work) else {
                 continue;
             };
-            let mut props = Props::new();
-            for (id, p) in &n.props {
-                let Some(arg) = c.args.get(id.0 as usize) else {
-                    continue;
-                };
-                let value = match p {
-                    Prop::Dynamic(e) => {
-                        let Some(e) = ir.expressions.get(e.0) else {
-                            continue;
-                        };
-                        json!({"deferred":e})
-                    }
-                    Prop::Static(PropValue::Value(v)) => wire_value(v),
-                    Prop::Static(PropValue::Token { scale, value }) => {
-                        json!({"tok":[scale,value.plain_json()]})
-                    }
-                    Prop::Static(PropValue::Binding(name)) => json!({"bind":format!("${name}")}),
-                    Prop::Static(PropValue::Action(id)) => json!({"action":id.0}),
-                };
-                props.insert(arg.name.clone(), value);
-            }
             if parent.is_none() {
                 tree.root = Some(n.path.0.clone());
             }
@@ -176,7 +481,7 @@ impl Tree {
                     .filter_map(|id| ir.nodes.get(id).map(|n| n.path.0.clone()))
                     .collect();
                 if !ids.is_empty() {
-                    children.insert(s.name.clone(), ids);
+                    children.insert(s.name.clone(), ids.into());
                 }
                 for child in s.children.iter().rev() {
                     queue.push((*child, Some(n.path.0.clone()), s.name.clone()));
@@ -185,20 +490,14 @@ impl Tree {
             tree.nodes.insert(
                 n.path.0.clone(),
                 Entry {
-                    node: NodeInit {
-                        id: n.path.0.clone(),
-                        kind: c.name.clone(),
-                        role: n.role,
-                        props,
-                        status: n.status,
-                    },
+                    node: init,
                     parent,
                     slot,
                     children,
                 },
             );
         }
-        tree
+        (tree, work)
     }
     pub fn canonical_tree(&self) -> J {
         fn visit(tree: &Tree, id: &str) -> J {
@@ -223,7 +522,7 @@ impl Tree {
     ) -> Result<(), String> {
         if let Some(parent) = parent {
             let p = self.nodes.get_mut(parent).ok_or("unknown parent")?;
-            if index > p.children.get(slot).map_or(0, Vec::len) {
+            if index > p.children.get(slot).map_or(0, |v| v.len()) {
                 return Err("invalid sibling index".into());
             }
             p.children
@@ -238,9 +537,9 @@ impl Tree {
         }
         Ok(())
     }
-    fn detach(&mut self, id: &str) {
+    fn detach(&mut self, id: &str, position: Option<usize>) -> Result<(), String> {
         let Some(e) = self.nodes.get(id) else {
-            return;
+            return Ok(());
         };
         let parent = e.parent.clone();
         let slot = e.slot.clone();
@@ -248,7 +547,17 @@ impl Tree {
             if let Some(p) = self.nodes.get_mut(&parent)
                 && let Some(children) = p.children.get_mut(&slot)
             {
-                children.retain(|c| c != id);
+                let index = if let Some(index) = position {
+                    if children.get(index).is_none_or(|child| child != id) {
+                        return Err("invalid retained remove position".into());
+                    }
+                    Some(index)
+                } else {
+                    children.iter().position(|c| c == id)
+                };
+                if let Some(index) = index {
+                    children.remove(index);
+                }
                 if children.is_empty() {
                     p.children.remove(&slot);
                 }
@@ -256,8 +565,16 @@ impl Tree {
         } else if self.root.as_deref() == Some(id) {
             self.root = None;
         }
+        Ok(())
     }
     pub fn apply(&mut self, op: &Op) -> Result<BTreeSet<String>, String> {
+        self.apply_with_position(op, None)
+    }
+    fn apply_with_position(
+        &mut self,
+        op: &Op,
+        position: Option<usize>,
+    ) -> Result<BTreeSet<String>, String> {
         let mut dirty = BTreeSet::new();
         match op {
             Op::Reset => {
@@ -289,7 +606,7 @@ impl Tree {
             Op::Remove { id } => {
                 let e = self.nodes.get(id).ok_or("unknown remove id")?;
                 dirty.extend(e.parent.iter().cloned());
-                self.detach(id);
+                self.detach(id, position)?;
                 let mut queue = vec![id.clone()];
                 while let Some(id) = queue.pop() {
                     if let Some(e) = self.nodes.remove(&id) {
@@ -323,7 +640,7 @@ impl Tree {
                     self.nodes
                         .get(p)
                         .and_then(|e| e.children.get(slot))
-                        .map_or(0, Vec::len)
+                        .map_or(0, |v| v.len())
                         .saturating_sub(usize::from(old_parent == *parent && old_slot == *slot))
                 } else {
                     0
@@ -333,7 +650,7 @@ impl Tree {
                 {
                     return Err("invalid move index/root".into());
                 }
-                self.detach(id);
+                self.detach(id, position)?;
                 self.attach(id, parent, slot, *index as usize)?;
                 if let Some(e) = self.nodes.get_mut(id) {
                     e.parent = parent.clone();
@@ -373,7 +690,7 @@ impl Tree {
         }
         Ok(dirty)
     }
-    fn preorder(&self) -> Vec<(String, Option<String>, String, u32)> {
+    pub(crate) fn preorder(&self) -> Vec<(String, Option<String>, String, u32)> {
         let Some(root) = &self.root else {
             return Vec::new();
         };
@@ -395,6 +712,14 @@ impl Tree {
     /// Diffing only the final chunk result inherently coalesces transient insert/remove
     /// and repeated prop writes. Never touch an equal retained node.
     pub fn diff(&self, next: &Tree) -> Vec<Op> {
+        self.diff_measured(next).0
+    }
+    pub(crate) fn diff_measured(&self, next: &Tree) -> (Vec<Op>, crate::MaintenanceWork) {
+        // Clone plus the two preorders and target pass all visit retained nodes.
+        let mut work = crate::MaintenanceWork {
+            wire_nodes_examined: 2 * self.nodes.len() as u64 + 2 * next.nodes.len() as u64,
+            ..Default::default()
+        };
         let mut current = self.clone();
         let mut ops = Vec::new();
         let gone: Vec<_> = self
@@ -439,7 +764,12 @@ impl Tree {
                 .as_ref()
                 .and_then(|p| current.nodes.get(p))
                 .and_then(|p| p.children.get(&e.slot))
-                .and_then(|v| v.iter().position(|p| p == &id))
+                .and_then(|v| {
+                    v.iter().position(|p| {
+                        work.wire_nodes_examined += 1;
+                        p == &id
+                    })
+                })
                 .unwrap_or(0);
             if e.parent != parent || e.slot != slot || position != index as usize {
                 let op = Op::Move {
@@ -458,6 +788,7 @@ impl Tree {
             let mut set = Props::new();
             let mut appends = Vec::new();
             for (key, value) in &target.node.props {
+                work.props_compared += 1;
                 if old.node.props.get(key) == Some(value) {
                     continue;
                 }
@@ -474,6 +805,7 @@ impl Tree {
                     }
                 }
             }
+            work.props_compared += old.node.props.len() as u64;
             let unset: Vec<_> = old
                 .node
                 .props
@@ -496,7 +828,7 @@ impl Tree {
                 });
             }
         }
-        ops
+        (ops, work)
     }
     pub fn snapshot_ops(&self) -> Vec<Op> {
         let mut ops = vec![Op::Reset];
@@ -576,11 +908,36 @@ mod tests {
             }],
         ));
         assert_eq!(report.dirty, ["root".into(), "b".into()].into());
-        assert_eq!(r.tree.nodes["root"].children["children"], ["b", "a"]);
+        assert_eq!(
+            r.tree.nodes["root"].children["children"]
+                .iter()
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
+            ["b", "a"]
+        );
         let report = r.apply(&batch(2, vec![Op::Remove { id: "a".into() }]));
         assert!(!report.needs_snapshot);
         assert_eq!(r.tree.nodes.len(), 2);
         assert!(!r.tree.nodes.contains_key("leaf"));
+    }
+    #[test]
+    fn a_retained_remove_hint_is_checked_without_searching_for_another_position() {
+        let mut tree = Tree::default();
+        for op in [
+            insert("root", None, 0),
+            insert("a", Some("root"), 0),
+            insert("b", Some("root"), 1),
+        ] {
+            tree.apply(&op).unwrap();
+        }
+        let before = tree.clone();
+        let remove = Op::Remove { id: "b".into() };
+        assert!(tree.apply_with_position(&remove, Some(0)).is_err());
+        assert_eq!(tree, before);
+        let mut replay = before;
+        replay.apply(&remove).unwrap();
+        tree.apply_with_position(&remove, Some(1)).unwrap();
+        assert_eq!(tree, replay);
     }
     #[test]
     fn unknown_ids_bad_indices_and_ancestor_moves_request_repair_without_panicking() {

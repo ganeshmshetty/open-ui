@@ -1,0 +1,1 @@
+{"limits":{"max_state_bytes":3},"notes":"SPEC \u00a7\u00a72.10,2.12,3.7: canonical byte reallocation detaches and reattaches affected bindings.","tags":["I7","state","budget","binding"],"tier":"core","title":"034-state-budget-detaches-binding"}

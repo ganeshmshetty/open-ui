@@ -105,10 +105,13 @@ fn invalid_action_step_does_not_erase_good_steps() {
     assert_eq!(keys(&r), vec![(Code::ExprType, Recovery::ValueNulled)]);
     assert_eq!(r.ir.actions.len(), 1);
     assert!(matches!(
-        r.ir.actions[0].steps.as_slice(),
+        r.ir.actions.iter().next().unwrap().steps.as_slice(),
         [Step::Say { .. }]
     ));
-    assert_eq!(r.ir.actions[0].origin, r.ir.root.unwrap());
+    assert_eq!(
+        r.ir.actions.iter().next().unwrap().origin,
+        r.ir.root.unwrap()
+    );
 }
 #[test]
 fn custom_actions_are_typed_data() {
@@ -128,7 +131,7 @@ fn custom_actions_are_typed_data() {
     );
     assert!(r.diagnostics.is_empty());
     assert!(
-        matches!(&r.ir.actions[0].steps[0],Step::Emit{name,params}if name=="export"&&params.len()==1)
+        matches!(&r.ir.actions.iter().next().unwrap().steps[0],Step::Emit{name,params}if name=="export"&&params.len()==1)
     );
 }
 #[test]

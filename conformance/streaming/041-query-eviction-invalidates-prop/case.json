@@ -1,0 +1,1 @@
+{"limits":{"max_queries":1},"notes":"SPEC \u00a7\u00a72.15,3.5,4: replacing the canonical query frontier withdraws the old query diagnostics and invalidates its consumers.","tags":["I7","query","budget"],"tier":"core","title":"Query eviction invalidates a retained optional prop"}

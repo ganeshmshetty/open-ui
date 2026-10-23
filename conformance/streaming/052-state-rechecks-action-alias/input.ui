@@ -1,0 +1,3 @@
+go=set($x,1)
+root=Button("Go",on_click:go)
+$x=0

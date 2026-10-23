@@ -1,0 +1,1 @@
+{"notes":"SPEC \u00a7\u00a72.13,3.5\u20133.6: recheck static targets and replace the inert plan; do not execute any action.","tags":["I7","actions","state"],"tier":"core","title":"Late state rechecks a static action alias"}

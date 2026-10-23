@@ -1,0 +1,1 @@
+{"children":{"columns":[{"children":{},"id":"root/columns:@new","kind":"TableColumn","props":{"align":"start","currency":"USD","field":{"dynamic":0},"format":"text","header":"New"},"role":"group"}]},"id":"root","kind":"Table","props":{"empty":"No data","rows":[]},"role":"table"}

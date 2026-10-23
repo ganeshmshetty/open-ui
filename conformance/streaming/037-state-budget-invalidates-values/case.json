@@ -1,0 +1,1 @@
+{"limits":{"max_state_bytes":3},"notes":"SPEC \u00a7\u00a72.12,3.5: an evicted state invalidates its value aliases and their component consumers.","tags":["I7","state","budget","dependency"],"tier":"core","title":"Budget eviction invalidates transitive scalar consumers"}

@@ -56,6 +56,7 @@ pub struct Extractor {
     mode: Mode,
     seen: bool,
     result: ExtractResult,
+    diagnostics: crate::Diagnostics,
 }
 impl Default for Extractor {
     fn default() -> Self {
@@ -74,6 +75,7 @@ impl Default for Extractor {
             mode: Mode::Prose,
             seen: false,
             result: ExtractResult::default(),
+            diagnostics: Default::default(),
         }
     }
 }
@@ -95,12 +97,21 @@ impl Extractor {
         self.result.rejected
     }
     pub fn diagnostics(&self) -> &[Diagnostic] {
-        &self.result.diagnostics
+        &self.diagnostics
     }
     pub fn segments(&self) -> &[Segment] {
         &self.result.segments
     }
-    pub fn finish(mut self) -> ExtractResult {
+    pub(crate) fn diagnostic_snapshot(&self) -> crate::Diagnostics {
+        self.diagnostics.clone()
+    }
+    pub fn finish(self) -> ExtractResult {
+        let (mut result, diagnostics) = self.finish_stream();
+        result.diagnostics = diagnostics.to_vec();
+        order_diagnostics(&mut result.diagnostics);
+        result
+    }
+    pub(crate) fn finish_stream(mut self) -> (ExtractResult, crate::Diagnostics) {
         let text = self.source.push(&[], true);
         let ends = self.source.take_raw_ends();
         self.scan(&text, &ends);
@@ -109,12 +120,10 @@ impl Extractor {
             self.line(&line);
         }
         if self.source.bad_utf8 {
-            self.result
-                .diagnostics
-                .push(Diagnostic::lexical(Code::BadUtf8, None));
+            self.diagnostics
+                .extend_raw([Diagnostic::lexical(Code::BadUtf8, None)]);
         }
-        order_diagnostics(&mut self.result.diagnostics);
-        self.result
+        (self.result, self.diagnostics)
     }
     fn scan(&mut self, text: &str, ends: &[usize]) {
         for (ch, end) in text.chars().zip(ends.iter().copied()) {
@@ -209,7 +218,9 @@ impl Extractor {
             .raw_line_start
             .saturating_sub(self.raw_base)
             .min(self.raw.len());
-        self.raw.drain(..count);
+        if count > 0 {
+            self.raw.drain(..count);
+        }
         self.raw_base += count;
     }
     fn program(&mut self, text: &str) {
@@ -248,11 +259,11 @@ impl Extractor {
                     let mut words = info.split_whitespace();
                     if words.next() == Some("ui") {
                         if self.seen {
-                            self.result.diagnostics.push(Diagnostic::new(
+                            self.diagnostics.extend_raw([Diagnostic::new(
                                 Code::ExtraProgram,
                                 None,
                                 None,
-                            ));
+                            )]);
                             self.markdown(line);
                             self.mode = Mode::ProseFence(fence);
                         } else {
@@ -262,11 +273,11 @@ impl Extractor {
                                 .is_some_and(|word| word.starts_with('v') && word != "v1")
                             {
                                 self.result.rejected = true;
-                                self.result.diagnostics.push(Diagnostic::new(
+                                self.diagnostics.extend_raw([Diagnostic::new(
                                     Code::Version,
                                     None,
                                     None,
-                                ));
+                                )]);
                             }
                             self.result.segments.push(Segment::Program(String::new()));
                             self.program_cursor = Some(self.raw_end);

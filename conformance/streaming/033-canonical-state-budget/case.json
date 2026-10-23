@@ -1,0 +1,1 @@
+{"limits":{"max_state_bytes":3},"notes":"SPEC \u00a7\u00a72.10,2.12,3.5: earlier state names claim the canonical byte budget regardless of arrival order.","tags":["I7","state","budget"],"tier":"core","title":"Canonical state byte allocation changes on earlier declaration"}

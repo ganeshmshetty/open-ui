@@ -1,0 +1,1 @@
+[{"code": "name.orphan", "stmt": "a", "path": null, "recovery": "None"}, {"code": "name.orphan", "stmt": "b", "path": null, "recovery": "None"}, {"code": "name.orphan", "stmt": "c", "path": null, "recovery": "None"}, {"code": "name.cycle", "stmt": "b", "path": null, "recovery": "ChildOmitted"}]

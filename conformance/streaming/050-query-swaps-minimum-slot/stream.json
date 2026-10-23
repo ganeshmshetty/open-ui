@@ -1,0 +1,1 @@
+["query z=tool(\"known\",{},default:\"key\")\nold=TableColumn(\"Old\",z)\nnew=TableColumn(\"New\",a)\nroot=Table([old,new],[])\n","query a=tool(\"known\",{},default:\"key\")\n"]

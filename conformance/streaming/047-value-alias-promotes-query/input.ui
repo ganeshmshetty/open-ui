@@ -1,0 +1,3 @@
+query q=tool("known",{},default:"ok")
+root=Text(text(v))
+v=q

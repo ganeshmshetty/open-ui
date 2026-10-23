@@ -1,0 +1,26 @@
+[
+  {
+    "code": "syntax.bad_char",
+    "stmt": null,
+    "path": null,
+    "recovery": "Skipped"
+  },
+  {
+    "code": "limit.stmt_size",
+    "stmt": "a",
+    "path": null,
+    "recovery": "Truncated"
+  },
+  {
+    "code": "name.orphan",
+    "stmt": "a",
+    "path": null,
+    "recovery": "None"
+  },
+  {
+    "code": "name.orphan",
+    "stmt": "b",
+    "path": null,
+    "recovery": "None"
+  }
+]

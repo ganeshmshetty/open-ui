@@ -1,0 +1,1 @@
+[{"code":"query.too_many","path":null,"recovery":"StatementDropped","stmt":"z"},{"code":"query.unknown_tool","path":null,"recovery":"KeptLastGood","stmt":"a"},{"code":"name.orphan","path":null,"recovery":"None","stmt":"a"}]

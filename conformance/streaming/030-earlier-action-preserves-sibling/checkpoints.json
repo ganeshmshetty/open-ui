@@ -1,0 +1,18 @@
+[
+  {
+    "chunk": 0,
+    "equals": {
+      "action": "root/children:@stable|arg:on_click"
+    },
+    "id": "root/children:@stable",
+    "prop": "on_click"
+  },
+  {
+    "chunk": 1,
+    "equals": {
+      "action": "root/children:@stable|arg:on_click"
+    },
+    "id": "root/children:@stable",
+    "prop": "on_click"
+  }
+]

@@ -1,0 +1,1 @@
+[{"absent":true,"chunk":0,"id":"root/children:@needle"},{"chunk":1,"equals":"a","id":"root/children:@needle","prop":"text","status":"partial"},{"chunk":2,"equals":"ab","id":"root/children:@needle","prop":"text","status":"sealed"}]

@@ -1,0 +1,10 @@
+{
+  "notes": "SPEC §§3.5–3.6,5.3,5.5: live identity must not depend on canonical snapshot arena position.",
+  "tags": [
+    "I7",
+    "arenas",
+    "forward"
+  ],
+  "tier": "core",
+  "title": "Earlier dynamic reference preserves the existing sibling"
+}

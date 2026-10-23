@@ -109,7 +109,11 @@ impl Oracle {
             ));
         }
         if replay.tree != Tree::from_ir(&self.batch.ir, &self.library) {
-            return Err("final patch replay differs from batch tree".into());
+            return Err(format!(
+                "final patch replay differs from batch tree: {:?} != {:?}",
+                replay.tree,
+                Tree::from_ir(&self.batch.ir, &self.library)
+            ));
         }
         if session.seals() != self.trace {
             return Err(format!(
@@ -739,5 +743,583 @@ mod tests {
         let first = s.push(b"bad=Unknown()\n");
         assert!(!first.diagnostics.is_empty());
         assert!(s.push(b" ").diagnostics.is_empty());
+    }
+    #[test]
+    fn sealing_an_overlay_updates_its_retained_body() {
+        let input = b"root=Column([later])\nlater=Text(\"Ready\")\n";
+        let oracle = Oracle::new(
+            input,
+            Arc::new(genui_std::std_library().unwrap()),
+            Options::default(),
+            false,
+        );
+        oracle
+            .check(&[
+                b"root=C",
+                b"olumn([late",
+                b"r])\nlater=Text(\"Read",
+                b"y\")\n",
+            ])
+            .unwrap();
+    }
+    #[test]
+    fn a_visible_draft_updates_without_visiting_unchanged_siblings() {
+        let mut s = session();
+        let mut input = String::new();
+        for i in 0..998 {
+            input.push_str(&format!("n{i}=Divider()\n"));
+        }
+        input.push_str("root=Column([draft,");
+        input.push_str(
+            &(0..998)
+                .map(|i| format!("n{i}"))
+                .collect::<Vec<_>>()
+                .join(","),
+        );
+        input.push_str("])\ndraft=Text(\"a");
+        s.push(input.as_bytes());
+        assert_eq!(s.ir().nodes.len(), 1000);
+        let before = s.maintenance_work();
+        let update = s.push(b"b");
+        let after = s.maintenance_work();
+        assert!(
+            after.statements_checked - before.statements_checked <= 4,
+            "{before:?} -> {after:?}"
+        );
+        assert!(
+            after.instances_examined - before.instances_examined <= 4,
+            "{before:?} -> {after:?}"
+        );
+        assert_eq!(
+            after.wire_nodes_examined - before.wire_nodes_examined,
+            1,
+            "{before:?} -> {after:?}"
+        );
+        assert_eq!(
+            update.patches.unwrap().ops,
+            vec![genui_core::patch::Op::AppendText {
+                id: "root/children:@draft".into(),
+                prop: "text".into(),
+                text: "b".into()
+            }]
+        );
+    }
+    #[test]
+    fn an_earlier_dynamic_does_not_rebuild_existing_siblings() {
+        let mut s = session();
+        let mut input = String::from("$x=\"\"\nstable=Text($x+\"old\")\n");
+        for i in 0..997 {
+            input.push_str(&format!("n{i}=Divider()\n"));
+        }
+        input.push_str("root=Column([late,stable,");
+        input.push_str(
+            &(0..997)
+                .map(|i| format!("n{i}"))
+                .collect::<Vec<_>>()
+                .join(","),
+        );
+        input.push_str("])\n");
+        s.push(input.as_bytes());
+        let nodes = s.ir().nodes.clone();
+        let (id, stable) = nodes
+            .iter()
+            .find(|(_, n)| n.path.0 == "root/children:@stable")
+            .unwrap();
+        let before = s.maintenance_work();
+        let update = s.push(b"late=Text($x+\"new\")\n");
+        let after = s.maintenance_work();
+        assert!(
+            after.instances_examined - before.instances_examined <= 8,
+            "{before:?} -> {after:?}"
+        );
+        assert!(
+            after.wire_nodes_examined - before.wire_nodes_examined <= 3,
+            "{before:?} -> {after:?}"
+        );
+        assert!(std::ptr::eq(stable, s.ir().nodes.get(id).unwrap()));
+        assert_eq!(update.patches.unwrap().ops.len(), 1);
+    }
+    #[test]
+    fn declaring_a_late_typed_state_rechecks_only_its_binding() {
+        let mut s = session();
+        let mut input = String::from("field=Input(\"Name\",bind:$late)\n");
+        for i in 0..998 {
+            input.push_str(&format!("n{i}=Divider()\n"));
+        }
+        input.push_str("root=Column([field,");
+        input.push_str(
+            &(0..998)
+                .map(|i| format!("n{i}"))
+                .collect::<Vec<_>>()
+                .join(","),
+        );
+        input.push_str("])\n");
+        s.push(input.as_bytes());
+        let before = s.maintenance_work();
+        let update = s.push(b"$late=\"\"\n");
+        let after = s.maintenance_work();
+        assert!(
+            after.instances_examined - before.instances_examined <= 4,
+            "{before:?} -> {after:?}"
+        );
+        assert_eq!(after.wire_nodes_examined - before.wire_nodes_examined, 1);
+        assert_eq!(
+            s.tree().nodes["root/children:@field"].node.props["bind"],
+            serde_json::json!({"bind":"$late"})
+        );
+        assert_eq!(update.patches.unwrap().ops.len(), 1);
+    }
+    #[test]
+    fn resolving_a_late_child_does_not_visit_unchanged_siblings() {
+        let mut s = session();
+        let mut input = String::new();
+        for i in 0..998 {
+            input.push_str(&format!("n{i}=Divider()\n"));
+        }
+        input.push_str("root=Column([late,");
+        input.push_str(
+            &(0..998)
+                .map(|i| format!("n{i}"))
+                .collect::<Vec<_>>()
+                .join(","),
+        );
+        input.push_str("])\n");
+        s.push(input.as_bytes());
+        assert_eq!(s.ir().nodes.len(), 999);
+        let before = s.maintenance_work();
+        let update = s.push(b"late=Divider()\n");
+        let after = s.maintenance_work();
+        assert_eq!(s.ir().nodes.len(), 1000);
+        assert!(
+            after.instances_examined - before.instances_examined <= 8,
+            "{before:?} -> {after:?}"
+        );
+        assert!(
+            after.wire_nodes_examined - before.wire_nodes_examined <= 3,
+            "{before:?} -> {after:?}"
+        );
+        assert_eq!(update.patches.unwrap().ops.len(), 1);
+    }
+    #[test]
+    fn sealing_and_finishing_a_visible_draft_keep_work_local() {
+        let mut s = session();
+        let mut input = String::new();
+        for i in 0..998 {
+            input.push_str(&format!("n{i}=Divider()\n"));
+        }
+        input.push_str("root=Column([draft,");
+        input.push_str(
+            &(0..998)
+                .map(|i| format!("n{i}"))
+                .collect::<Vec<_>>()
+                .join(","),
+        );
+        input.push_str("])\ndraft=Text(\"a");
+        s.push(input.as_bytes());
+        let before = s.maintenance_work();
+        s.push(b"b\")\n");
+        let sealed = s.maintenance_work();
+        assert!(
+            sealed.instances_examined - before.instances_examined <= 4,
+            "{before:?} -> {sealed:?}"
+        );
+        assert_eq!(sealed.wire_nodes_examined - before.wire_nodes_examined, 1);
+        s.finish();
+        let after = s.maintenance_work();
+        assert_eq!(after.instances_examined, sealed.instances_examined);
+        assert_eq!(after.wire_nodes_examined, sealed.wire_nodes_examined);
+        assert_eq!(s.ir().nodes.len(), 1000);
+    }
+    #[test]
+    fn an_unrecognized_prefix_does_not_rescan_provisional_diagnostics() {
+        let mut s = session();
+        s.push("@".repeat(1000).as_bytes());
+        assert!(s.parser_work().tail_bytes <= 1000);
+        let before = s.maintenance_work();
+        let update = s.push(b"@");
+        let after = s.maintenance_work();
+        assert!(
+            after.diagnostics_examined - before.diagnostics_examined <= 8,
+            "{before:?} -> {after:?}"
+        );
+        assert_eq!(update.diagnostics.len(), 1);
+        assert_eq!(update.diagnostics[0].code, Code::BadChar);
+        assert!(update.diagnostics[0].provisional);
+    }
+    #[test]
+    fn scanner_diagnostic_history_is_not_rescanned_for_new_chunks() {
+        let mut s = session();
+        let mut input = String::new();
+        for i in 0..1000 {
+            input.push_str(&format!("v{i}=1 &\n"));
+        }
+        input.push_str("root=Divider()\naside=Text(\"a");
+        s.push(input.as_bytes());
+        assert!(
+            s.diagnostics()
+                .iter()
+                .filter(|d| d.code == Code::BadChar)
+                .count()
+                >= 1000
+        );
+        let before = s.maintenance_work();
+        let update = s.push(b"b");
+        let after = s.maintenance_work();
+        assert!(
+            after.diagnostics_examined - before.diagnostics_examined <= 4,
+            "{before:?} -> {after:?}"
+        );
+        assert!(update.diagnostics.is_empty());
+    }
+    #[test]
+    fn a_container_title_does_not_revisit_its_thousand_descendants() {
+        let mut s = session();
+        let mut input = String::from("body=Column([");
+        input.push_str(&vec!["Divider()"; 999].join(","));
+        input.push_str("])\nroot=card\ncard=Card(body,title:\"a");
+        s.push(input.as_bytes());
+        assert_eq!(s.ir().nodes.len(), 1001);
+        let before = s.maintenance_work();
+        s.push(b"b");
+        let after = s.maintenance_work();
+        assert!(
+            after.statements_checked - before.statements_checked <= 3,
+            "{before:?} -> {after:?}"
+        );
+        assert!(
+            after.instances_examined - before.instances_examined <= 2,
+            "{before:?} -> {after:?}"
+        );
+        assert_eq!(
+            after.wire_nodes_examined - before.wire_nodes_examined,
+            1,
+            "{before:?} -> {after:?}"
+        );
+    }
+    #[test]
+    fn a_late_query_rechecks_a_failed_leaf_without_scanning_history() {
+        let mut opts = SessionOptions::program(Arc::new(genui_std::std_library().unwrap()));
+        opts.validation.tools.insert("known".into());
+        let mut s = Session::new(opts);
+        let mut input = String::new();
+        for i in 0..1000 {
+            input.push_str(&format!("unused{i}=1\n"));
+        }
+        input.push_str("root=Text(text(rows))\n");
+        s.push(input.as_bytes());
+        assert!(s.ir().root.is_none());
+        let before = s.maintenance_work();
+        s.push(b"query rows=tool(\"known\",{},default:\"ok\")\n");
+        let after = s.maintenance_work();
+        assert!(s.ir().root.is_some());
+        assert!(
+            after.statements_checked - before.statements_checked < 100,
+            "{before:?} -> {after:?}"
+        );
+        assert!(
+            after.diagnostics_examined - before.diagnostics_examined < 100,
+            "{before:?} -> {after:?}"
+        );
+        assert!(
+            after.instances_examined - before.instances_examined <= 3,
+            "{before:?} -> {after:?}"
+        );
+        // Construction, diff and root attachment each charge the one new node.
+        assert!(after.wire_nodes_examined - before.wire_nodes_examined <= 3);
+    }
+    #[test]
+    fn a_slot_leaf_can_appear_and_disappear_without_visiting_999_siblings() {
+        let mut opts = SessionOptions::program(Arc::new(genui_std::std_library().unwrap()));
+        opts.validation.tools.insert("known".into());
+        opts.validation.limits.max_queries = 1;
+        let mut s = Session::new(opts);
+        let mut input = String::new();
+        for i in 0..999 {
+            input.push_str(&format!("n{i}=Divider()\n"));
+        }
+        input.push_str("needle=Text(text(rows))\nroot=Column([");
+        input.push_str(
+            &(0..999)
+                .map(|i| format!("n{i}"))
+                .collect::<Vec<_>>()
+                .join(","),
+        );
+        input.push_str(",needle])\n");
+        s.push(input.as_bytes());
+        assert_eq!(s.ir().nodes.len(), 1000);
+        for (bytes, nodes) in [
+            (
+                b"query rows=tool(\"known\",{},default:\"ok\")\n".as_slice(),
+                1001,
+            ),
+            (b"query a=tool(\"known\",{},default:[])\n".as_slice(), 1000),
+        ] {
+            let before = s.maintenance_work();
+            let update = s.push(bytes);
+            let ops = &update.patches.as_ref().unwrap().ops;
+            assert_eq!(ops.len(), 1);
+            if nodes == 1001 {
+                assert!(
+                    matches!(&ops[0],genui_core::patch::Op::Insert { parent: Some(parent), index:999, node,.. }
+                    if parent == "root" && node.id == "root/children:@needle")
+                );
+            } else {
+                assert!(
+                    matches!(&ops[0],genui_core::patch::Op::Remove { id } if id == "root/children:@needle")
+                );
+            }
+            let after = s.maintenance_work();
+            assert_eq!(s.ir().nodes.len(), nodes);
+            assert!(
+                after.statements_checked - before.statements_checked < 100,
+                "{before:?} -> {after:?}"
+            );
+            assert!(
+                after.instances_examined - before.instances_examined <= 8,
+                "{before:?} -> {after:?}"
+            );
+            assert!(
+                after.wire_nodes_examined - before.wire_nodes_examined <= 8,
+                "{before:?} -> {after:?}"
+            );
+            assert!(
+                after.diagnostics_examined - before.diagnostics_examined < 100,
+                "{before:?} -> {after:?}"
+            );
+        }
+    }
+    #[test]
+    fn the_first_provisional_slot_leaf_keeps_999_unrelated_siblings() {
+        let mut s = session();
+        let mut input = String::new();
+        for i in 0..999 {
+            input.push_str(&format!("n{i}=Divider()\n"));
+        }
+        input.push_str("root=Column([");
+        input.push_str(
+            &(0..999)
+                .map(|i| format!("n{i}"))
+                .collect::<Vec<_>>()
+                .join(","),
+        );
+        input.push_str(",needle])\n");
+        s.push(input.as_bytes());
+        for bytes in [b"needle=Text(\"a".as_slice(), b"b\")\n".as_slice()] {
+            let before = s.maintenance_work();
+            s.push(bytes);
+            let after = s.maintenance_work();
+            assert_eq!(s.ir().nodes.len(), 1001);
+            assert!(
+                after.statements_checked - before.statements_checked < 100,
+                "{before:?} -> {after:?}"
+            );
+            assert!(
+                after.instances_examined - before.instances_examined < 10,
+                "{before:?} -> {after:?}"
+            );
+            assert!(
+                after.wire_nodes_examined - before.wire_nodes_examined <= 2,
+                "{before:?} -> {after:?}"
+            );
+        }
+    }
+    #[test]
+    fn action_alias_checks_do_not_visit_unchanged_definition_history() {
+        let mut s = session();
+        let mut input = String::new();
+        for i in 0..1000 {
+            input.push_str(&format!("unused{i}=1\n"));
+        }
+        input.push_str("root=Button(\"Go\",on_click:go)\n");
+        s.push(input.as_bytes());
+        for (bytes, actions) in [(b"go=say(\"Hi".as_slice(), 0), (b"\")\n".as_slice(), 1)] {
+            let before = s.maintenance_work();
+            let update = s.push(bytes);
+            let after = s.maintenance_work();
+            assert!(update.requests.is_empty());
+            assert!(update.model_events.is_empty());
+            assert_eq!(s.ir().actions.len(), actions);
+            assert!(
+                after.statements_checked - before.statements_checked < 100,
+                "{before:?} -> {after:?}"
+            );
+            assert!(
+                after.instances_examined - before.instances_examined <= 3,
+                "{before:?} -> {after:?}"
+            );
+            assert!(
+                after.wire_nodes_examined - before.wire_nodes_examined <= 1,
+                "{before:?} -> {after:?}"
+            );
+        }
+    }
+    #[test]
+    fn query_budget_insertion_skips_unchanged_definitions_and_nodes() {
+        let mut opts = SessionOptions::program(Arc::new(genui_std::std_library().unwrap()));
+        opts.validation.tools.insert("known".into());
+        let mut s = Session::new(opts);
+        let mut input = String::from("root=Divider()\n");
+        for i in 0..1000 {
+            input.push_str(&format!("query s{i:04}=tool(\"known\",{{}},default:[])\n"));
+        }
+        s.push(input.as_bytes());
+        assert_eq!(s.ir().queries.len(), 8);
+        let before = s.maintenance_work();
+        let u = s.push(b"query a=tool(\"known\",{},default:[])\n");
+        let after = s.maintenance_work();
+        assert!(u.requests.is_empty());
+        assert_eq!(s.ir().queries.len(), 8);
+        assert!(s.ir().queries.contains_key("a"));
+        assert!(!s.ir().queries.contains_key("s0007"));
+        assert!(
+            after.statements_checked - before.statements_checked < 100,
+            "{before:?} -> {after:?}"
+        );
+        assert!(
+            after.diagnostics_examined - before.diagnostics_examined < 100,
+            "{before:?} -> {after:?}"
+        );
+        assert_eq!(after.instances_examined, before.instances_examined);
+        assert_eq!(after.wire_nodes_examined, before.wire_nodes_examined);
+    }
+    #[test]
+    fn state_budget_insertion_rechecks_only_its_frontier() {
+        let mut opts = SessionOptions::program(Arc::new(genui_std::std_library().unwrap()));
+        opts.validation.limits.max_state_bytes = 3000;
+        let mut s = Session::new(opts);
+        let mut input = String::new();
+        for i in 0..1000 {
+            input.push_str(&format!("$s{i:04}=\"x\"\n"));
+        }
+        input.push_str("root=Divider()\n");
+        s.push(input.as_bytes());
+        assert_eq!(s.ir().states.len(), 1000);
+        let before = s.maintenance_work();
+        s.push(b"$a=\"a\"\n");
+        let after = s.maintenance_work();
+        assert_eq!(s.ir().states.len(), 1000);
+        assert!(s.ir().states.contains_key("a"));
+        assert!(!s.ir().states.contains_key("s0999"));
+        assert!(
+            after.statements_checked - before.statements_checked < 100,
+            "{before:?} -> {after:?}"
+        );
+        assert_eq!(after.instances_examined, before.instances_examined);
+        assert_eq!(after.wire_nodes_examined, before.wire_nodes_examined);
+    }
+    #[test]
+    fn extraction_diagnostic_history_is_retained_without_materialization() {
+        let lib = Arc::new(genui_std::std_library().unwrap());
+        let mut s = Session::new(SessionOptions::new(lib));
+        let mut input = String::from("```ui\nroot=Divider()\n```\n");
+        for _ in 0..1000 {
+            input.push_str("```ui\nroot=Divider()\n```\n");
+        }
+        s.push(input.as_bytes());
+        assert_eq!(
+            s.diagnostics()
+                .iter()
+                .filter(|d| d.code == Code::ExtraProgram)
+                .count(),
+            1000
+        );
+        let before = s.maintenance_work();
+        assert!(s.push(b"prose").diagnostics.is_empty());
+        let after = s.maintenance_work();
+        assert!(
+            after.diagnostics_examined - before.diagnostics_examined <= 4,
+            "{before:?} -> {after:?}"
+        );
+    }
+    #[test]
+    fn diagnostic_history_is_not_rescanned_for_an_unrelated_draft() {
+        let mut s = session();
+        let mut input = String::from("root=Divider()\n");
+        for i in 0..1000 {
+            input.push_str(&format!("unused{i}=Unknown()\n"));
+        }
+        input.push_str("aside=Text(\"a");
+        s.push(input.as_bytes());
+        assert!(s.diagnostics().len() >= 2000);
+        let before = s.maintenance_work();
+        let update = s.push(b"b");
+        let after = s.maintenance_work();
+        assert!(
+            after.diagnostics_examined - before.diagnostics_examined <= 4,
+            "{before:?} -> {after:?}"
+        );
+        assert_eq!(update.diagnostics.len(), 0);
+        assert!(s.diagnostics().len() >= 2000);
+    }
+    #[test]
+    fn maintenance_work_does_not_scale_with_an_unchanged_tree() {
+        let mut s = session();
+        let mut input = String::new();
+        for i in 0..999 {
+            input.push_str(&format!("n{i}=Divider()\n"));
+        }
+        input.push_str("root=Column([");
+        input.push_str(
+            &(0..999)
+                .map(|i| format!("n{i}"))
+                .collect::<Vec<_>>()
+                .join(","),
+        );
+        input.push_str("])\naside=Text(\"a");
+        s.push(input.as_bytes());
+        assert_eq!(s.ir().nodes.len(), 1000);
+        let before = s.maintenance_work();
+        assert!(before.statements_checked >= 1000);
+        assert!(before.instances_examined >= 1000);
+        assert!(before.wire_nodes_examined >= 1000);
+        s.push(b"b");
+        let after = s.maintenance_work();
+        assert!(
+            after.statements_checked - before.statements_checked <= 2,
+            "{before:?} -> {after:?}"
+        );
+        // The new orphan template itself is checked once; no displayed instance is visited.
+        assert!(
+            after.instances_examined - before.instances_examined <= 1,
+            "{before:?} -> {after:?}"
+        );
+        assert_eq!(after.wire_nodes_examined - before.wire_nodes_examined, 0);
+        assert_eq!(after.props_compared - before.props_compared, 0);
+    }
+}
+
+#[cfg(test)]
+mod binding_work_tests {
+    use super::*;
+    #[test]
+    fn ambiguous_state_inference_does_not_rescan_unrelated_siblings() {
+        let mut s = Session::new(SessionOptions::program(Arc::new(
+            genui_std::std_library().unwrap(),
+        )));
+        let mut input = String::from("$v=null\nfield=Input(\"Name\",bind:$v)\n");
+        for i in 0..998 {
+            input.push_str(&format!("n{i}=Divider()\n"));
+        }
+        input.push_str("root=Column([field,aside,");
+        input.push_str(
+            &(0..998)
+                .map(|i| format!("n{i}"))
+                .collect::<Vec<_>>()
+                .join(","),
+        );
+        input.push_str("])\naside=Text(\"a");
+        s.push(input.as_bytes());
+        assert_eq!(s.ir().states["v"].ty, genui_core::r#lib::T::Text);
+        let before = s.maintenance_work();
+        s.push(b"b");
+        let after = s.maintenance_work();
+        assert!(
+            after.statements_checked - before.statements_checked <= 3,
+            "{before:?} -> {after:?}"
+        );
+        assert!(
+            after.instances_examined - before.instances_examined <= 3,
+            "{before:?} -> {after:?}"
+        );
     }
 }

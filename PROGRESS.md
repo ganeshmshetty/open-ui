@@ -1,6 +1,6 @@
 # Progress
 
-Updated: 2026-10-22. Milestones follow SPEC §14.1 in order. Update this file after
+Updated: 2026-10-23. Milestones follow SPEC §14.1 in order. Update this file after
 **every milestone**, recording acceptance evidence and any remaining limitations.
 A milestone is complete only after its acceptance checks pass and CI is green.
 
@@ -802,3 +802,307 @@ were removed and every final gate was rebuilt cleanly. No mutated source touched
 the repository. Final logs are in docs/milestones/evidence/m3/regressions-*.log.
 A single fresh eight-shard campaign will be triggered by this follow-up commit;
 pause local jobs/monitoring after push and wait for the owner's CI update.
+
+### Greptile Plus review fixes — I7 remains a merge blocker
+
+The owner authorized merge after fixes and explicitly required completing I7
+first. Greptile Plus on 7d8278c completed (run
+cff691bf-be88-4b11-a6ad-2a8683ce8014); evidence is in
+docs/milestones/evidence/m3/greptile-plus-7d8278c.json. It reported three bugs:
+dropped drafts left stale consumer output, draft bindings changed sealed state
+types, and previews exceeded the statement-count budget. Added fixtures 025–028
+first and fixed all three. Fixture 024 asserts an unrelated growing draft keeps
+the displayed tree unchanged; it does not prove the I7 complexity requirement.
+
+An I7 architecture experiment (persistent containers, maintenance counters and
+a RED 1,000-node work-bound regression) is unfinished and has been shelved,
+not accepted or committed. Its complete tracked diff plus new source files are
+preserved at /private/tmp/genui-m3-i7-wip-20261022. The working tree retains the
+independent review fixes. I7 still requires persistent validation/instance caches,
+dirty-only patch generation and diagnostic deltas; subtree reuse alone is not
+sufficient. No claim of M3 completion, PR or merge has been made.
+
+Normal CI on 7d8278c passed. Mutation run 39792801855 ended cancelled, with
+shards 4 and 6 failing and other shards cancelled; it is not acceptance evidence.
+The current production fixes require fresh fuzz/mutation acceptance after I7 is
+complete. Avoid starting another expensive campaign against intermediate code.
+
+The owner confirmed: complete I7, then merge. Local review-fix gates pass:
+90 Rust tests, 328 fixtures / 74,849 chunkings / 400 permutations, spec-check,
+fmt and Clippy -D warnings. The independent review fixes are checkpointed before
+resuming I7; no new CI campaign starts against this intermediate code.
+
+Spec change: §12.2 clarifies validated empty IR slots versus normalized retained
+patch trees; CHANGELOG records the reason. No existing golden was changed.
+
+### I7 resumed — retained scalar checks and diagnostic storage (work in progress)
+
+Owner confirmed again: do I7, then merge. Review fixes are committed as b84ac33
+(not pushed; no extra CI campaign). The I7 experiment is now active in the working
+tree, not shelved: persistent maps share individual payloads, small arenas share
+roots, slot child lists are persistent, and validator/instance/type snapshots are
+retained. Scalar draft consumers can update one node among 1,000 without visiting
+unchanged siblings; sealing that draft visits one wire node and finish does no
+extra tree visits. Semantic diagnostic multisets retain separate raw/combined
+flag indexes, so provisional overlays and publication use actual deltas rather
+than cloning/scanning history. Source work counters include validator and wire
+visits; unchanged-payload clone counters also test the storage layer.
+
+Local checkpoint before the next RED test: 98 Rust tests passed (59 core,
+30 conformance, 5 std, 4 CLI), including the full 328-fixture chunk harness and
+seeded streaming property. Logs: /private/tmp/genui-m3-i7-stage-tests2.log. No
+new golden was changed. Newly added late-child work-bound test is RED and is
+being implemented, with evidence in /private/tmp/genui-m3-i7-late-child-red.log.
+
+Full I7 is still incomplete: structural/forward-reference changes, canonical
+allocation and state/query changes retain the batch-equivalent fallback; scanner
+diagnostic history is still scanned; expression/action arena normalization and
+full-path dirty accounting need further work. These are M3 blockers, not M4
+deferrals. Do not merge, mark M3 done, or treat the old fuzz/mutation evidence as
+acceptance for this changed production source. Next: retained slot tasks and
+ordered budget summaries, then expanded deterministic work tests, all chunkings,
+100k property, fresh 600-second fuzz, complete mutation gate and final review/CI.
+
+### I7 local checkpoint — scanner history and retained slot insertions
+
+The first seven deterministic work probes are green: unrelated draft/tree work,
+semantic diagnostic history, a displayed draft among 1,000 nodes, sealing/finish,
+a late child among 998 unchanged siblings, a late typed state binding, and 1,000
+retained lexer diagnostics. Slot prefix counts preserve zero-width source entries;
+new children enter without scanning preceding siblings. Scanner diagnostics now
+commit stable prefixes into persistent code/flag indexes and only revisit the
+bounded open range; batch and streaming still use one splitter. Recovered-null
+annotations receive only the three relevant scanner codes. The full chunk harness
+passes after these changes; workspace totals are 102 tests (60 core, 33 conformance,
+5 std, 4 CLI), and all 328 fixtures remain unchanged. Evidence:
+/private/tmp/genui-m3-i7-scanner-suite2.log. Fuzz target builds with the updated
+fuzz lockfile; no new fuzz acceptance is claimed. Quality source/dependency checks
+pass. Current small build artifacts use about 2–3 GiB, with ~22 GiB free.
+
+Remaining I7 blockers: general structural replacement/cascading recovery, canonical
+budget projection, state-default inference/allocation, queries, incremental global
+classification/reachability, and stable expression/action arena identities. The
+existing dense live arena representation renumbers unaffected instances; retain
+canonical snapshot encoding while separating live identity from dense storage.
+This is an implementation/contract issue to resolve with focused fixtures, not an
+excuse to evaluate M4 expressions early or waive I7. Existing conservative full
+validation fallbacks are functional but do not satisfy I7.
+
+Mutation scope now includes validation, diagnostic storage, persistent storage and
+maintenance accounting because the dirty-maintenance implementation lives there.
+The old 967-name inventory is stale for this changed scope and must be frozen anew
+at the final gate. No extra CI campaign has been started. Continue implementation;
+no merge or M3 completion yet.
+
+### I7 checkpoint — stable arenas and diagnostic history (2026-10-23)
+
+Stable expression identity now includes structural/recovery metadata with full-key
+collision comparison. Dense indices belong only to canonical snapshot observers;
+inserting an earlier dynamic sibling retains the other node payload. Owner scopes
+release obsolete expressions. Static action-plan references use escaped source
+owner keys; no evaluator or runtime dispatch is introduced. Four static-action
+IR goldens and one checkpoint change by the documented formula, with SPEC §§5.5,
+6.5 and CHANGELOG updated together. New fixtures 029–030 and library 037 cover
+reference stability and escaping; draft fixture prop `pad` was corrected to the
+actual §8.8 `padding` signature before accepting it.
+
+Scanner pending diagnostics are indexed by endpoint. Undecided resync headers
+retain errors provisionally until the skip boundary is certain (fixtures 031–032).
+Long discarded numbers skip conversion that would only produce suppressed errors;
+standalone lexical behavior remains unchanged. Held prefixes count toward tail
+work even before a header is recognized. Extractor diagnostics use persistent
+multisets and finish avoids history materialization. New work probes cover 1,000
+unrecognized-prefix errors, 1,000 extra fenced programs and earlier dynamic nodes.
+
+Checkpoint gates: 108 Rust tests (63 core, 36 conformance, 5 std, 4 CLI), 333 fixtures /
+76,199 chunkings / 400 permutations; fmt and Clippy -D warnings pass. Logs:
+/private/tmp/genui-m3-i7-checkpoint2-{tests,fixtures,clippy}.log. Mutation scope now
+includes arena.rs; inventory and final-source acceptance remain pending. No push,
+new hosted run, final fuzz acceptance or merge is claimed.
+
+Remaining I7 blockers: general structural replacement and cascading recovery,
+canonical allocation summaries, state inference/budget changes, queries and global
+classification/reachability. Full fallback validation is still functional and
+batch-equivalent, but does not meet I7. Continue those paths before final review,
+fuzz/mutation gates and merge; owner has not authorized any deferral.
+
+### I7 checkpoint — canonical state allocation and container props (2026-10-23)
+
+Added a persistent AVL resource index with cached valid-budget intervals. Earlier
+state declarations now recompute only the affected acceptance frontier, including
+non-monotonic greedy acceptance (an earlier declaration can evict one state and
+let another fit). Typed state candidates are retained independently of acceptance;
+changed state names invalidate their transitive value/component consumers through
+the reverse dependency graph. A 1,000-declaration probe rejects whole-history
+maintenance. Null/empty defaults still require the general inference path.
+
+Container prop edits retain slots only when their bound expressions and recovery
+metadata are unchanged. A Card title edit over a 1,000-node body now checks its
+own instance and one wire node. Ambiguous state inference continues through the
+full path rather than retaining an uninferred provisional state type.
+
+Fixtures preceded the corresponding fixes: limits 023–024 cover direct-slot depth
+recovery and min_items allocation rollback; streaming 033–037 cover canonical state
+allocation, binding detachment/reattachment, container props and transitive aliases.
+The 100k property then exposed an old local-graft bug: a depth failure could retain
+a later cutoff diagnostic after an earlier reference arrived. Fixture 038 fixes
+that regression by returning to canonical allocation when grafting hits either
+node or depth limits. SPEC §2.10 and CHANGELOG clarify direct-slot stopping and
+rollback; no existing expected fixture output was edited in this checkpoint.
+
+Gates: 112 Rust tests (65 core, 38 conformance, 5 std, 4 CLI), including the expanded
+100,000-program stream/batch/replay property; 341 fixtures / 78,212 chunkings / 420
+permutations; fmt, Clippy -D warnings, spec-check, source/dependency quality, ten
+Python gate tests and serde_json/preserve_order workspace tests pass. Evidence: /private/tmp/genui-m3-i7-expanded-property-tests.log,
+/private/tmp/genui-m3-i7-budget-{fixtures2,clippy}.log. The property generator now
+includes state-budget and container scenarios; the streaming fuzzer varies the
+state byte limit. No renewed 600-second fuzz acceptance is claimed yet.
+
+I7 remains incomplete. The next implementation must remove general structural /
+canonical node-budget fallbacks, incremental classification/reachability scans,
+query maintenance and null/empty state-inference scans. These are M3 blockers;
+the local fast paths and passing functional tests do not waive them. Final-source
+fuzz, complete mutation inventory/campaign, final Greptile review and hosted CI
+remain pending. No push or merge has occurred, avoiding intermediate CI campaigns.
+
+### I7 checkpoint — retained queries, aliases and failed leaves (2026-10-23)
+
+Queries now use the same persistent canonical resource index as state allocation.
+All raw query sources survive budget rejection; per-query diagnostic ownership
+allows a newly earlier name to evict the old frontier and withdraw its tool/value/
+orphan diagnostics exactly. Query args/default checks share the batch checker and
+remain static. A 1,000-query probe checks bounded source/diagnostic visits and zero
+visits to the unrelated displayed tree. Accepted queries issue no M3 requests.
+
+Reachability additions follow newly introduced query/value dependencies and remove
+only newly reachable orphan-owned checks. Scalar aliases reuse their checked value
+and invalidation graph; kind/dependency changes still enter the general path.
+Slotless failed component checks are retained, including failures after ordinary
+prop checks (Facts). This permits root leaf creation, removal, and diagnostic
+replacement without rescanning 1,000 unrelated definitions. The new-root work
+probe allows three charged visits (construction, diff and root attachment), not
+one; each visit is to the newly dirty node. No expected fixture was edited.
+
+Fixtures 039–047 preceded the fixes they exercise: canonical query eviction,
+state-dependent args, optional/required consumers, failed-leaf recovery, Facts
+post-check diagnostics, orphan-check withdrawal and scalar aliases. All 114 Rust
+tests pass (65 core, 40 conformance, 5 std, 4 CLI), including 100,000 generated
+stream/batch/replay cases. All 350 fixtures / 80,695 chunkings / 420 permutations
+pass; fmt, Clippy -D warnings, source/dependency checks and spec-check pass. Logs:
+/private/tmp/genui-m3-i7-query-suite5.log and /private/tmp/genui-m3-i7-query-{fixtures,clippy}.log.
+No spec semantics change was needed. The fuzzer now varies max_queries as well as
+state bytes; its final 600-second acceptance has not been rerun.
+
+Remaining blockers include structural recovery inside slots, canonical node-budget
+frontier maintenance, general kind/reachability changes, null/empty state inference
+and unaffected work in the fallback path. Next: retained slot leaf insertion/removal
+with indexed sibling positions, then general task/budget maintenance. Final-source
+mutation/fuzz/review/hosted CI are pending. Do not merge or mark I7 complete yet.
+
+### I7 checkpoint — slot leaf recovery and first drafts (2026-10-23)
+
+Retained leaf checks can now insert/remove inside an existing slot while keeping
+unrelated siblings untouched. Prefix counts preserve source positions; grafts carry
+an explicit canonical order and indexed removal hint. Core removal checks that hint
+without scanning siblings; replay keeps the same public protocol. Removed instance
+revisions are cleared. Mixed graft/property changes publish both, and slot minimums
+are checked after all dirty leaves so a one-column replacement stays atomic.
+
+The 999-sibling work probe asserts bounded maintenance and the exact single insert
+or remove operation. New fixtures 048–051 cover insertion, removal, a minimum-slot
+replacement and repeated paths. Static action aliases now share the retained scalar
+work queue and normalizer (fixture 052); neither normalization nor provisional
+content executes actions or produces requests/model events.
+
+First candidates now try retained checks too. A provisional leaf can fill a waiting
+slot, with sealed state types held read-only, then seal locally (fixture 053 and a
+second 999-sibling probe). Slot-only resolution rejects invalidated scalar/query
+consumers (054). Sealed maintenance selects the sealed base when the prior draft
+was dropped; it cannot commit that draft or leave its widget behind when another
+query/slot seals in the same chunk (055–056). Existing goldens were unchanged.
+
+Checkpoint gates pass: 118 Rust tests (66 core, 43 conformance, 5 std, 4 CLI), the
+expanded 100,000-program property (now includes actions and simultaneous draft
+recovery), 359 fixtures / 83,488 chunkings / 420 permutations, serde_json/preserve_order
+workspace tests, fmt, Clippy -D warnings, spec-check (3 programs, 4 fragments, 24
+exemplars), source/dependency checks, 10 Python gate tests and all fuzz-target builds.
+Logs: /private/tmp/genui-m3-i7-slot-action-{suite2,fixtures,clippy,preserve,fuzz-build}.log.
+Disk still has ~21 GiB free. No CI campaign was started and no push/merge occurred.
+No spec semantics were changed in this checkpoint.
+
+I7 is not complete. General canonical node/depth allocation, cascading parent
+recovery, kind changes/reachability deletions, null/empty state inference and paths
+still using full validation must be replaced. The retained semantic-task/visible-IR
+architecture and budget profiles are recorded in DECISIONS.md. Do not count the
+functional fallback as dirty-only maintenance. Final-source 600-second fuzz,
+mutation inventory/campaign, final review and green hosted CI remain required.
+
+### I7 checkpoint — canonical resource profiles (2026-10-23)
+
+The state/query allocator now uses one generic persistent task-range index. A
+retained profile records allocation consumed, its valid remaining-budget interval,
+direct-slot stopping and rejected-task count. Composition preserves constraints
+when a failed container rolls allocation back and clears its descendant's stop.
+Dirty tasks beyond a stopped prefix stay pending until that frontier reaches them;
+unchanged ranges and snapshots remain shared. Four tests cover stopped suffixes,
+rollback, nested slots and 400 changing canonical allocations; the existing greedy
+allocation/property tests remain unchanged. The tests preceded implementation.
+
+Provisional fallback validation now borrows sealed statements plus the candidate
+through an iterator, avoiding the additional whole-Program AST clone. Actual full
+source-check visits are still counted; this does not disguise that fallback.
+
+Gates: 122 Rust tests (70 core, 43 conformance, 5 std, 4 CLI), including 100,000
+generated stream/batch cases; 359 fixtures / 83,488 chunkings / 420 permutations;
+fmt, Clippy -D warnings, source/dependency checks and 10 Python gate tests pass.
+Logs: /private/tmp/genui-m3-resource-{suite3,fixtures2,clippy3}.log. No existing
+golden or spec semantics changed. No push, hosted CI, or merge was performed.
+
+This is allocator groundwork, not I7 acceptance. Node instantiation must still use
+retained semantic tasks and a separate visible projection, including hidden failed
+subtrees. General source classification/reachability and null/empty state inference
+also still need retained dirty maintenance. Final-source fuzz, mutation, review and
+hosted CI remain pending; merging remains blocked by the owner's I7 requirement.
+
+### General I7 mechanism — implementation in progress (2026-10-23)
+
+Replaced live instantiation fallbacks with retained semantic task scopes, owned
+static arenas/diagnostics, persistent ordered slot/list ranges and an independent
+visible projection. Hidden failed subtrees are retained without publishing their
+nodes. Resource ranges now cache typed aggregates and distinguish materialized
+outputs from semantic effects. Patch projection uses source-rank addresses and
+sparse edit ranks; drafts are overlays on the sealed persistent root.
+
+The checked-in 359-fixture chunking test passes after wiring the range/projection
+path (`/private/tmp/genui-m3-projection-fixtures2.log`). This is not acceptance:
+source classification/checking/inference still run full passes, so work-bound
+unit tests remain red. Work is uncommitted while the general source/expr task
+mechanism is being completed; no CI, review campaign, push or merge was started.
+A new resolve 019 fixture precedes a static-cycle ownership clarification in SPEC
+§2.10 + CHANGELOG; its checker implementation and verification remain in progress.
+
+### I7 completion checkpoint — retained source/task mechanism (2026-10-23)
+
+The general live mechanism is now the retained semantic Task/Graph projection plus
+retained source summaries; the former full-validation fallbacks are no longer on
+the hot path. The five previously RED work probes pass: unchanged-tree draft text,
+a 1,000-node draft sibling, a late typed state, sealing/finishing a visible draft,
+and a container title over 999 descendants. Name-alias resolution and local
+tracking bookkeeping are no longer double-billed as instance visits.
+
+Null/empty state inference now uses a retained syntactic binding graph instead of a
+full root walk. Each statement keeps its first-binding summary and referenced-name
+list; only the dirty reverse closure is recomposed, unchanged summaries are skipped,
+forward-reference summaries stay uncached until their dependency seals, and a later
+earlier binding can retract and reorder a previous inferred type. A new 999-sibling
+probe covers the inference path. Static value/action cycles now use one SCC owner
+(fixture resolve/019, SPEC §2.10 and CHANGELOG).
+
+Gates: fmt, workspace Clippy `-D warnings`, and all Rust tests pass — 129 total
+(45 conformance, 75 core, 5 std, 2 CLI/integration, plus unit/doc targets). All 360
+fixtures / 83,719 chunkings / 430 permutations pass; spec-check validates 3 programs,
+4 fragments and 24 exemplars; the 100,000-program stream/batch/replay property passes
+in release (46.62s). No fresh 600-second fuzz campaign, complete mutation campaign,
+hosted CI or push/merge was run in this checkpoint, so M3 acceptance is still open.
+The 100k property is slower than the pre-retention 6.03s and must be measured before
+any performance claim.

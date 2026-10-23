@@ -1,7 +1,7 @@
 //! Streaming orchestration (§3): no evaluator, requests, deliveries or action execution.
 use crate::{
-    diag::{Code, Diagnostic, Severity},
-    ir::{ActionPlanId, Ir, NodeStatus, Prop, PropValue},
+    diag::{Code, Diagnostic},
+    ir::{Ir, NodeStatus, Prop, PropValue},
     r#lib::Library,
     patch::{PatchBatch, Tree, strip_invisibles},
     syntax::{
@@ -9,11 +9,11 @@ use crate::{
         extract::{Extractor, Segment},
         streaming::{Seal, StreamingParser},
     },
-    validate::{Options, Validation, validate_program},
+    validate::{Options, Validation},
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    cell::Cell,
+    cell::{Cell, OnceCell},
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
 };
@@ -81,7 +81,7 @@ pub struct Update {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Revision {
     pub origin_rev: u64,
-    pub dep_revs: BTreeMap<String, u64>,
+    pub dep_revs: crate::SharedMap<String, u64>,
 }
 #[derive(Clone, Debug, Default)]
 pub struct DirtyTracking {
@@ -111,6 +111,20 @@ impl DirtyTracking {
         }
         self.dependencies.insert(name.clone(), deps);
         *self.revisions.entry(name.clone()).or_default() += 1;
+        self.invalidate(name);
+    }
+    fn remove(&mut self, name: String) {
+        if let Some(old) = self.dependencies.remove(&name) {
+            for dependency in old {
+                if let Some(users) = self.reverse.get_mut(&dependency) {
+                    users.remove(&name);
+                }
+            }
+        }
+        *self.revisions.entry(name.clone()).or_default() += 1;
+        self.invalidate(name);
+    }
+    fn invalidate(&mut self, name: String) {
         let mut pending = vec![name];
         while let Some(n) = pending.pop() {
             if self.dirty.insert(n.clone()) {
@@ -119,7 +133,7 @@ impl DirtyTracking {
         }
     }
     fn instance(&self, origin: &str) -> Revision {
-        let mut deps = BTreeMap::new();
+        let mut deps = crate::SharedMap::new();
         let mut queue = vec![origin.to_string()];
         let mut seen = BTreeSet::new();
         while let Some(n) = queue.pop() {
@@ -138,6 +152,7 @@ impl DirtyTracking {
     }
 }
 pub struct Session {
+    work: crate::MaintenanceWork,
     options: SessionOptions,
     parser: StreamingParser,
     extractor: Option<Extractor>,
@@ -145,11 +160,13 @@ pub struct Session {
     program_raw: Vec<u8>,
     prose_sent: BTreeMap<u32, usize>,
     segments: Vec<Segment>,
-    extraction_diagnostics: Vec<Diagnostic>,
+    extraction_diagnostics: crate::Diagnostics,
     rejected: bool,
     sealed_count: usize,
     sealed_validation: Validation,
+    sealed_cache: Option<crate::validate::ValidationCache>,
     last_candidate: Option<Statement>,
+    current_cache: Option<crate::validate::ValidationCache>,
     current: Validation,
     tree: Tree,
     tracking: DirtyTracking,
@@ -158,8 +175,14 @@ pub struct Session {
     started: bool,
     finished: bool,
     not_sync: Cell<()>,
-    published: Vec<Diagnostic>,
+    published: [crate::Diagnostics; 3],
+    syntax_diagnostics: crate::Diagnostics,
+    extracted_diagnostics: crate::Diagnostics,
+    diagnostic_snapshot: OnceCell<Vec<Diagnostic>>,
     tree_dirty: bool,
+    local_wire: Option<Vec<crate::ir::NodeId>>,
+    projection: Option<crate::validate::Projection>,
+    local_grafts: Option<Vec<crate::validate::Graft>>,
     reused_instances: usize,
     provisional_origins: BTreeSet<String>,
 }
@@ -173,6 +196,7 @@ impl Session {
             None
         };
         Self {
+            work: Default::default(),
             options,
             parser,
             extractor,
@@ -180,17 +204,19 @@ impl Session {
             program_raw: Vec::new(),
             prose_sent: BTreeMap::new(),
             segments: Vec::new(),
-            extraction_diagnostics: Vec::new(),
+            extraction_diagnostics: Default::default(),
             rejected: false,
             sealed_count: 0,
             sealed_validation: Validation {
                 ir: Ir::default(),
-                diagnostics: Vec::new(),
+                diagnostics: Default::default(),
             },
+            sealed_cache: None,
             last_candidate: None,
+            current_cache: None,
             current: Validation {
                 ir: Ir::default(),
-                diagnostics: Vec::new(),
+                diagnostics: Default::default(),
             },
             tree: Tree::default(),
             tracking: DirtyTracking::default(),
@@ -199,8 +225,14 @@ impl Session {
             started: false,
             finished: false,
             not_sync: Cell::new(()),
-            published: Vec::new(),
+            published: Default::default(),
+            syntax_diagnostics: Default::default(),
+            extracted_diagnostics: Default::default(),
+            diagnostic_snapshot: OnceCell::new(),
             tree_dirty: true,
+            local_wire: None,
+            projection: None,
+            local_grafts: None,
             reused_instances: 0,
             provisional_origins: BTreeSet::new(),
         }
@@ -212,7 +244,7 @@ impl Session {
         self.tracking.dirty.clear();
         if let Some(extractor) = &mut self.extractor {
             extractor.push(chunk);
-            self.extraction_diagnostics = extractor.diagnostics().to_vec();
+            self.extraction_diagnostics = extractor.diagnostic_snapshot();
             self.rejected = extractor.rejected();
             self.feed_program();
         } else {
@@ -244,10 +276,10 @@ impl Session {
         }
         self.tracking.dirty.clear();
         if let Some(extractor) = self.extractor.take() {
-            let extracted = extractor.finish();
+            let (extracted, diagnostics) = extractor.finish_stream();
             self.program_raw = extracted.program_raw;
             self.segments = extracted.segments;
-            self.extraction_diagnostics = extracted.diagnostics;
+            self.extraction_diagnostics = diagnostics;
             self.rejected = extracted.rejected;
             self.feed_program();
         }
@@ -270,6 +302,11 @@ impl Session {
     pub fn snapshot(&mut self) -> Update {
         self.update(true, true)
     }
+    pub fn maintenance_work(&self) -> crate::MaintenanceWork {
+        let mut work = self.work;
+        work.diagnostics_examined += self.parser.work().diagnostics_examined as u64;
+        work
+    }
     pub fn ir(&self) -> &Ir {
         &self.current.ir
     }
@@ -277,7 +314,15 @@ impl Session {
         &self.tree
     }
     pub fn diagnostics(&self) -> &[Diagnostic] {
-        &self.current.diagnostics
+        self.diagnostic_snapshot.get_or_init(|| {
+            self.current
+                .diagnostics
+                .iter()
+                .chain(self.syntax_diagnostics.iter())
+                .chain(self.extracted_diagnostics.iter())
+                .cloned()
+                .collect()
+        })
     }
     pub fn parser_work(&self) -> crate::syntax::streaming::ScanWork {
         self.parser.work()
@@ -301,11 +346,9 @@ impl Session {
     }
     pub fn phase(&self) -> SessionPhase {
         if self.rejected
-            || self
-                .current
-                .diagnostics
-                .iter()
-                .any(|d| d.severity == Severity::Fatal && !d.provisional)
+            || self.current.diagnostics.has_committed_fatal()
+            || self.syntax_diagnostics.has_committed_fatal()
+            || self.extracted_diagnostics.has_committed_fatal()
         {
             SessionPhase::Rejected
         } else if self.finished {
@@ -327,33 +370,17 @@ impl Session {
         }
     }
     fn rebuild(&mut self, finish: bool) {
+        let previous_ir = self.current.ir.clone();
+        let previous_cache = self.current_cache.clone();
         let new_seals = self.parser.seals().len() != self.sealed_count;
+        let changes: Vec<_> = self.parser.seals()[self.sealed_count..]
+            .iter()
+            .filter_map(|seal| seal.statement.clone())
+            .collect();
         for seal in &self.parser.seals()[self.sealed_count..] {
             if let Some(s) = &seal.statement {
                 self.tracking.change(s);
             }
-        }
-        self.sealed_count = self.parser.seals().len();
-        let syntax = self.parser.diagnostics();
-        if new_seals || finish || !self.started {
-            self.sealed_validation = if finish {
-                validate_program(
-                    self.parser.program(),
-                    Vec::new(),
-                    &self.options.library,
-                    &self.options.validation,
-                )
-            } else {
-                let (checked, reused) = crate::validate::validate_incremental(
-                    self.parser.program(),
-                    &self.options.library,
-                    &self.options.validation,
-                    &self.current,
-                    &self.tracking.dirty,
-                );
-                self.reused_instances += reused;
-                checked
-            };
         }
         let candidate = self
             .parser
@@ -366,14 +393,115 @@ impl Session {
                 _ => false,
             };
         if candidate_changed {
+            if let Some(old) = &self.last_candidate
+                && candidate.as_ref().is_none_or(|new| key(new) != key(old))
+                && !self.parser.seals()[self.sealed_count..]
+                    .iter()
+                    .filter_map(|seal| seal.statement.as_ref())
+                    .any(|sealed| key(sealed) == key(old))
+            {
+                self.tracking.remove(key(old));
+            }
             if let Some(s) = &candidate {
                 self.tracking.change(s);
-            } else if let Some(s) = &self.last_candidate {
-                self.tracking.dirty.insert(key(s));
+            }
+        }
+        self.sealed_count = self.parser.seals().len();
+        let syntax = self.parser.diagnostic_snapshot();
+        let mut sealed_local = false;
+        if new_seals || finish || !self.started {
+            let retained = self.sealed_cache.as_ref().and_then(|cache| {
+                crate::validate::validate_unrelated(
+                    cache,
+                    &self.sealed_validation,
+                    &changes,
+                    &self.tracking.dirty,
+                    &self.options.library,
+                    &self.options.validation,
+                )
+            });
+            if let Some((checked, work, cache)) = retained {
+                self.work += work;
+                self.sealed_validation = checked;
+                self.sealed_cache = Some(cache);
+            } else {
+                let use_current = self
+                    .last_candidate
+                    .as_ref()
+                    .is_none_or(|old| changes.iter().any(|source| key(source) == key(old)));
+                let (cache, base) = if use_current {
+                    (self.current_cache.as_ref(), &self.current)
+                } else {
+                    (self.sealed_cache.as_ref(), &self.sealed_validation)
+                };
+                let attempt = cache.map(|cache| {
+                    crate::validate::validate_props(
+                        cache,
+                        base,
+                        &changes,
+                        crate::validate::Invalidation {
+                            dirty: &self.tracking.dirty,
+                            reverse: &self.tracking.reverse,
+                        },
+                        None,
+                        &self.options.library,
+                        &self.options.validation,
+                    )
+                });
+                if let Some(attempt) = &attempt {
+                    self.work += attempt.work;
+                }
+                if let Some((checked, cache, grafts)) = attempt.and_then(|attempt| attempt.result) {
+                    self.local_grafts = (!grafts.is_empty()).then_some(grafts);
+                    sealed_local = use_current && self.current.ir.root == checked.ir.root;
+                    self.sealed_validation = checked;
+                    self.sealed_cache = Some(cache);
+                } else {
+                    let structural = self.sealed_cache.as_ref().map(|cache| {
+                        crate::validate::resolve_waiting(
+                            cache,
+                            &self.sealed_validation,
+                            &changes,
+                            &self.tracking.dirty,
+                            None,
+                            &self.options.library,
+                            &self.options.validation,
+                        )
+                    });
+                    if let Some(attempt) = &structural {
+                        self.work += attempt.work;
+                    }
+                    if let Some((checked, cache, grafts)) =
+                        structural.and_then(|attempt| attempt.result)
+                    {
+                        self.sealed_validation = checked;
+                        self.sealed_cache = Some(cache);
+                        self.local_grafts = use_current.then_some(grafts);
+                        sealed_local = use_current;
+                    } else {
+                        let (checked, reused, work, cache) = crate::validate::validate_incremental(
+                            &self.options.library,
+                            &self.options.validation,
+                            Some(&self.sealed_validation),
+                            crate::validate::TaskChanges {
+                                dirty: &self.tracking.dirty,
+                                sources: &changes,
+                                reverse: &self.tracking.reverse,
+                            },
+                            None,
+                            self.sealed_cache.as_ref(),
+                            self.current_cache.as_ref(),
+                        );
+                        self.reused_instances += reused;
+                        self.work += work;
+                        self.sealed_validation = checked;
+                        self.sealed_cache = Some(cache);
+                        sealed_local = true;
+                    }
+                }
             }
         }
         if new_seals || candidate_changed || finish || !self.started {
-            self.tree_dirty = true;
             self.provisional_origins.clear();
             if let Some(s) = &candidate {
                 let mut pending = vec![key(s)];
@@ -390,27 +518,174 @@ impl Session {
                     }
                 }
             }
+            let mut preview_dirty = BTreeSet::new();
+            if let Some(s) = &candidate {
+                let mut pending = vec![key(s)];
+                while let Some(name) = pending.pop() {
+                    if preview_dirty.insert(name.clone()) {
+                        pending.extend(
+                            self.tracking
+                                .reverse
+                                .get(&name)
+                                .into_iter()
+                                .flatten()
+                                .cloned(),
+                        );
+                    }
+                }
+            }
+            let mut retained_graph = false;
+            let mut local_update = sealed_local;
             let mut value = if let Some(s) = &candidate {
-                let mut program = self.parser.program().clone();
-                program.statements.push(s.clone());
-                let (checked, reused) = crate::validate::validate_incremental(
-                    &program,
-                    &self.options.library,
-                    &self.options.validation,
-                    &self.current,
-                    &self.tracking.dirty,
-                );
-                self.reused_instances += reused;
-                checked
+                let retained = self.sealed_cache.as_ref().and_then(|cache| {
+                    crate::validate::validate_unrelated(
+                        cache,
+                        &self.sealed_validation,
+                        std::slice::from_ref(s),
+                        &preview_dirty,
+                        &self.options.library,
+                        &self.options.validation,
+                    )
+                });
+                if let Some((checked, work, cache)) = retained {
+                    self.work += work;
+                    retained_graph = true;
+                    self.current_cache = Some(cache);
+                    checked
+                } else {
+                    let attempt = if !new_seals
+                        && self
+                            .last_candidate
+                            .as_ref()
+                            .is_none_or(|old| key(old) == key(s))
+                    {
+                        self.current_cache.as_ref().map(|cache| {
+                            crate::validate::validate_props(
+                                cache,
+                                &self.current,
+                                std::slice::from_ref(s),
+                                crate::validate::Invalidation {
+                                    dirty: &preview_dirty,
+                                    reverse: &self.tracking.reverse,
+                                },
+                                Some(&self.sealed_validation.ir.states),
+                                &self.options.library,
+                                &self.options.validation,
+                            )
+                        })
+                    } else {
+                        None
+                    };
+                    if let Some(attempt) = &attempt {
+                        self.work += attempt.work;
+                    }
+                    if let Some((checked, cache, grafts)) =
+                        attempt.and_then(|attempt| attempt.result)
+                    {
+                        self.local_grafts = (!grafts.is_empty()).then_some(grafts);
+                        self.current_cache = Some(cache);
+                        local_update = self.current.ir.root == checked.ir.root;
+                        self.reused_instances += self.current.ir.nodes.len().saturating_sub(
+                            self.current.ir.nodes.changed_keys(&checked.ir.nodes).len(),
+                        );
+                        checked
+                    } else {
+                        let structural = if !new_seals {
+                            self.sealed_cache.as_ref().map(|cache| {
+                                crate::validate::resolve_waiting(
+                                    cache,
+                                    &self.sealed_validation,
+                                    std::slice::from_ref(s),
+                                    &preview_dirty,
+                                    Some(&self.sealed_validation.ir.states),
+                                    &self.options.library,
+                                    &self.options.validation,
+                                )
+                            })
+                        } else {
+                            None
+                        };
+                        if let Some(attempt) = &structural {
+                            self.work += attempt.work;
+                        }
+                        if let Some((checked, cache, grafts)) =
+                            structural.and_then(|attempt| attempt.result)
+                        {
+                            self.current_cache = Some(cache);
+                            self.local_grafts = Some(grafts);
+                            local_update = true;
+                            checked
+                        } else {
+                            local_update = true;
+                            let (checked, reused, work, cache) =
+                                crate::validate::validate_incremental(
+                                    &self.options.library,
+                                    &self.options.validation,
+                                    Some(&self.sealed_validation),
+                                    crate::validate::TaskChanges {
+                                        dirty: &preview_dirty,
+                                        sources: std::slice::from_ref(s),
+                                        reverse: &self.tracking.reverse,
+                                    },
+                                    Some(&self.sealed_validation.ir.states),
+                                    self.sealed_cache.as_ref(),
+                                    self.current_cache.as_ref(),
+                                );
+                            self.reused_instances += reused;
+                            self.work += work;
+                            self.current_cache = Some(cache);
+                            checked
+                        }
+                    }
+                }
             } else {
+                self.current_cache = self.sealed_cache.clone();
                 self.sealed_validation.clone()
             };
             if !finish {
                 // No state declaration or type inference is committed by an unsealed binding.
                 value.ir.states = self.sealed_validation.ir.states.clone();
                 value.ir.queries = self.sealed_validation.ir.queries.clone();
-                if let Some(s) = &candidate {
-                    for n in value.ir.nodes.values_mut() {
+                if local_update && let Some(s) = &candidate {
+                    let changed = self.current.ir.nodes.changed_keys(&value.ir.nodes);
+                    let mut removed_actions = Vec::new();
+                    for id in changed {
+                        let needs_mutation = value.ir.nodes.get(&id).is_some_and(|node| {
+                            node.origin == s.name
+                                || (self.provisional_origins.contains(&node.origin)
+                                    && node.props.values().any(|prop| {
+                                        matches!(prop, Prop::Static(PropValue::Action(_)))
+                                    }))
+                        });
+                        if needs_mutation && let Some(node) = value.ir.nodes.get_mut(&id) {
+                            if node.origin == s.name {
+                                node.status = NodeStatus::Partial;
+                            }
+                            if self.provisional_origins.contains(&node.origin) {
+                                node.props.retain(|_, prop| {
+                                    if let Prop::Static(PropValue::Action(id)) = prop {
+                                        removed_actions.push(id.clone());
+                                        false
+                                    } else {
+                                        true
+                                    }
+                                });
+                            }
+                        }
+                    }
+                    for id in removed_actions {
+                        value.ir.drop_action(&id);
+                    }
+                }
+                if let Some(s) = &candidate
+                    && !retained_graph
+                    && !local_update
+                {
+                    self.work.instances_examined += 3 * value.ir.nodes.len() as u64;
+                    for id in value.ir.nodes.keys().copied().collect::<Vec<_>>() {
+                        let Some(n) = value.ir.nodes.get_mut(&id) else {
+                            continue;
+                        };
                         if n.origin == s.name {
                             n.status = NodeStatus::Partial;
                         }
@@ -426,112 +701,205 @@ impl Session {
                         .flat_map(|n| n.props.values())
                         .filter_map(|p| {
                             if let Prop::Static(PropValue::Action(id)) = p {
-                                Some(id.0)
+                                Some(id.clone())
                             } else {
                                 None
                             }
                         })
                         .collect();
-                    let mut remap = BTreeMap::new();
-                    let mut actions = Vec::new();
-                    for (i, a) in std::mem::take(&mut value.ir.actions)
-                        .into_iter()
-                        .enumerate()
-                    {
-                        if active_actions.contains(&i)
-                            && value
-                                .ir
-                                .nodes
-                                .get(&a.origin)
-                                .is_some_and(|n| n.status == NodeStatus::Sealed)
-                        {
-                            remap.insert(i, actions.len());
-                            actions.push(a);
-                        }
-                    }
-                    value.ir.actions = actions;
-                    for n in value.ir.nodes.values_mut() {
-                        n.props.retain(|_, p| {
-                            if let Prop::Static(PropValue::Action(id)) = p {
-                                if let Some(new) = remap.get(&id.0) {
-                                    *id = ActionPlanId(*new);
-                                    true
-                                } else {
-                                    false
-                                }
-                            } else {
-                                true
-                            }
-                        });
+                    let removed = value
+                        .ir
+                        .actions
+                        .ids()
+                        .filter(|id| {
+                            !active_actions.contains(*id)
+                                || value.ir.actions.get(id).is_none_or(|a| {
+                                    value
+                                        .ir
+                                        .nodes
+                                        .get(&a.origin)
+                                        .is_none_or(|n| n.status != NodeStatus::Sealed)
+                                })
+                        })
+                        .cloned()
+                        .collect::<Vec<_>>();
+                    for id in removed {
+                        value.ir.drop_action(&id);
                     }
                 }
-                for d in &mut value.diagnostics {
-                    d.provisional = true;
-                }
+                value.diagnostics.force_provisional(true);
             }
             if self.rejected {
                 value.ir = Ir::default();
                 value.diagnostics.clear();
             }
-            self.current = value;
-            // Keep exact equal instances, including their structural IDs, and record revisions.
-            let old = std::mem::take(&mut self.tracking.instances);
-            for n in self.current.ir.nodes.values() {
-                let rev = self.tracking.instance(&n.origin);
-                let rev = old
-                    .get(&n.path.0)
-                    .filter(|old| **old == rev)
-                    .cloned()
-                    .unwrap_or(rev);
-                self.tracking.instances.insert(n.path.0.clone(), rev);
+            let graph_changed = self.current.ir.root != value.ir.root
+                || !self.current.ir.nodes.ptr_eq(&value.ir.nodes)
+                || !self.current.ir.expressions.ptr_eq(&value.ir.expressions)
+                || !self.current.ir.actions.ptr_eq(&value.ir.actions);
+            self.tree_dirty |= graph_changed;
+            if local_update {
+                let changed = self.current.ir.nodes.changed_keys(&value.ir.nodes);
+                for id in &changed {
+                    if let Some(node) = value.ir.nodes.get(id) {
+                        let rev = if candidate.as_ref().is_some_and(|s| s.name == node.origin) {
+                            self.tracking.instance(&node.origin)
+                        } else if let Some(old) = self.tracking.instances.get(&node.path.0) {
+                            let mut rev = old.clone();
+                            for name in &self.tracking.dirty {
+                                if rev.dep_revs.contains_key(name) {
+                                    rev.dep_revs.insert(
+                                        name.clone(),
+                                        self.tracking.revisions.get(name).copied().unwrap_or(0),
+                                    );
+                                }
+                            }
+                            rev
+                        } else {
+                            self.tracking.instance(&node.origin)
+                        };
+                        self.tracking.instances.insert(node.path.0.clone(), rev);
+                    } else if let Some(old) = self.current.ir.nodes.get(id) {
+                        self.tracking.instances.remove(&old.path.0);
+                    }
+                }
+                let grafted: BTreeSet<_> = self
+                    .local_grafts
+                    .iter()
+                    .flatten()
+                    .flat_map(|graft| graft.children.iter().copied())
+                    .collect();
+                self.local_wire = Some(
+                    changed
+                        .into_iter()
+                        .filter(|id| {
+                            if grafted.contains(id) {
+                                return false;
+                            }
+                            match (self.current.ir.nodes.get(id), value.ir.nodes.get(id)) {
+                                (Some(old), Some(new)) => {
+                                    old.kind != new.kind
+                                        || old.props != new.props
+                                        || old.status != new.status
+                                }
+                                _ => self.local_grafts.is_none(),
+                            }
+                        })
+                        .collect(),
+                );
+            } else if graph_changed {
+                self.local_wire = None;
+                self.local_grafts = None;
+                self.work.instances_examined += value.ir.nodes.len() as u64;
+                let old = std::mem::take(&mut self.tracking.instances);
+                for n in value.ir.nodes.values() {
+                    let rev = self.tracking.instance(&n.origin);
+                    let rev = old
+                        .get(&n.path.0)
+                        .filter(|old| **old == rev)
+                        .cloned()
+                        .unwrap_or(rev);
+                    self.tracking.instances.insert(n.path.0.clone(), rev);
+                }
             }
+            self.current = value;
         }
         self.last_candidate = candidate;
-        // Syntax/extraction diagnostics are rebuilt from authoritative scanner state. Their
-        // provisional entries may disappear after a size cutoff; they were never committed.
-        self.current.diagnostics.retain(|d| {
-            d.span.is_none()
-                && !matches!(
-                    d.code,
-                    Code::BadUtf8 | Code::ProgramSize | Code::Version | Code::ExtraProgram
-                )
-        });
-        if !self.rejected {
-            self.current
-                .diagnostics
-                .extend(syntax.into_iter().filter(|d| {
-                    d.code != Code::BadUtf8
-                        || !self
-                            .extraction_diagnostics
-                            .iter()
-                            .any(|d| d.code == Code::BadUtf8)
-                }));
-        }
-        self.current
-            .diagnostics
-            .extend(self.extraction_diagnostics.clone());
+        self.diagnostic_snapshot.take();
+        let has_bad_utf8 = self.extraction_diagnostics.contains_code(Code::BadUtf8);
+        self.syntax_diagnostics = if self.rejected {
+            Default::default()
+        } else if has_bad_utf8 {
+            syntax.excluding(Code::BadUtf8)
+        } else {
+            syntax
+        };
+        self.extracted_diagnostics = self.extraction_diagnostics.clone();
         if finish {
-            for d in &mut self.current.diagnostics {
-                d.provisional = false;
-            }
+            self.current.diagnostics.force_provisional(false);
+            self.syntax_diagnostics.force_provisional(false);
+            self.extracted_diagnostics.force_provisional(false);
         }
-        if self
-            .current
-            .diagnostics
-            .iter()
-            .any(|d| d.severity == Severity::Fatal && !d.provisional && d.code == Code::Version)
-        {
+        if self.extraction_diagnostics.contains_code(Code::Version) {
             self.rejected = true;
             self.current.ir = Ir::default();
         }
+        self.projection = Some(crate::validate::Projection::between(
+            &previous_ir,
+            &self.current.ir,
+            previous_cache.as_ref(),
+            self.current_cache.as_ref(),
+        ));
     }
     fn update(&mut self, emit_empty: bool, snapshot: bool) -> Update {
-        let ops = if self.tree_dirty || snapshot || !self.started {
-            let next = Tree::from_ir(&self.current.ir, &self.options.library);
+        let local = if snapshot {
+            None
+        } else {
+            self.local_wire.take()
+        };
+        let grafts = if snapshot {
+            None
+        } else {
+            self.local_grafts.take()
+        };
+        let projection = self.projection.take();
+        let ops = if snapshot || !self.started {
+            let (tree, work) = Tree::from_ir_measured(&self.current.ir, &self.options.library);
+            self.work += work;
+            let ops = tree.snapshot_ops();
+            self.tree = tree;
+            self.tree_dirty = false;
+            ops
+        } else if let Some(projection) = projection {
+            let (ops, work) =
+                self.tree
+                    .maintain(&self.current.ir, &self.options.library, &projection);
+            self.work += work;
+            self.tree_dirty = false;
+            ops
+        } else if let Some(mut grafts) = grafts {
+            grafts.sort_by_key(|graft| graft.order.clone());
+            let (mut ops, work) =
+                self.tree
+                    .insert_grafts(&self.current.ir, &self.options.library, &grafts);
+            self.work += work;
+            if let Some(mut ids) = local {
+                ids.sort_by_key(|id| {
+                    self.current_cache
+                        .as_ref()
+                        .and_then(|cache| cache.node_order(id))
+                        .cloned()
+                });
+                let (changes, work) =
+                    self.tree
+                        .update_props(&self.current.ir, &self.options.library, &ids);
+                self.work += work;
+                ops.extend(changes);
+            }
+            self.tree_dirty = false;
+            ops
+        } else if let Some(mut ids) = local {
+            ids.sort_by_key(|id| {
+                self.current_cache
+                    .as_ref()
+                    .and_then(|cache| cache.node_order(id))
+                    .cloned()
+            });
+            let (ops, work) = self
+                .tree
+                .update_props(&self.current.ir, &self.options.library, &ids);
+            self.work += work;
+            self.tree_dirty = false;
+            ops
+        } else if self.tree_dirty || snapshot || !self.started {
+            let (next, work) = Tree::from_ir_measured(&self.current.ir, &self.options.library);
+            self.work += work;
             let ops = if snapshot || !self.started {
                 next.snapshot_ops()
             } else {
-                self.tree.diff(&next)
+                let (ops, work) = self.tree.diff_measured(&next);
+                self.work += work;
+                ops
             };
             self.tree = next;
             self.tree_dirty = false;
@@ -575,16 +943,16 @@ impl Session {
             }
         }
         self.not_sync.set(());
-        let mut previous = self.published.clone();
+        let layers = [
+            &self.current.diagnostics,
+            &self.syntax_diagnostics,
+            &self.extracted_diagnostics,
+        ];
         let mut diagnostics = Vec::new();
-        for d in &self.current.diagnostics {
-            if let Some(i) = previous.iter().position(|old| old == d) {
-                previous.remove(i);
-            } else {
-                diagnostics.push(d.clone());
-            }
+        for (layer, previous) in layers.into_iter().zip(&mut self.published) {
+            diagnostics.extend(layer.additions_since(previous, &mut self.work));
+            *previous = layer.clone();
         }
-        self.published = self.current.diagnostics.clone();
         Update {
             patches,
             diagnostics,
@@ -602,7 +970,7 @@ fn key(s: &Statement) -> String {
         s.name.clone()
     }
 }
-fn dependencies(e: &Expr, out: &mut BTreeSet<String>) {
+pub(crate) fn dependencies(e: &Expr, out: &mut BTreeSet<String>) {
     match e {
         Expr::Name { name } => {
             out.insert(name.clone());

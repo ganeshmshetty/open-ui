@@ -1,0 +1,1 @@
+{"notes":"SPEC \u00a7\u00a73.4\u20133.6,6: retained work must use the sealed table when the prior draft drops, and must invalidate non-slot consumers too.","tags":["I7","recovery","invalidation"],"tier":"core","title":"055-dropped-draft-and-query-seal"}

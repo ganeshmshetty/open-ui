@@ -1,5 +1,52 @@
 # Spec changelog
 
+## 2026-10-23 — Static cycle ownership (§2.10)
+
+- Specify canonical ownership for cycles among static value/action definitions,
+  which have no node-instantiation path. The previous DFS accidentally moved an
+  existing cycle diagnostic when an earlier acyclic user arrived. One diagnostic
+  per cyclic component, at its smallest name, is deterministic and retainable;
+  node/path cycle recovery is unchanged. Resolve fixture 019 covers the change.
+
+## 2026-10-23 — Budget recovery scope (§2.10)
+
+- Clarify that a budget failure stops its immediate slot, independently of
+  diagnostic deduplication. A dropped component reclaims allocation before its
+  ancestor continues. New limits 023–024 reproduce inconsistent repeated-instance
+  recovery and lost siblings after min_items rollback.
+
+## 2026-10-23 — Provisional scanner work (§3.7–3.8)
+
+- Clarify provisional lexer errors on possible resync headers, diagnostic dirty
+  entries, held-back prefix accounting and explicit snapshot materialization.
+  Streaming fixtures 031–032 catch premature cutoff suppression and history scans.
+
+## 2026-10-22 — Stable live arena identities (§3.5–3.8, §5.5, §6.5)
+
+- Separate opaque live expression identity from dense canonical snapshot indices.
+  An earlier forward reference exposed the conflict: dense live indices forced
+  writes to otherwise unchanged siblings, violating I7. Snapshot indices retain
+  canonical first-use order; owners release obsolete expression bodies.
+- Static action-plan references now use their owning node path and argument,
+  instead of arena position. The action tag carries an opaque string, preventing
+  unrelated insertion/rehash from changing a retained plan reference. M4 must
+  still issue epoch-bound runtime handles; no dispatch or evaluator is added.
+- Add focused earlier-expression/action fixtures and update the four existing
+  static action-reference goldens and the provisional-action checkpoint by the
+  documented source-owner formula. Host argument escaping has its own fixture.
+
+
+## 2026-10-22 — M3 review regressions (§3.4–3.5, §12.2)
+
+- Add exact streaming checkpoints for dropped drafts invalidating their consumers,
+  draft bindings retaining sealed state types, and statement-count limits applying
+  to previews. Greptile Plus identified these three implementation bugs; the
+  existing provisional-isolation and limit rules remain unchanged.
+- Clarify fixture comparison of empty slots: IR includes validated empty slot
+  arrays, while retained patch trees normalize them because inserts do not carry
+  empty slot declarations. A new statement-budget fixture exposed this distinction.
+
+
 ## 2026-10-22 — M3 mutation regression assertions (§12.8)
 
 - Require direct assertions for binary/index dependency edges, repaired raw-byte

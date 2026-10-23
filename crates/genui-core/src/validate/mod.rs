@@ -1,5 +1,15 @@
 //! Static resolution and validation (§§2.10–2.15,4,5,7.1). No requests or evaluation.
+mod budget;
 mod expression;
+mod incremental;
+mod queries;
+mod resource;
+pub(crate) use incremental::{Invalidation, validate_props};
+mod binding;
+mod slots;
+mod source;
+mod tasks;
+pub(crate) use tasks::{Changes as TaskChanges, Projection};
 mod tree;
 use crate::{
     diag::{Code, Diagnostic, Recovery},
@@ -13,6 +23,9 @@ use crate::{
     value::Value,
 };
 use serde::{Deserialize, Serialize};
+pub(crate) use slots::PrefixCounts;
+pub(crate) use slots::{Graft, resolve_waiting};
+use slots::{SlotCheck, SlotItem, SlotKey};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -40,7 +53,7 @@ impl Default for Options {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Validation {
     pub ir: Ir,
-    pub diagnostics: Vec<Diagnostic>,
+    pub diagnostics: crate::Diagnostics,
 }
 pub fn validate(bytes: &[u8], library: &Library, options: &Options) -> Validation {
     let parsed = parse_batch(bytes, options.limits.clone().bounded().syntax);
@@ -70,7 +83,7 @@ pub fn validate_program(
     {
         return Validation {
             ir: Ir::default(),
-            diagnostics,
+            diagnostics: diagnostics.into(),
         };
     }
     Validator::new(program, diagnostics, library, options).run()
@@ -78,28 +91,242 @@ pub fn validate_program(
 /// Reuse unaffected concrete static instances while revisiting canonical budgets.
 /// Expression/action arenas remain batch-owned; deferred instances take the regular path.
 pub(crate) fn validate_incremental(
-    program: &Program,
     library: &Library,
     options: &Options,
-    previous: &Validation,
+    previous: Option<&Validation>,
+    changes: tasks::Changes<'_>,
+    sealed_states: Option<&crate::SharedMap<String, StateDef>>,
+    previous_cache: Option<&ValidationCache>,
+    instance_cache: Option<&ValidationCache>,
+) -> (Validation, usize, crate::MaintenanceWork, ValidationCache) {
+    let mut validator = Validator::new(&Program::default(), Vec::new(), library, options);
+    validator.sealed_states = sealed_states;
+    if let Some(previous) = previous {
+        validator.ir = previous.ir.clone();
+    }
+    if let Some(cache) = previous_cache {
+        validator.table = cache.table.clone();
+        validator.state_sources = cache.state_sources.clone();
+        validator.query_sources = cache.query_sources.clone();
+        validator.query_diagnostics = cache.query_diagnostics.clone();
+        validator.orphan_diagnostics = cache.orphan_diagnostics.clone();
+        validator.query_budget = cache.query_budget.clone();
+        validator.kinds = cache.kinds.clone();
+        validator.cache = cache.checked.clone();
+        validator.action_sources = cache.action_sources.clone();
+        validator.reachable = cache.reachable.clone();
+        validator.ids = cache.ids.clone();
+        validator.slots = cache.slots.clone();
+        validator.slot_readers = cache.slot_readers.clone();
+        validator.instances = cache.instances.clone();
+        validator.readers = cache.readers.clone();
+        validator.value_diagnostics = cache.value_diagnostics.clone();
+        validator.state_bytes = cache.state_bytes;
+        validator.state_budget = cache.state_budget.clone();
+        validator.state_candidates = cache.state_candidates.clone();
+    }
+    if let Some(source) = previous_cache.and_then(|cache| cache.tasks.as_ref()) {
+        source.source_ir(&mut validator.ir);
+    }
+    let mut machine = instance_cache
+        .or(previous_cache)
+        .and_then(|cache| cache.tasks.clone())
+        .unwrap_or_default();
+    machine.arenas(&mut validator.ir);
+    machine.metadata_root(
+        previous_cache.and_then(|cache| cache.tasks.as_ref()),
+        &mut validator.work,
+    );
+    machine.begin(&changes, std::iter::empty());
+    if let Some(cache) = instance_cache.or(previous_cache) {
+        validator.instances = cache.instances.clone();
+        validator.readers = cache.readers.clone();
+        validator.ids = cache.ids.clone();
+    }
+    validator.ir.nodes = machine.graph.nodes.clone();
+    validator.tasks = Some(machine);
+    let (validation, work, cache) = validator.run_live(changes);
+    let reused = cache
+        .tasks
+        .as_ref()
+        .map_or(0, |machine| machine.reused_nodes);
+    (validation, reused, work, cache)
+}
+#[derive(Clone, Default)]
+pub(crate) struct ValidationCache {
+    table: crate::SharedMap<String, Statement>,
+    state_sources: crate::SharedMap<String, Statement>,
+    query_sources: crate::SharedMap<String, Statement>,
+    query_diagnostics: crate::SharedMap<String, Vec<Diagnostic>>,
+    orphan_diagnostics: crate::SharedMap<String, Vec<Diagnostic>>,
+    query_budget: budget::BudgetIndex,
+
+    kinds: crate::SharedMap<String, Kind>,
+    checked: crate::SharedMap<String, Checked>,
+    action_sources: crate::SharedMap<String, Expr>,
+    reachable: im::OrdSet<String>,
+    instances: crate::SharedMap<NodeId, InstanceCheck>,
+    readers: crate::SharedMap<String, im::OrdSet<NodeId>>,
+    value_diagnostics: crate::SharedMap<String, Vec<Diagnostic>>,
+    diagnostics: crate::Diagnostics,
+    ids: IdAllocator,
+    slots: crate::SharedMap<SlotKey, SlotCheck>,
+    slot_readers: crate::SharedMap<String, im::OrdSet<(SlotKey, usize)>>,
+    ambiguous_states: bool,
+    allocation_limited: bool,
+    tasks: Option<tasks::Machine>,
+    state_bytes: usize,
+    state_budget: budget::BudgetIndex,
+    state_candidates: crate::SharedMap<String, StateDef>,
+    state_limited: bool,
+}
+
+/// Validate a disconnected new definition without rebuilding the displayed graph.
+/// Dependent/global allocation changes use the general dirty-maintenance path.
+pub(crate) fn validate_unrelated(
+    cached: &ValidationCache,
+    base: &Validation,
+    changes: &[Statement],
     dirty: &BTreeSet<String>,
-) -> (Validation, usize) {
-    let count = std::cell::Cell::new(0);
-    let mut validator = Validator::new(program, Vec::new(), library, options);
-    validator.reuse = Some(Reuse {
-        previous,
-        dirty,
-        count: &count,
-    });
-    let validation = validator.run();
-    (validation, count.get())
+    library: &Library,
+    options: &Options,
+) -> Option<(Validation, crate::MaintenanceWork, ValidationCache)> {
+    if cached.tasks.is_some() {
+        return None;
+    }
+    if changes.iter().any(|s| {
+        s.kind != StatementKind::Bind || s.name == "root" || cached.table.contains_key(&s.name)
+    }) || dirty
+        .iter()
+        .any(|name| name == "root" || name.starts_with('$') || cached.table.contains_key(name))
+    {
+        return None;
+    }
+    let changed: BTreeSet<_> = changes.iter().map(|s| s.name.as_str()).collect();
+    for s in changes {
+        let mut deps = BTreeSet::new();
+        names(&s.value, &mut deps);
+        if deps.iter().any(|name| changed.contains(name.as_str())) {
+            return None;
+        }
+    }
+    let mut v = Validator::new(&Program::default(), Vec::new(), library, options);
+    v.table = cached.table.clone();
+    v.state_sources = cached.state_sources.clone();
+    v.kinds = cached.kinds.clone();
+    v.cache = cached.checked.clone();
+    v.action_sources = cached.action_sources.clone();
+    v.reachable = cached.reachable.clone();
+    v.orphan_diagnostics = cached.orphan_diagnostics.clone();
+    v.slots = cached.slots.clone();
+    v.slot_readers = cached.slot_readers.clone();
+    v.instances = cached.instances.clone();
+    v.readers = cached.readers.clone();
+    v.value_diagnostics = cached.value_diagnostics.clone();
+    v.ir = base.ir.clone();
+    for s in changes {
+        v.work.statements_checked += 1;
+        let kind = v.classify(&s.value);
+        v.table.insert(s.name.clone(), s.clone());
+        v.kinds.insert(s.name.clone(), kind);
+        let ctx = Context::at(&s.name, None);
+        let own_start = v.diagnostics.len();
+        if kind == Kind::Node {
+            v.ir.templates.insert(s.name.clone(), s.value.clone());
+            let keep = std::mem::take(&mut v.ir);
+            v.ir.states = keep.states.clone();
+            v.ir.queries = keep.queries.clone();
+            v.checking_orphan = true;
+            v.checking_template = true;
+            v.walk_expr(&s.value, &ctx, NodePath::root(), 1, None);
+            v.ir = keep;
+            v.pending_plans.clear();
+            v.checking_orphan = false;
+            v.checking_template = false;
+        } else {
+            let checked = if kind == Kind::Action {
+                let (valid, source) = v.normalize_action(&s.value, &ctx);
+                v.action_sources.insert(s.name.clone(), source);
+                if valid {
+                    Checked::dynamic(T::Action)
+                } else {
+                    Checked::invalid()
+                }
+            } else {
+                v.check_value(&s.value, &ctx)
+            };
+            v.ir.values.insert(
+                s.name.clone(),
+                ValueEntry {
+                    kind,
+                    source_kind: s.kind,
+                    expression: s.value.clone(),
+                    value: checked.value.clone().filter(|_| checked.valid),
+                },
+            );
+            v.cache.insert(s.name.clone(), checked);
+        }
+        let orphan_start = if kind == Kind::Node {
+            own_start
+        } else {
+            v.value_diagnostics
+                .insert(s.name.clone(), v.diagnostics[own_start..].to_vec());
+            v.diagnostics.len()
+        };
+        v.emit(Code::Orphan, &ctx);
+        v.orphan_diagnostics
+            .insert(s.name.clone(), v.diagnostics[orphan_start..].to_vec());
+    }
+    let mut diagnostics = base.diagnostics.clone();
+    v.work.diagnostics_examined += v.diagnostics.len() as u64;
+    diagnostics.extend_raw(v.diagnostics);
+    let cache = ValidationCache {
+        table: v.table,
+        state_sources: v.state_sources,
+        query_sources: cached.query_sources.clone(),
+        query_diagnostics: cached.query_diagnostics.clone(),
+        orphan_diagnostics: v.orphan_diagnostics,
+        query_budget: cached.query_budget.clone(),
+        kinds: v.kinds,
+        checked: v.cache,
+        action_sources: v.action_sources,
+        reachable: v.reachable,
+        instances: v.instances,
+        readers: v.readers,
+        value_diagnostics: v.value_diagnostics,
+        diagnostics: diagnostics.clone(),
+        ids: v.ids,
+        slots: v.slots,
+        slot_readers: v.slot_readers,
+        ambiguous_states: cached.ambiguous_states,
+        allocation_limited: cached.allocation_limited,
+        tasks: None,
+        state_bytes: cached.state_bytes,
+        state_budget: cached.state_budget.clone(),
+        state_candidates: cached.state_candidates.clone(),
+        state_limited: cached.state_limited,
+    };
+    Some((
+        Validation {
+            ir: v.ir,
+            diagnostics,
+        },
+        v.work,
+        cache,
+    ))
+}
+
+impl ValidationCache {
+    pub(crate) fn node_order(&self, id: &NodeId) -> Option<&Vec<(String, usize, usize)>> {
+        self.instances.get(id).map(|instance| &instance.ctx.order)
+    }
 }
 struct Reuse<'a> {
     previous: &'a Validation,
     dirty: &'a BTreeSet<String>,
     count: &'a std::cell::Cell<usize>,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 struct Checked {
     value: Option<Value>,
     ty: T,
@@ -128,7 +355,7 @@ impl Checked {
         }
     }
 }
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 struct Context {
     stmt: String,
     path: Option<NodePath>,
@@ -137,6 +364,8 @@ struct Context {
     form_scope: Option<NodeId>,
     list_cap: Option<usize>,
     budget_stmt: Option<String>,
+    order: Vec<(String, usize, usize)>,
+    allocation_order: Vec<u64>,
 }
 impl Context {
     fn at(stmt: &str, path: Option<NodePath>) -> Self {
@@ -148,6 +377,8 @@ impl Context {
             form_scope: None,
             list_cap: None,
             budget_stmt: None,
+            order: Vec::new(),
+            allocation_order: Vec::new(),
         }
     }
 }
@@ -157,26 +388,56 @@ struct TemplateCheck {
     path: NodePath,
     place: Option<String>,
 }
+#[derive(Clone)]
+struct InstanceCheck {
+    source: std::sync::Arc<Expr>,
+    ctx: Context,
+    path: NodePath,
+    depth: usize,
+    bound: crate::SharedMap<usize, Expr>,
+    reads: BTreeSet<String>,
+    diagnostics: Vec<Diagnostic>,
+}
 struct Validator<'a> {
+    tasks: Option<tasks::Machine>,
+    source_reverse: Option<&'a BTreeMap<String, BTreeSet<String>>>,
+    instances: crate::SharedMap<NodeId, InstanceCheck>,
+    readers: crate::SharedMap<String, im::OrdSet<NodeId>>,
+    value_diagnostics: crate::SharedMap<String, Vec<Diagnostic>>,
+    slots: crate::SharedMap<SlotKey, SlotCheck>,
+    slot_readers: crate::SharedMap<String, im::OrdSet<(SlotKey, usize)>>,
+    retained_instance: Option<InstanceCheck>,
+    retained_slots: Option<Vec<IrSlot>>,
+    work: crate::MaintenanceWork,
     reuse: Option<Reuse<'a>>,
+    sealed_states: Option<&'a crate::SharedMap<String, StateDef>>,
     lib: &'a Library,
     options: &'a Options,
     limits: Limits,
-    table: BTreeMap<String, Statement>,
-    state_sources: BTreeMap<String, Statement>,
-    kinds: BTreeMap<String, Kind>,
+    table: crate::SharedMap<String, Statement>,
+    state_sources: crate::SharedMap<String, Statement>,
+    query_sources: crate::SharedMap<String, Statement>,
+    query_diagnostics: crate::SharedMap<String, Vec<Diagnostic>>,
+    orphan_diagnostics: crate::SharedMap<String, Vec<Diagnostic>>,
+    query_budget: budget::BudgetIndex,
+
+    kinds: crate::SharedMap<String, Kind>,
     ir: Ir,
     diagnostics: Vec<Diagnostic>,
-    cache: BTreeMap<String, Checked>,
-    action_sources: BTreeMap<String, Expr>,
-    reachable: BTreeSet<String>,
+    cache: crate::SharedMap<String, Checked>,
+    action_sources: crate::SharedMap<String, Expr>,
+    reachable: im::OrdSet<String>,
     ids: IdAllocator,
     active: BTreeSet<String>,
     allocated: usize,
+    direct_limit: bool,
+    state_bytes: usize,
+    state_budget: budget::BudgetIndex,
+    state_candidates: crate::SharedMap<String, StateDef>,
     limited: BTreeSet<(String, Code)>,
     checking_template: bool,
     checking_orphan: bool,
-    pending_plans: Vec<SlotPlan>,
+    pending_plans: crate::SharedVector<SlotPlan>,
     template_queue: VecDeque<TemplateCheck>,
     template_seen: BTreeSet<(String, Vec<String>)>,
 }
@@ -224,41 +485,87 @@ impl<'a> Validator<'a> {
         lib: &'a Library,
         options: &'a Options,
     ) -> Self {
-        let mut table = BTreeMap::new();
-        let mut state_sources = BTreeMap::new();
-        for s in &p.statements {
+        Self::from_statements(p.statements.iter(), diagnostics, lib, options)
+    }
+    fn from_statements<'s>(
+        statements: impl IntoIterator<Item = &'s Statement>,
+        diagnostics: Vec<Diagnostic>,
+        lib: &'a Library,
+        options: &'a Options,
+    ) -> Self {
+        let mut table = crate::SharedMap::new();
+        let mut state_sources = crate::SharedMap::new();
+        let mut statements_checked = 0;
+        for s in statements {
+            statements_checked += 1;
             if s.kind == StatementKind::State {
-                state_sources
-                    .entry(s.name.clone())
-                    .or_insert_with(|| s.clone());
+                if !state_sources.contains_key(&s.name) {
+                    state_sources.insert(s.name.clone(), s.clone());
+                }
             } else {
-                table.entry(s.name.clone()).or_insert_with(|| s.clone());
+                if !table.contains_key(&s.name) {
+                    table.insert(s.name.clone(), s.clone());
+                }
             }
         }
         let kinds = table.keys().map(|n| (n.clone(), Kind::Value)).collect();
         Self {
+            work: crate::MaintenanceWork {
+                statements_checked,
+                ..Default::default()
+            },
+            tasks: None,
+            source_reverse: None,
+            instances: Default::default(),
+            readers: Default::default(),
+            value_diagnostics: Default::default(),
+            slots: Default::default(),
+            slot_readers: Default::default(),
+            retained_instance: None,
+            retained_slots: None,
             reuse: None,
+            sealed_states: None,
             lib,
             options,
             limits: options.limits.clone().bounded(),
             table,
             state_sources,
+            query_sources: Default::default(),
+            query_diagnostics: Default::default(),
+            orphan_diagnostics: Default::default(),
+            query_budget: Default::default(),
             kinds,
             ir: Ir::default(),
             diagnostics,
-            cache: BTreeMap::new(),
-            action_sources: BTreeMap::new(),
-            reachable: BTreeSet::new(),
+            cache: crate::SharedMap::new(),
+            action_sources: crate::SharedMap::new(),
+            reachable: im::OrdSet::new(),
             ids: IdAllocator::default(),
             active: BTreeSet::new(),
             allocated: 0,
+            direct_limit: false,
+            state_bytes: 0,
+            state_budget: Default::default(),
+            state_candidates: Default::default(),
             limited: BTreeSet::new(),
             checking_template: false,
             checking_orphan: false,
-            pending_plans: Vec::new(),
+            pending_plans: Default::default(),
             template_queue: VecDeque::new(),
             template_seen: BTreeSet::new(),
         }
+    }
+    fn begin_owner(&mut self, key: String, order: Vec<u64>) -> crate::arena::Scope {
+        if !self.checking_orphan
+            && !self.checking_template
+            && let Some(frame) = self
+                .tasks
+                .as_mut()
+                .and_then(|machine| machine.frames.last_mut())
+        {
+            frame.owners.insert(key.clone());
+        }
+        self.ir.begin_owner(key, order)
     }
     fn emit(&mut self, code: Code, ctx: &Context) -> usize {
         let mut d = Diagnostic::new(code, Some(ctx.stmt.clone()), None);
@@ -266,7 +573,15 @@ impl<'a> Validator<'a> {
             d.path = ctx.path.as_ref().map(|p| p.0.clone());
         }
         self.diagnostics.push(d);
-        self.diagnostics.len() - 1
+        let index = self.diagnostics.len() - 1;
+        if let Some(frame) = self
+            .tasks
+            .as_mut()
+            .and_then(|machine| machine.frames.last_mut())
+        {
+            frame.indices.insert(index);
+        }
+        index
     }
     fn recovery(&mut self, code: Code, recovery: Recovery, ctx: &Context) {
         let i = self.emit(code, ctx);
@@ -275,6 +590,24 @@ impl<'a> Validator<'a> {
         }
     }
     fn limit(&mut self, code: Code, ctx: &Context) {
+        if !self.checking_orphan
+            && !self.checking_template
+            && matches!(code, Code::Nodes | Code::IrDepth)
+            && self
+                .tasks
+                .as_ref()
+                .is_some_and(|machine| !machine.frames.is_empty())
+        {
+            let index = self.emit(code, ctx);
+            if let Some(frame) = self
+                .tasks
+                .as_mut()
+                .and_then(|machine| machine.frames.last_mut())
+            {
+                frame.limits.insert(index, ctx.allocation_order.clone());
+            }
+            return;
+        }
         if !matches!(code, Code::Nodes | Code::IrDepth)
             || self.limited.insert((ctx.stmt.clone(), code))
         {
@@ -323,6 +656,7 @@ impl<'a> Validator<'a> {
     fn infer_kinds(&mut self) {
         let mut users: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
         for (n, s) in &self.table {
+            self.work.statements_checked += 1;
             let mut deps = BTreeSet::new();
             names(&s.value, &mut deps);
             for d in deps {
@@ -332,6 +666,7 @@ impl<'a> Validator<'a> {
         let mut queue: VecDeque<_> = self.table.keys().cloned().collect();
         let mut queued: BTreeSet<_> = queue.iter().cloned().collect();
         while let Some(n) = queue.pop_front() {
+            self.work.statements_checked += 1;
             queued.remove(&n);
             let Some(s) = self.table.get(&n) else {
                 continue;
@@ -354,9 +689,11 @@ impl<'a> Validator<'a> {
     fn mark_reachable(&mut self) {
         let mut queue = vec!["root".to_string()];
         while let Some(n) = queue.pop() {
-            if !self.reachable.insert(n.clone()) {
+            self.work.statements_checked += 1;
+            if self.reachable.contains(&n) {
                 continue;
             }
+            self.reachable.insert(n.clone());
             if let Some(s) = self.table.get(&n) {
                 let mut deps = BTreeSet::new();
                 names(&s.value, &mut deps);
@@ -364,8 +701,12 @@ impl<'a> Validator<'a> {
             }
         }
     }
-    fn run(mut self) -> Validation {
+    fn run(self) -> Validation {
+        self.run_measured().0
+    }
+    fn run_measured(mut self) -> (Validation, crate::MaintenanceWork, ValidationCache) {
         self.infer_kinds();
+        self.work.statements_checked += self.table.len() as u64;
         self.ir.templates = self
             .table
             .iter()
@@ -374,31 +715,45 @@ impl<'a> Validator<'a> {
             .collect();
         self.mark_reachable();
         self.states();
-        self.infer_binding_defaults();
+        if let Some(states) = self.sealed_states {
+            self.ir.states = states.clone();
+        } else {
+            self.infer_binding_defaults();
+        }
         self.queries();
         self.value_statements();
+        if let Some(machine) = &mut self.tasks {
+            let empty = BTreeMap::new();
+            machine.metadata(
+                &self.ir,
+                &self.cache,
+                &self.action_sources,
+                self.source_reverse.unwrap_or(&empty),
+            );
+        }
         if let Some(root) = self.table.get("root").cloned() {
             let ctx = Context::at("root", Some(NodePath::root()));
             self.active.insert("root".into());
             let mut root_nodes = if self.cache.get("root").is_some_and(|c| !c.valid) {
-                Vec::new()
+                Default::default()
             } else {
                 self.walk_expr(&root.value, &ctx, NodePath::root(), 1, None)
             };
             if root_nodes.len() > 1 {
                 self.emit(Code::SlotKind, &ctx);
-                for id in root_nodes.drain(1..) {
+                for id in root_nodes.split_off(1) {
                     self.remove_subtree(id);
                 }
             }
             self.active.remove("root");
             self.ir.root = root_nodes.first().copied();
-            self.ir.root_plan = self.pending_plans.pop();
+            self.ir.root_plan = self.pending_plans.pop_back();
         } else {
             self.diagnostics
                 .push(Diagnostic::new(Code::NoRoot, None, None));
         }
         // Unreachable definitions are still checked, so fragments and unused bad examples cannot hide errors.
+        self.work.statements_checked += self.table.len() as u64;
         let orphans: Vec<_> = self
             .table
             .iter()
@@ -406,7 +761,9 @@ impl<'a> Validator<'a> {
             .map(|(n, s)| (n.clone(), s.clone()))
             .collect();
         for (name, s) in orphans {
+            self.work.statements_checked += 1;
             let ctx = Context::at(&name, None);
+            let own_start = self.diagnostics.len();
             if self.kinds.get(&name) == Some(&Kind::Node) {
                 let pending = std::mem::take(&mut self.pending_plans);
                 let keep = std::mem::take(&mut self.ir);
@@ -423,173 +780,162 @@ impl<'a> Validator<'a> {
                 self.checking_template = false;
             }
             self.emit(Code::Orphan, &ctx);
+            self.orphan_diagnostics
+                .insert(name, self.diagnostics[own_start..].to_vec());
         }
+        let retained_diagnostics = if let Some(machine) = &mut self.tasks {
+            let (nodes, work) = machine.finish();
+            self.ir.nodes = nodes;
+            self.work.instances_examined += work;
+            let mut index = 0;
+            self.diagnostics.retain(|_| {
+                let keep = !machine.owned_indices.contains(&index);
+                index += 1;
+                keep
+            });
+            Some(machine.diagnostics())
+        } else {
+            None
+        };
         self.diagnostics.sort_by(|a, b| {
+            self.work.diagnostics_examined += 1;
             (&a.stmt, &a.path, a.code, a.recovery).cmp(&(&b.stmt, &b.path, b.code, b.recovery))
         });
-        Validation {
-            ir: self.ir,
-            diagnostics: self.diagnostics,
-        }
+        self.work.statements_checked += self.ir.states.len() as u64;
+        let ambiguous_states = self.ir.states.values().any(|state| {
+            state.default == Value::Null
+                || matches!(&state.default,Value::List(items) if items.is_empty())
+        });
+        self.work.diagnostics_examined += self.diagnostics.len() as u64;
+        let state_limited = self.diagnostics.iter().any(|d| d.code == Code::StateSize);
+        self.work.diagnostics_examined += self.diagnostics.len() as u64;
+        let allocation_limited = self
+            .diagnostics
+            .iter()
+            .any(|d| matches!(d.code, Code::Nodes | Code::IrDepth));
+        let mut diagnostics: crate::Diagnostics = retained_diagnostics.unwrap_or_default();
+        diagnostics.extend_raw(self.diagnostics);
+        let cache = ValidationCache {
+            table: self.table,
+            state_sources: self.state_sources,
+            query_sources: self.query_sources,
+            query_diagnostics: self.query_diagnostics,
+            orphan_diagnostics: self.orphan_diagnostics,
+            query_budget: self.query_budget,
+            kinds: self.kinds,
+            checked: self.cache,
+            action_sources: self.action_sources,
+            reachable: self.reachable,
+            instances: self.instances,
+            readers: self.readers,
+            value_diagnostics: self.value_diagnostics,
+            diagnostics: diagnostics.clone(),
+            ids: self.ids,
+            slots: self.slots,
+            slot_readers: self.slot_readers,
+            ambiguous_states,
+            allocation_limited,
+            tasks: self.tasks,
+            state_bytes: self.state_bytes,
+            state_budget: self.state_budget,
+            state_candidates: self.state_candidates,
+            state_limited,
+        };
+        (
+            Validation {
+                ir: self.ir,
+                diagnostics,
+            },
+            self.work,
+            cache,
+        )
     }
     fn states(&mut self) {
-        let mut bytes = 0usize;
+        self.work.statements_checked += self.state_sources.len() as u64;
         for (name, s) in self.state_sources.clone() {
             let ctx = Context::at(&name, None);
-            if let Some(mut v) = Value::constant_recovered(&s.value) {
-                self.cap_value(&mut v, &ctx);
-                let size = serde_json::to_vec(&v).map_or(usize::MAX, |v| v.len());
-                if size > self.limits.max_state_bytes.saturating_sub(bytes) {
-                    self.emit(Code::StateSize, &ctx);
-                    continue;
-                }
-                bytes = bytes.saturating_add(size);
-                self.ir.states.insert(
+            if let Some(mut value) = Value::constant_recovered(&s.value) {
+                self.cap_value(&mut value, &ctx);
+                let size = serde_json::to_vec(&value).map_or(usize::MAX, |bytes| bytes.len());
+                self.state_budget.insert(name.clone(), size);
+                self.state_candidates.insert(
                     name,
                     StateDef {
-                        ty: T::infer(&v),
-                        default: v,
+                        ty: T::infer(&value),
+                        default: value,
                     },
                 );
             } else {
                 self.emit(Code::ConstDefault, &ctx);
             }
         }
+        let (bytes, _, changes) = self.state_budget.reconcile(
+            self.limits.max_state_bytes,
+            &mut self.work.statements_checked,
+        );
+        for (name, accepted) in changes {
+            if accepted {
+                if let Some(value) = self.state_candidates.get(&name) {
+                    self.ir.states.insert(name, value.clone());
+                }
+            } else {
+                self.emit(Code::StateSize, &Context::at(&name, None));
+            }
+        }
+        self.state_bytes = bytes;
     }
     fn queries(&mut self) {
-        let queries: Vec<_> = self
-            .table
-            .iter()
-            .filter(|(_, s)| s.kind == StatementKind::Query)
-            .map(|(n, s)| (n.clone(), s.clone()))
-            .collect();
-        for (i, (name, s)) in queries.into_iter().enumerate() {
-            let ctx = Context::at(&name, None);
-            if i >= self.limits.max_queries {
-                self.emit(Code::TooManyQueries, &ctx);
+        self.work.statements_checked += self.table.len() as u64;
+        for (name, source) in &self.table {
+            if source.kind == StatementKind::Query {
+                self.query_sources.insert(name.clone(), source.clone());
+                self.query_budget.insert(name.clone(), 1);
+            }
+        }
+        let (_, _, changes) = self
+            .query_budget
+            .reconcile(self.limits.max_queries, &mut self.work.statements_checked);
+        for (name, accepted) in changes {
+            let start = self.diagnostics.len();
+            if accepted {
+                if let Some(source) = self.query_sources.get(&name).cloned() {
+                    self.query_header(&source);
+                }
+            } else {
+                self.emit(Code::TooManyQueries, &Context::at(&name, None));
                 self.table.remove(&name);
                 self.kinds.remove(&name);
-                continue;
             }
-            let Expr::Call { name: call, args } = s.value else {
-                self.emit(Code::ExprType, &ctx);
-                continue;
-            };
-            let positional: Vec<_> = args.iter().filter(|a| a.name.is_none()).collect();
-            let default = args.iter().find(|a| a.name.as_deref() == Some("default"));
-            let id = positional.first().and_then(|a| {
-                if let Expr::String { value } = &a.value {
-                    Some(value.clone())
-                } else {
-                    None
-                }
-            });
-            if call != "tool"
-                || positional.len() != 2
-                || default.is_none()
-                || args.len() != 3
-                || id.is_none()
-            {
-                self.emit(Code::ExprType, &ctx);
-                continue;
-            }
-            if let (Some(tool), Some(default), Some(arg)) = (id, default, positional.get(1)) {
-                let allowed = self.options.tools.contains(&tool);
-                if !allowed {
-                    self.emit(Code::UnknownTool, &ctx);
-                }
-                self.ir.queries.insert(
-                    name,
-                    QueryDef {
-                        tool,
-                        args: arg.value.clone(),
-                        default: default.value.clone(),
-                        allowed,
-                    },
-                );
-            }
+            self.query_diagnostics
+                .insert(name, self.diagnostics[start..].to_vec());
         }
     }
     fn value_statements(&mut self) {
-        // Explicit post-order stack: a 20,000-name chain never uses the Rust call stack.
-        let roots: Vec<_> = self
+        self.work.statements_checked += self.table.len() as u64;
+        let sources = self
             .table
             .keys()
-            .filter(|n| self.kinds.get(*n) != Some(&Kind::Node))
+            .filter(|name| self.kinds.get(*name) != Some(&Kind::Node))
             .cloned()
             .collect();
-        let mut visiting = BTreeSet::new();
-        let mut completed = BTreeSet::new();
-        for root in roots {
-            let mut stack = vec![(root, false)];
-            while let Some((name, finish)) = stack.pop() {
-                if completed.contains(&name) {
-                    continue;
-                }
-                let Some(s) = self.table.get(&name).cloned() else {
-                    continue;
-                };
-                if self.kinds.get(&name) == Some(&Kind::Node) {
-                    continue;
-                }
-                if !finish {
-                    if !visiting.insert(name.clone()) {
-                        let ctx = Context::at(&name, None);
-                        self.emit(Code::Cycle, &ctx);
-                        self.cache.insert(name.clone(), Checked::invalid());
-                        completed.insert(name);
-                        continue;
-                    }
-                    stack.push((name.clone(), true));
-                    let mut deps = BTreeSet::new();
-                    names(&s.value, &mut deps);
-                    for d in deps.into_iter().rev() {
-                        if self.table.contains_key(&d) && self.kinds.get(&d) != Some(&Kind::Node) {
-                            stack.push((d, false));
-                        }
-                    }
-                    continue;
-                }
-                visiting.remove(&name);
-                let ctx = Context::at(&name, None);
-                let kind = self.kinds.get(&name).copied().unwrap_or(Kind::Value);
-                let checked = if s.kind == StatementKind::Query {
-                    if let Some(q) = self.ir.queries.get(&name).cloned() {
-                        self.check_value(&q.args, &ctx);
-                        let d = self.check_value(&q.default, &ctx);
-                        Checked::dynamic(d.ty)
-                    } else {
-                        Checked::invalid()
-                    }
-                } else if kind == Kind::Action {
-                    let (valid, source) = self.normalize_action(&s.value, &ctx);
-                    self.action_sources.insert(name.clone(), source);
-                    if valid {
-                        Checked::dynamic(T::Action)
-                    } else {
-                        Checked::invalid()
-                    }
-                } else {
-                    self.check_value(&s.value, &ctx)
-                };
-                self.ir.values.insert(
-                    name.clone(),
-                    ValueEntry {
-                        kind,
-                        source_kind: s.kind,
-                        expression: s.value,
-                        value: checked.value.clone().filter(|_| checked.valid),
-                    },
-                );
-                self.cache.insert(name.clone(), checked);
-                completed.insert(name);
-            }
-        }
+        self.check_sources(&sources);
     }
     fn dynamic(&mut self, e: &Expr) -> Prop {
         Prop::Dynamic(self.ir.intern(e))
     }
     fn remove_subtree(&mut self, id: NodeId) {
+        if !self.checking_orphan
+            && !self.checking_template
+            && let Some(machine) = &mut self.tasks
+        {
+            if let Some(node) = machine.graph.nodes.get(&id) {
+                self.allocated = self
+                    .allocated
+                    .saturating_sub(machine.graph.sizes.get(&id).copied().unwrap_or(1));
+                machine.graph.hide(&node.path.0.clone());
+            }
+            return;
+        }
         if let Some(n) = self.ir.nodes.remove(&id) {
             self.allocated = self.allocated.saturating_sub(1);
             for s in n.slots {

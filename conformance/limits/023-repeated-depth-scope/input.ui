@@ -1,0 +1,2 @@
+a=Column([Column([Divider()]),Text("kept")])
+root=Column([a,a])

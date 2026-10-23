@@ -1,0 +1,1 @@
+{"limits":{"max_queries":1},"notes":"SPEC \u00a7\u00a72.10,3.5,6: replacing the only accepted column keeps Table.columns valid at the end of the atomic update.","tags":["I7","query","recovery","slot"],"tier":"core","title":"Multiple leaf recoveries check slot minimum after the batch"}

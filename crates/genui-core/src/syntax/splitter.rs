@@ -4,6 +4,7 @@ use crate::{
     diag::{Code, Diagnostic, Span, order_diagnostics},
     limits::SyntaxLimits,
 };
+use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Header {
@@ -68,12 +69,27 @@ pub struct SplitResult {
 pub struct Splitter {
     lexer: Lexer,
     state: ScanState,
+    pending: BTreeMap<usize, Vec<Diagnostic>>,
+    known_ranges: usize,
+    known_skip: Option<usize>,
+    known_certain_end: usize,
+    snapshot: crate::Diagnostics,
+    diagnostic_delta: Vec<Diagnostic>,
+    diagnostic_work: usize,
 }
 impl Splitter {
     pub fn new(limits: SyntaxLimits) -> Self {
+        let limits = limits.bounded();
         Self {
-            lexer: Lexer::default(),
-            state: ScanState::new(limits.bounded()),
+            lexer: Lexer::with_numeric_limit(limits.max_stmt_bytes),
+            state: ScanState::new(limits),
+            pending: BTreeMap::new(),
+            known_ranges: 0,
+            known_skip: None,
+            known_certain_end: 0,
+            snapshot: Default::default(),
+            diagnostic_delta: Vec::new(),
+            diagnostic_work: 0,
         }
     }
     pub fn push(&mut self, bytes: &[u8]) {
@@ -86,6 +102,14 @@ impl Splitter {
                 self.lexer.normalized_source(),
             );
         }
+        let stable = self
+            .state
+            .open
+            .as_ref()
+            .map(|s| s.span.start)
+            .or(self.state.skip_from)
+            .unwrap_or(self.state.line_start);
+        self.refresh_diagnostics(self.source().len(), stable);
     }
     pub fn sealed(&self) -> &[SplitStatement] {
         &self.state.result.statements
@@ -96,28 +120,126 @@ impl Splitter {
     pub(crate) fn source(&self) -> &str {
         self.lexer.normalized_source()
     }
-    pub(crate) fn diagnostics(&self) -> Vec<Diagnostic> {
-        let end = self.source().len();
-        self.state
-            .result
-            .diagnostics
+    fn cutoff_sensitive(code: Code) -> bool {
+        matches!(
+            code,
+            Code::BadChar
+                | Code::BadEscape
+                | Code::UnterminatedString
+                | Code::Overflow
+                | Code::NonFinite
+        )
+    }
+    fn commit_diagnostic(&mut self, mut d: Diagnostic, was_pending: bool) {
+        if was_pending {
+            self.snapshot.remove_raw(&d);
+        }
+        d.provisional = false;
+        self.snapshot.extend_raw([d.clone()]);
+        self.diagnostic_delta.push(d);
+    }
+    fn refresh_diagnostics(&mut self, end: usize, stable: usize) {
+        // Only a new cutoff can retract pending errors. The end index also
+        // promotes stable prefixes without scanning an unrecognized long line.
+        let mut cutoffs = self.state.skipped_ranges[self.known_ranges..]
             .iter()
-            .filter(|d| !self.state.suppressed(d, end))
-            .cloned()
-            .map(|mut d| {
-                if let Some(span) = &d.span {
-                    let stable = self
-                        .state
-                        .open
-                        .as_ref()
-                        .map_or(self.state.line_start, |s| s.span.start);
-                    if span.end > stable {
-                        d.provisional = true;
+            .map(|(start, _)| *start)
+            .collect::<Vec<_>>();
+        let certain_end = if self.state.line_decided {
+            end
+        } else {
+            self.state.line_start
+        };
+        if (self.state.skip_from != self.known_skip || certain_end > self.known_certain_end)
+            && let Some(start) = self.state.skip_from
+        {
+            cutoffs.push(start);
+        }
+        self.known_ranges = self.state.skipped_ranges.len();
+        self.known_skip = self.state.skip_from;
+        self.known_certain_end = certain_end;
+        for cut in cutoffs {
+            let suffix = self.pending.split_off(&cut.saturating_add(1));
+            for (position, diagnostics) in suffix {
+                let mut kept = Vec::new();
+                for d in diagnostics {
+                    self.diagnostic_work += 1;
+                    if self.state.certainly_suppressed(&d, end) {
+                        self.snapshot.remove_raw(&d);
+                    } else if self.state.skipping && !Self::cutoff_sensitive(d.code) {
+                        self.commit_diagnostic(d, true);
+                    } else {
+                        kept.push(d);
                     }
                 }
-                d
-            })
-            .collect()
+                if !kept.is_empty() {
+                    self.pending.insert(position, kept);
+                }
+            }
+        }
+        while self
+            .pending
+            .first_key_value()
+            .is_some_and(|(position, _)| *position <= stable)
+        {
+            if let Some((_, diagnostics)) = self.pending.pop_first() {
+                for d in diagnostics {
+                    self.diagnostic_work += 1;
+                    self.commit_diagnostic(d, true);
+                }
+            }
+        }
+        for mut d in std::mem::take(&mut self.state.result.diagnostics) {
+            self.diagnostic_work += 1;
+            if self.state.certainly_suppressed(&d, end) {
+                continue;
+            }
+            if d.span.as_ref().is_none_or(|span| span.end <= stable)
+                || (self.state.skipping && !Self::cutoff_sensitive(d.code))
+            {
+                self.commit_diagnostic(d, false);
+            } else if let Some(span) = &d.span {
+                let position = span.end;
+                d.provisional = true;
+                self.snapshot.extend_raw([d.clone()]);
+                self.pending.entry(position).or_default().push(d);
+            }
+        }
+    }
+    #[cfg(test)]
+    pub(crate) fn diagnostics(&self) -> Vec<Diagnostic> {
+        let mut diagnostics = self.snapshot.to_vec();
+        order_diagnostics(&mut diagnostics);
+        diagnostics
+    }
+    pub(crate) fn diagnostic_snapshot(&self) -> crate::Diagnostics {
+        self.snapshot.clone()
+    }
+    pub(crate) fn take_diagnostic_delta(&mut self) -> Vec<Diagnostic> {
+        std::mem::take(&mut self.diagnostic_delta)
+    }
+    pub(crate) fn diagnostic_work(&self) -> usize {
+        self.diagnostic_work
+    }
+    pub(crate) fn held_prefix_bytes(&self) -> usize {
+        let start = if let Some(open) = &self.state.open {
+            open.span.start
+        } else if !self.state.line_decided
+            && (!self.state.prefix.is_empty()
+                || self.lexer.pending_token()
+                || self
+                    .pending
+                    .last_key_value()
+                    .is_some_and(|(end, _)| *end > self.state.line_start))
+        {
+            self.state.line_start
+        } else {
+            return 0;
+        };
+        self.source()
+            .len()
+            .saturating_sub(start)
+            .min(self.state.limits.max_stmt_bytes)
     }
     /// Closes an O(tail) copy; the sole boundary scanner remains ScanState.
     pub(crate) fn provisional(&self) -> Option<(SplitStatement, Vec<Diagnostic>)> {
@@ -192,22 +314,37 @@ impl Splitter {
         self.finish_with_source().0
     }
     pub(crate) fn finish_with_source(self) -> (SplitResult, String) {
-        let (source, events) = self.lexer.finish_events();
-        let mut state = self.state;
-        state.events(events, &source);
-        state.begin_line(&source);
-        state.check_size(source.len(), &source);
-        state.seal(false);
-        if let Some(start) = state.skip_from.take() {
-            state.skipped_ranges.push((start, source.len()));
+        let (mut result, diagnostics, _, source, _) = self.finish_stream();
+        result.diagnostics = diagnostics.to_vec();
+        order_diagnostics(&mut result.diagnostics);
+        (result, source)
+    }
+    /// Finish the sole scanner without materializing committed diagnostic history.
+    pub(crate) fn finish_stream(
+        mut self,
+    ) -> (
+        SplitResult,
+        crate::Diagnostics,
+        Vec<Diagnostic>,
+        String,
+        usize,
+    ) {
+        let (source, events) = std::mem::take(&mut self.lexer).finish_events();
+        self.state.events(events, &source);
+        self.state.begin_line(&source);
+        self.state.check_size(source.len(), &source);
+        self.state.seal(false);
+        if let Some(start) = self.state.skip_from.take() {
+            self.state.skipped_ranges.push((start, source.len()));
         }
-        let diagnostics = std::mem::take(&mut state.result.diagnostics);
-        state.result.diagnostics = diagnostics
-            .into_iter()
-            .filter(|d| !state.suppressed(d, source.len()))
-            .collect();
-        order_diagnostics(&mut state.result.diagnostics);
-        (state.result, source)
+        self.refresh_diagnostics(source.len(), usize::MAX);
+        (
+            self.state.result,
+            self.snapshot,
+            self.diagnostic_delta,
+            source,
+            self.diagnostic_work,
+        )
     }
 }
 impl Default for Splitter {
@@ -241,7 +378,13 @@ struct ScanState {
     skipped_ranges: Vec<(usize, usize)>,
 }
 impl ScanState {
-    fn suppressed(&self, diagnostic: &Diagnostic, source_end: usize) -> bool {
+    fn certainly_suppressed(&self, diagnostic: &Diagnostic, source_end: usize) -> bool {
+        // The current line can still become a resynchronization header.
+        let certain_end = if self.line_decided {
+            source_end
+        } else {
+            self.line_start
+        };
         matches!(
             diagnostic.code,
             Code::BadChar
@@ -251,11 +394,15 @@ impl ScanState {
                 | Code::NonFinite
         ) && diagnostic.span.as_ref().is_some_and(|span| {
             self.skipped_ranges
-                .iter()
-                .any(|(start, end)| span.start < *end && span.end > *start)
+                .get(
+                    self.skipped_ranges
+                        .partition_point(|(start, _)| *start < span.end)
+                        .wrapping_sub(1),
+                )
+                .is_some_and(|(_, end)| span.start < *end)
                 || self
                     .skip_from
-                    .is_some_and(|start| span.start < source_end && span.end > start)
+                    .is_some_and(|start| span.start < certain_end && span.end > start)
         })
     }
     fn new(limits: SyntaxLimits) -> Self {

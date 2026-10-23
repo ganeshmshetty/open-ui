@@ -29,5 +29,15 @@ pub mod patch;
 pub mod validate;
 pub mod value;
 
+mod maintenance;
 pub mod session;
+pub use maintenance::MaintenanceWork;
+mod persistent;
+pub use persistent::{SharedMap, SharedVector};
 pub use session::{Session, SessionOptions, Update};
+
+mod diagnostics;
+pub use diagnostics::Diagnostics;
+
+mod arena;
+pub use arena::{ActionArena, ExpressionArena};

@@ -13,6 +13,8 @@ fuzz_target!(|data: &[u8]| {
     options.limits.syntax.max_expr_depth = (seed % 49) as usize;
     options.limits.max_nodes = (seed % 100) as usize;
     options.limits.max_ir_depth = (seed % 25) as usize;
+    options.limits.max_state_bytes = (seed % 1024) as usize;
+    options.limits.max_queries = (seed % 9) as usize;
     options.limits.syntax.max_program_bytes = (seed % 32769) as usize;
     options.tools.insert("known".into());
     options.refs.insert("t.data".into());

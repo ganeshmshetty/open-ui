@@ -1,0 +1,1 @@
+["go=set($x,1)\nroot=Button(\"Go\",on_click:go)\n","$x=0\n"]

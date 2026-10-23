@@ -1,0 +1,13 @@
+{
+  "title": "A possible resync header retains provisional lexical errors",
+  "tier": "core",
+  "tags": [
+    "I7",
+    "cutoff",
+    "resync"
+  ],
+  "limits": {
+    "max_stmt_bytes": 16
+  },
+  "notes": "SPEC \u00a7\u00a72.4,3.7: lexical errors on a possible header cannot be suppressed before its boundary is known."
+}

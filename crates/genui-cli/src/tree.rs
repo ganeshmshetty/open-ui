@@ -14,7 +14,7 @@ use std::{collections::BTreeMap, fmt::Write};
 fn expression(ir: &Ir, plan: &SlotPlan) -> Result<String, String> {
     let value = ir
         .expressions
-        .get(plan.expression.0)
+        .get(&plan.expression)
         .ok_or("missing plan expression")?;
     let printed = printer::print(&Program {
         statements: vec![Statement {
@@ -33,6 +33,7 @@ fn expression(ir: &Ir, plan: &SlotPlan) -> Result<String, String> {
 pub fn inspect(bytes: &[u8], library: &Library) -> Result<(String, bool), String> {
     let checked = validate(bytes, library, &Options::default());
     let ir = &checked.ir;
+    let expression_indices = ir.expression_indices();
     let mut out = String::new();
     enum Task<'a> {
         Node(NodeId, usize),
@@ -75,14 +76,16 @@ pub fn inspect(bytes: &[u8], library: &Library) -> Result<(String, bool), String
                         .ok_or("missing prop")?
                         .name;
                     let value = match prop {
-                        Prop::Dynamic(i) => serde_json::json!({"dynamic": i.0}),
+                        Prop::Dynamic(i) => {
+                            serde_json::json!({"dynamic": expression_indices.get(i).ok_or("missing dynamic expression")?})
+                        }
                         Prop::Static(v) => match v {
                             PropValue::Value(v) => v.ir_json(),
                             PropValue::Token { scale, value } => {
                                 serde_json::json!({"tok": [scale, value.plain_json()]})
                             }
                             PropValue::Binding(b) => serde_json::json!({"bind": format!("${b}")}),
-                            PropValue::Action(i) => serde_json::json!({"action": i.0}),
+                            PropValue::Action(i) => serde_json::json!({"action": i.0.as_ref()}),
                         },
                     };
                     props.insert(name, value);

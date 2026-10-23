@@ -1,0 +1,4 @@
+$x=""
+stable=Text($x+"old")
+root=Column([late,stable])
+late=Text($x+"new")

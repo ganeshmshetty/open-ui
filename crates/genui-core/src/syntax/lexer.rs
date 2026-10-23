@@ -38,6 +38,7 @@ pub struct Lexer {
     cursor: Span,
     escape_start: Span,
     events: Vec<LexEvent>,
+    numeric_limit: Option<usize>,
 }
 pub type LexBuffer = Lexer;
 
@@ -57,11 +58,21 @@ impl Default for Lexer {
             escape_start: cursor.clone(),
             cursor,
             events: Vec::new(),
+            numeric_limit: None,
         }
     }
 }
 
 impl Lexer {
+    pub(crate) fn with_numeric_limit(limit: usize) -> Self {
+        Self {
+            numeric_limit: Some(limit),
+            ..Self::default()
+        }
+    }
+    pub(crate) fn pending_token(&self) -> bool {
+        !matches!(self.mode, Mode::Ground | Mode::Comment)
+    }
     pub fn push(&mut self, bytes: &[u8]) {
         let text = self.source.push(bytes, false);
         self.scan(&text);
@@ -80,6 +91,7 @@ impl Lexer {
         let mut copy = Self {
             start: self.start.clone(),
             cursor: self.cursor.clone(),
+            numeric_limit: self.numeric_limit,
             ..Self::default()
         };
         match &self.mode {
@@ -412,28 +424,34 @@ impl Lexer {
         };
         let suffix = text.split_off(text.len() - suffix_len);
         let end = self.cursor.start - suffix_len;
-        let float = text.contains(['.', 'e', 'E']);
-        let clean = text.replace('_', "");
-        let error = if float {
-            match clean.parse::<f64>() {
-                Ok(v) if v.is_finite() => None,
-                _ => Some(Code::NonFinite),
-            }
-        } else if clean.parse::<i64>().is_err() {
-            Some(Code::Overflow)
-        } else {
-            None
-        };
-        if let Some(code) = error {
-            self.diagnose(code, self.start.clone(), end);
+        // A token longer than the statement budget is necessarily discarded by
+        // the splitter. Its conversion errors would be suppressed by that cutoff.
+        if self.numeric_limit.is_some_and(|limit| text.len() > limit) {
             self.emit(K::Null, "null".into(), self.start.clone(), end);
         } else {
-            self.emit(
-                if float { K::Float } else { K::Int },
-                text,
-                self.start.clone(),
-                end,
-            );
+            let float = text.contains(['.', 'e', 'E']);
+            let clean = text.replace('_', "");
+            let error = if float {
+                match clean.parse::<f64>() {
+                    Ok(v) if v.is_finite() => None,
+                    _ => Some(Code::NonFinite),
+                }
+            } else if clean.parse::<i64>().is_err() {
+                Some(Code::Overflow)
+            } else {
+                None
+            };
+            if let Some(code) = error {
+                self.diagnose(code, self.start.clone(), end);
+                self.emit(K::Null, "null".into(), self.start.clone(), end);
+            } else {
+                self.emit(
+                    if float { K::Float } else { K::Int },
+                    text,
+                    self.start.clone(),
+                    end,
+                );
+            }
         }
         if !suffix.is_empty() {
             self.start = Span {

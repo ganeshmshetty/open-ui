@@ -1,0 +1,1 @@
+{"limits":{"max_queries":1},"notes":"SPEC \u00a7\u00a75.2\u20135.3,6: repeated references have separate paths; indexed removals account for earlier removals in the same batch.","tags":["I7","query","recovery","slot"],"tier":"core","title":"Repeated leaf removals keep their updated sibling positions"}

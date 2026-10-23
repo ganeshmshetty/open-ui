@@ -1,0 +1,3 @@
+stable=Button("Stable",on_click:say("old"))
+root=Column([late,stable])
+late=Button("Late",on_click:say("new"))

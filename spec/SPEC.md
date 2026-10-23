@@ -374,9 +374,16 @@ A name used as a child in several places creates one node instance per use. The 
 
 **Cycles** are defined per instantiation path. If S is instantiated while S is already an ancestor on the current path, that reference is omitted from its slot, with `name.cycle` reported at that path. This depends only on the final tree, never on the order statements arrived in.
 
+Static value/action definitions have no node-instantiation path. Their dependency
+graph is checked by strongly connected component: each cyclic component emits one
+`name.cycle`, owned by its lexicographically smallest statement, with no path and
+`ChildOmitted`. Its members have invalid static values. An acyclic statement
+referencing the component does not move or duplicate that diagnostic. Node and
+deferred-template references keep the per-instantiation rule above.
+
 **Budgets.** `max_nodes` (expanded node count) and `max_ir_depth` are allocated in canonical order: a pre-order depth-first walk from `root`, following slot order, over the current statement table.
 
-- When the walk exceeds a budget, the remaining children of that slot are omitted (`limit.nodes` or `limit.ir_depth`, once per statement).
+- When the walk exceeds a budget, the remaining children of the directly affected slot are omitted (`limit.nodes` or `limit.ir_depth`, once per statement). Diagnostic deduplication does not control traversal. A limit in a descendant slot does not stop an ancestor slot; if recovery drops the descendant component (for example `min_items`), its allocation is reclaimed before the next ancestor sibling.
 - While streaming, the allocation is recomputed after each sealing. Nodes already displayed MAY be removed by a later recomputation. They are nodes, not sealed statements, so I1 still holds.
 
 The root has IR depth 1 and counts as one node. Alias names do not add IR depth.
@@ -634,7 +641,9 @@ Provisional diagnostics MAY be shown in developer UI. They MUST NOT be fed back 
 Implementations may conservatively retain additional semantic diagnostics as
 provisional until finish when their stability has not been established. Lexer
 errors in an open statement remain provisional until its size-cutoff decision;
-errors intersecting a skipped cutoff range disappear rather than commit. The
+errors intersecting a skipped cutoff range disappear rather than commit. Errors
+on a possible resynchronization header stay provisional until the line decision
+fixes the skipped range. The
 current `Session::diagnostics()` list is authoritative; `Update.diagnostics` gives
 only additions/changed provisional flags, and a host replaces provisional entries
 from the current list when they disappear.
@@ -648,6 +657,11 @@ from the current list when they disappear.
 | Parsing a sealed statement | O(statement), once |
 | Updating the IR | O(dirty nodes) |
 | Generating patches | O(changed props) |
+
+The dirty set includes changed or retracted diagnostic entries. Explicit snapshot
+observers that materialize the complete IR or diagnostic list may cost O(snapshot);
+this does not permit deferring semantic validation into an observer. Held-back
+statement prefixes count toward tail work, even before a header is recognized.
 
 Reference budgets on a 2023 Apple-silicon laptop, release build:
 
@@ -951,15 +965,28 @@ pub struct Props(SmallVec<[(PropId, Prop); 6]>);
 - **Tokens.** Design tokens such as `gap: 3` and `tone: "danger"` are checked against token scales. The model never supplies pixels or colors.
 
 For static-only IR snapshots, a Dynamic prop is encoded as `{"dynamic": N}`;
-`N` indexes the deterministic expression arena. Node slots separately retain
+`N` is a deterministic dense snapshot index, assigned on first use in the canonical
+validation walk (including checks before recovery drops). It is an observer view,
+not live identity. In memory, `ExprId` is an opaque structural identity including
+recovered-null metadata; hash collisions compare the full identity. Inserting an
+earlier expression MUST NOT renumber retained props. Expression owners release
+obsolete references when rechecked, so growing a tail does not retain its old
+expression bodies. Node slots separately retain
 `SlotPlan { base, expression, accepts }` for data-dependent node expressions;
 empty concrete children do not imply an empty plan. Plans preserve source bases,
 lambda scopes and accepted component types without manufacturing instances.
 The IR also retains the canonical node-statement template table used by named
 references inside these plans; no definition is lost when a template is deferred.
-Action handles index ordered typed steps, bound to their owning node and form
-scope. Capability fallbacks whose text depends on data retain the original node,
-descendants and `to_text` template beside the Dynamic expression, for M4 to render.
+Static action-plan references use the source-owner string
+`<NodePath>|arg:<escaped-argument>`. In the argument, `%` becomes `%25` and `|`
+becomes `%7C`; the final literal `|` is therefore unambiguous even for host-defined
+argument names. This identity is independent of plan storage/arrival order and
+refers to ordered typed steps bound to their owning node and form scope. M2/M3
+plans are inert. M4 replaces these source references in resolved props with opaque
+runtime handles tied to the current epoch (§7.4); source-owner identity alone is
+not an authorization to dispatch an event. Capability fallbacks whose text
+depends on data retain the original node, descendants and `to_text` template
+beside the Dynamic expression, for M4 to render.
 This includes literal data tables and floats: M2 does not substitute JSON or
 platform number formatting for the specified text/table formatter.
 Non-literal list/map constructors (including containers over statement references)
@@ -1065,7 +1092,7 @@ Batches are serde types. The reference encoding is JSON Lines, one batch per lin
 | `Ref` | `{"ref":"t4.places"}` |
 | `Token` | `{"tok":["space",3]}` |
 | `Binding` | `{"bind":"$name"}` |
-| `Action` | `{"action":17}` |
+| `Action` | `{"action":"<opaque handle>"}`. Static M2/M3 inspection uses the source-owner key (`"root|arg:on_click"`); M4 runtime handles also bind the current epoch (7.4). |
 | `Status` | `{"status":"loading"}`. The values are `idle`, `loading`, `ready`, `refreshing` and `failed`. |
 
 Example:
@@ -1837,7 +1864,7 @@ If an implementation and a fixture disagree, the disagreement is treated as a sp
 
 - **Lexical tokens** are compared as an ordered array of `{kind, text}` in `want.tokens.json`. String text is decoded, state text omits `$`, newlines use LF, and other tokens retain their source spelling. Source locations are not compared. In `lex`, `want.diag.json` contains only the four diagnostic comparison fields below; `stmt` and `path` are null for standalone lexical scans. Lexical fixtures do not require IR or patches. Strict schemas live in `conformance/schemas/`.
 - **AST** is compared structurally as strict JSON (schemas in `conformance/schemas/ast.schema.json`), excluding source locations and diagnostics. `grammar`, `statements`, `extract` and syntax `fuzz-regress` fixtures use AST goldens until IR exists in M2. `extract` also compares the ordered `{kind, text}` segment array exactly. M1 fixtures do not require IR or patches.
-- **IR** goldens are compact canonical JSON followed by one file-terminating LF, and are compared as canonical JSON: sorted keys, `{id, kind, role, props, children}`, absent props omitted, encoded as in 6.5.
+- **IR** goldens are compact canonical JSON followed by one file-terminating LF, and are compared as canonical JSON: sorted keys, `{id, kind, role, props, children}`, absent props omitted, encoded as in 6.5. `children` includes every validated slot, including its empty array. Retained patch-tree comparisons normalize empty slots, since inserts do not carry empty slot declarations.
 - **Diagnostics** are compared as a multiset of `(code, stmt, path, recovery)`. `message` and `hint` are not compared, except in category `feedback`, which compares the rendered `ui-diag` text byte for byte.
 - **Patches** are compared exactly in category `patches`. Elsewhere they are checked by replay: applying them to an empty tree must give `want.ir.json` or `want.resolved.json`.
 - **Prompts and the Library Spec** are compared byte for byte.

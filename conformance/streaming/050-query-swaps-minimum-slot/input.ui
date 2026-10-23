@@ -1,0 +1,5 @@
+query z=tool("known",{},default:"key")
+old=TableColumn("Old",z)
+new=TableColumn("New",a)
+root=Table([old,new],[])
+query a=tool("known",{},default:"key")

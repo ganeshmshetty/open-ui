@@ -146,7 +146,13 @@ def main():
                    "-f", "crates/genui-core/src/syntax.rs", "-f", "crates/genui-core/src/syntax/**",
                    "-f", "crates/genui-core/src/ir.rs",
                    "-f", "crates/genui-core/src/patch.rs", "-f", "crates/genui-core/src/session.rs",
-                   "-f", "crates/genui-core/src/canonical.rs", "--test-workspace", "true", "--jobs", "2",
+                   "-f", "crates/genui-core/src/canonical.rs",
+                   "-f", "crates/genui-core/src/validate/**",
+                   "-f", "crates/genui-core/src/diagnostics.rs",
+                   "-f", "crates/genui-core/src/arena.rs",
+                   "-f", "crates/genui-core/src/persistent.rs",
+                   "-f", "crates/genui-core/src/maintenance.rs",
+                   "--test-workspace", "true", "--jobs", "2",
                    "--timeout", "60", "--build-timeout", "300", "--output", str(output)]
         if args.shard:
             command.extend(["--shard", args.shard])

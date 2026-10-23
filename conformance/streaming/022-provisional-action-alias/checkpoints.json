@@ -1,1 +1,1 @@
-[{"absent_prop":"on_click","chunk":0,"id":"root","status":"sealed"},{"absent_prop":"on_click","chunk":1,"id":"root","status":"sealed"},{"chunk":2,"equals":{"action":0},"id":"root","prop":"on_click","status":"sealed"}]
+[{"absent_prop":"on_click","chunk":0,"id":"root","status":"sealed"},{"absent_prop":"on_click","chunk":1,"id":"root","status":"sealed"},{"chunk":2,"equals":{"action":"root|arg:on_click"},"id":"root","prop":"on_click","status":"sealed"}]

@@ -1,0 +1,4 @@
+$b="bb"
+$c=""
+root=Input("Name",bind:$c)
+$a=""

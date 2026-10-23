@@ -1,0 +1,4 @@
+$z="z"
+value=$z
+root=Text(text(value))
+$a="a"

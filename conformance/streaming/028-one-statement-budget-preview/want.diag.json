@@ -1,0 +1,14 @@
+[
+  {
+    "code": "limit.stmt_count",
+    "stmt": "later",
+    "path": null,
+    "recovery": "StatementDropped"
+  },
+  {
+    "code": "name.unresolved",
+    "stmt": "root",
+    "path": "root/children:@later",
+    "recovery": "ChildOmitted"
+  }
+]

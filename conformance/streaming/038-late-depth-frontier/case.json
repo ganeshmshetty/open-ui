@@ -1,0 +1,1 @@
+{"limits":{"max_ir_depth":1},"notes":"SPEC \u00a72.10: local grafting cannot retain a diagnostic from a later entry after the canonical frontier moves earlier. Generated seed 14545 exposed this.","tags":["I7","budget","depth"],"tier":"core","title":"Late reference moves the canonical depth frontier"}

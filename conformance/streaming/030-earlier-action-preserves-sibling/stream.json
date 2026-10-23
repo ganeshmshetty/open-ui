@@ -1,0 +1,4 @@
+[
+  "stable=Button(\"Stable\",on_click:say(\"old\"))\nroot=Column([late,stable])\n",
+  "late=Button(\"Late\",on_click:say(\"new\"))\n"
+]

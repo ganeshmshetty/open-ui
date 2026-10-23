@@ -279,6 +279,1086 @@ mod tests {
         assert_eq!(visible.len(), 1);
         assert_eq!(work, 1, "hidden descendants must be skipped by index");
     }
+    #[test]
+    fn hidden_slot_prefixes_are_matched_at_their_exact_byte_boundary() {
+        let mut graph = Graph::default();
+        graph.hide("root/children:");
+        assert_eq!(
+            graph.hidden_by("root/children:@a", true),
+            Some("root/children:")
+        );
+        assert_eq!(
+            graph.hidden_by("root/children:@a", false),
+            Some("root/children:")
+        );
+        assert_eq!(graph.hidden_by("root/children", false), None);
+        assert_eq!(graph.hidden_by("root/other:@a", false), None);
+        graph.hide("root");
+        assert_eq!(graph.hidden_by("root/children", false), Some("root"));
+    }
+    #[test]
+    fn visible_under_resolves_a_slot_prefix_to_that_slots_children() {
+        let mut graph = Graph::default();
+        let mut parent = node(0, "root");
+        parent.slots.push(crate::ir::IrSlot {
+            name: "children".into(),
+            children: vec![NodeId(1), NodeId(2)].into(),
+            plans: Default::default(),
+        });
+        graph.insert(parent, 2);
+        graph.insert(node(1, "root/children:@a"), 1);
+        graph.insert(node(2, "root/children:@b"), 1);
+        let mut visible = BTreeSet::new();
+        graph.visible_under("root/children:", &mut visible);
+        assert_eq!(visible, BTreeSet::from([NodeId(1), NodeId(2)]));
+    }
+    #[test]
+    fn projection_removes_a_node_that_became_hidden_even_if_it_changed() {
+        let mut before = Graph::default();
+        before.hide("root/children:#0");
+        before.insert(node(5, "root/children:#1"), 1);
+        let shown = before.nodes.clone();
+        let mut after = before.clone();
+        // Same hidden set; only the node's own path moved under the hidden
+        // prefix, so the hidden-key diff cannot compensate for the filter.
+        let mut changed = node(5, "root/children:#0/x");
+        changed.kind = ComponentId(9);
+        after.insert(changed, 1);
+        let (visible, _) = after.project(&before, &shown);
+        assert!(
+            visible.is_empty(),
+            "a hidden node must be removed from the projection"
+        );
+    }
+    #[test]
+    fn projection_removes_a_node_its_location_chain_now_hides() {
+        let mut before = Graph::default();
+        before.insert(node(5, "root/children:#1"), 1);
+        before.locations.insert(
+            NodeId(5),
+            Location {
+                parent: None,
+                slot: "root".into(),
+                chain: Default::default(),
+            },
+        );
+        let shown = before.nodes.clone();
+        let mut after = before.clone();
+        let owner = TaskId {
+            path: "root".into(),
+            statement: "root".into(),
+        };
+        let key = RangeKey {
+            owner,
+            name: "children".into(),
+        };
+        let mut sequence = Sequence::default();
+        for index in 0..=5usize {
+            sequence.index.insert(
+                index,
+                Input {
+                    expression: std::sync::Arc::new(Expr::String { value: "e".into() }),
+                    context: Context::at("root", None),
+                    path: NodePath(format!("root/children:#{index}")),
+                    depth: 1,
+                    place: None,
+                    reject: false,
+                },
+            );
+        }
+        let mut range_work = 0;
+        sequence
+            .index
+            .reconcile_with(2, &mut range_work, |index, _, _| {
+                let profile = if *index >= 2 {
+                    resource::Profile {
+                        stopped: true,
+                        ..Default::default()
+                    }
+                } else {
+                    resource::Profile::default()
+                };
+                (profile, Output::default())
+            });
+        assert_eq!(sequence.index.stopping_key(), Some(&2));
+        after.ranges.insert(key.clone(), sequence);
+        after.locations.insert(
+            NodeId(5),
+            Location {
+                parent: Some(NodeId(9)),
+                slot: "children".into(),
+                chain: std::iter::once((key, 5)).collect(),
+            },
+        );
+        let (visible, _) = after.project(&before, &shown);
+        assert!(
+            visible.is_empty(),
+            "a node behind a stopped range must be removed even when only its location changed"
+        );
+    }
+    #[test]
+    fn projection_ignores_node_changes_outside_kind_props_and_status() {
+        // §6.4: equal props produce no op. An origin-only change is not a
+        // renderer-visible change and must not enter the patch projection.
+        let mut before = crate::ir::Ir::default();
+        let mut after = crate::ir::Ir::default();
+        let id = NodeId(3);
+        let mut old = node(3, "root");
+        old.id = id;
+        let mut new = old.clone();
+        new.origin = "elsewhere".into();
+        assert_ne!(old, new);
+        before.nodes.insert(id, old);
+        after.nodes.insert(id, new);
+        let projection = Projection::between(&before, &after, None, None);
+        assert!(projection.ids.is_empty(), "ids: {:?}", projection.ids);
+    }
+    #[test]
+    fn projection_reinserts_retained_children_of_a_replaced_kind() {
+        let mut before = crate::ir::Ir::default();
+        let mut after = crate::ir::Ir::default();
+        let parent = NodeId(1);
+        let child = NodeId(2);
+        let mut old_parent = node(1, "root");
+        old_parent.id = parent;
+        let mut new_parent = old_parent.clone();
+        new_parent.kind = ComponentId(4);
+        let child_node = {
+            let mut n = node(2, "root/children:#0");
+            n.id = child;
+            n
+        };
+        new_parent.slots.push(crate::ir::IrSlot {
+            name: "children".into(),
+            children: vec![child].into(),
+            plans: Default::default(),
+        });
+        before.nodes.insert(parent, old_parent);
+        after.nodes.insert(parent, new_parent);
+        before.nodes.insert(child, child_node.clone());
+        after.nodes.insert(child, child_node);
+        let projection = Projection::between(&before, &after, None, None);
+        assert!(projection.ids.contains(&parent));
+        assert!(
+            projection.ids.contains(&child),
+            "retained children must be inserted after a kind replacement"
+        );
+    }
+    #[test]
+    fn cloning_a_machine_preserves_every_retained_layer() {
+        // §3.6: retained tasks, arenas and dirty bookkeeping survive a clone.
+        let mut machine = Machine::default();
+        machine.graph.insert(node(1, "root"), 1);
+        let task = TaskId {
+            path: "root".into(),
+            statement: "root".into(),
+        };
+        machine
+            .parents
+            .insert(task.clone(), std::iter::once(task.clone()).collect());
+        machine.dirty.insert(task.clone());
+        machine.checked.insert(
+            "c".into(),
+            Checked {
+                value: Some(Value::Null),
+                ty: crate::r#lib::T::Any,
+                valid: true,
+            },
+        );
+        machine
+            .actions
+            .insert("a".into(), Expr::String { value: "a".into() });
+        machine.sources.insert(
+            "s".into(),
+            Statement {
+                kind: StatementKind::Bind,
+                name: "s".into(),
+                value: Expr::String { value: "s".into() },
+            },
+        );
+        machine.bindings.insert(
+            "b".into(),
+            crate::validate::binding::Entry {
+                summary: Vec::new(),
+                deps: vec!["d".into()],
+            },
+        );
+        machine
+            .stages
+            .insert("k".into(), vec![Diagnostic::new(Code::NoRoot, None, None)]);
+        machine.ambiguous.insert("amb".into());
+        machine.values.insert(
+            "v".into(),
+            ValueEntry {
+                kind: Kind::Value,
+                source_kind: StatementKind::Bind,
+                expression: Expr::String { value: "v".into() },
+                value: Some(Value::Int(1)),
+            },
+        );
+        machine
+            .templates
+            .insert("t".into(), Expr::String { value: "t".into() });
+        machine.queries.insert(
+            "q".into(),
+            QueryDef {
+                tool: "tool".into(),
+                args: Expr::String { value: "q".into() },
+                default: Expr::String { value: "d".into() },
+                allowed: true,
+            },
+        );
+        machine.range_dirty.insert(
+            RangeKey {
+                owner: task.clone(),
+                name: "r".into(),
+            },
+            std::iter::once(7usize).collect(),
+        );
+        let copy = machine.clone();
+        assert_eq!(copy.graph.nodes.len(), 1);
+        assert_eq!(copy.previous_graph.nodes.len(), 1);
+        assert!(copy.parents.contains_key(&task));
+        assert!(copy.dirty.contains(&task));
+        assert!(copy.checked.contains_key("c"));
+        assert!(copy.actions.contains_key("a"));
+        assert!(copy.sources.contains_key("s"));
+        assert!(copy.bindings.contains_key("b"));
+        assert!(copy.stages.contains_key("k"));
+        assert!(copy.ambiguous.contains("amb"));
+        assert!(copy.values.contains_key("v"));
+        assert!(copy.templates.contains_key("t"));
+        assert!(copy.queries.contains_key("q"));
+        assert_eq!(copy.range_dirty.len(), 1);
+    }
+    #[test]
+    fn source_and_arena_views_export_every_retained_table() {
+        let mut machine = Machine::default();
+        machine.values.insert(
+            "v".into(),
+            ValueEntry {
+                kind: Kind::Value,
+                source_kind: StatementKind::Bind,
+                expression: Expr::String { value: "v".into() },
+                value: Some(Value::Int(1)),
+            },
+        );
+        machine
+            .templates
+            .insert("t".into(), Expr::String { value: "t".into() });
+        machine.queries.insert(
+            "q".into(),
+            QueryDef {
+                tool: "tool".into(),
+                args: Expr::String { value: "q".into() },
+                default: Expr::String { value: "d".into() },
+                allowed: true,
+            },
+        );
+        machine.states.insert(
+            "s".into(),
+            StateDef {
+                default: Value::Null,
+                ty: crate::r#lib::T::Any,
+            },
+        );
+        let scope = machine.expressions.enter("owner".into(), vec![0]);
+        let expression = machine
+            .expressions
+            .intern(&Expr::String { value: "e".into() });
+        machine.expressions.exit(scope);
+        machine.action_plans.insert(
+            ActionPlanId("act".into()),
+            ActionPlan {
+                steps: Vec::new(),
+                origin: NodeId(1),
+                submit_scope: None,
+            },
+        );
+        machine.fallbacks.insert(
+            expression.clone(),
+            FallbackPlan {
+                original: node(1, "root"),
+                descendants: Vec::new(),
+                template: "t".into(),
+            },
+        );
+
+        let mut ir = Ir::default();
+        machine.source_ir(&mut ir);
+        assert_eq!(ir.values.len(), 1);
+        assert_eq!(ir.templates.len(), 1);
+        assert_eq!(ir.queries.len(), 1);
+        assert_eq!(ir.states.len(), 1);
+
+        machine.arenas(&mut ir);
+        assert_eq!(ir.expressions, machine.expressions);
+        assert_eq!(ir.actions.len(), 1);
+        assert_eq!(ir.fallbacks.len(), 1);
+        assert!(ir.expressions.get(&expression).is_some());
+    }
+    #[test]
+    fn staging_a_replacement_charges_old_and_new_diagnostics() {
+        let mut machine = Machine::default();
+        let diagnostic = Diagnostic::new(Code::NoRoot, None, None);
+        assert_eq!(machine.stage("k".into(), vec![diagnostic.clone()]), 1);
+        assert_eq!(machine.stage("k".into(), vec![diagnostic]), 2);
+        assert_eq!(machine.diagnostics.len(), 1);
+        assert!(machine.metadata_diagnostics.len() == 1);
+    }
+    #[test]
+    fn begin_retains_the_previous_graph_and_marks_source_readers_dirty() {
+        let mut machine = Machine::default();
+        machine.graph.insert(node(1, "root"), 1);
+        machine.reused_nodes = 5;
+        machine.diagnostic_work = 9;
+        machine.owned_indices.insert(3);
+        machine.frames.push(Frame {
+            id: TaskId {
+                path: "root".into(),
+                statement: "root".into(),
+            },
+            start: 0,
+            profile: Default::default(),
+            indices: Default::default(),
+            limits: Default::default(),
+            owners: Default::default(),
+            children: Default::default(),
+            child_effects: 0,
+            old_source: false,
+            old_ranges: Default::default(),
+            ranges: Default::default(),
+            reuse_ranges: false,
+        });
+        let reader = TaskId {
+            path: "root".into(),
+            statement: "a".into(),
+        };
+        machine
+            .readers
+            .insert("@a".into(), std::iter::once(reader.clone()).collect());
+        let other = TaskId {
+            path: "root/children:#0".into(),
+            statement: "b".into(),
+        };
+        machine
+            .readers
+            .insert("b".into(), std::iter::once(other.clone()).collect());
+        let sources = [
+            Statement {
+                kind: StatementKind::Bind,
+                name: "a".into(),
+                value: Expr::String { value: "a".into() },
+            },
+            Statement {
+                kind: StatementKind::State,
+                name: "s".into(),
+                value: Expr::String { value: "s".into() },
+            },
+        ];
+        let dirty = BTreeSet::from(["b".to_string()]);
+        let reverse = BTreeMap::new();
+        let removed = ["gone".to_string()];
+        machine.begin(
+            &Changes {
+                dirty: &dirty,
+                sources: &sources,
+                reverse: &reverse,
+            },
+            removed,
+        );
+        assert_eq!(machine.previous_graph.nodes.len(), 1);
+        assert!(machine.frames.is_empty());
+        assert_eq!(machine.reused_nodes, 0);
+        assert_eq!(machine.diagnostic_work, 0);
+        assert!(machine.owned_indices.is_empty());
+        assert_eq!(
+            machine.changed_sources,
+            BTreeSet::from(["a".to_string(), "gone".to_string()]),
+            "state statements are not source dependencies"
+        );
+        assert!(machine.dirty.contains(&reader));
+        assert!(machine.dirty.contains(&other));
+    }
+    #[test]
+    fn metadata_invalidates_readers_of_each_changed_reference_table() {
+        let mut machine = Machine::default();
+        let state_reader = TaskId {
+            path: "root".into(),
+            statement: "$s".into(),
+        };
+        let checked_reader = TaskId {
+            path: "root/children:#0".into(),
+            statement: "c".into(),
+        };
+        let action_reader = TaskId {
+            path: "root/children:#1".into(),
+            statement: "act".into(),
+        };
+        machine
+            .readers
+            .insert("$s".into(), std::iter::once(state_reader.clone()).collect());
+        machine.readers.insert(
+            "chk".into(),
+            std::iter::once(checked_reader.clone()).collect(),
+        );
+        machine.readers.insert(
+            "act".into(),
+            std::iter::once(action_reader.clone()).collect(),
+        );
+        machine.states.insert(
+            "s".into(),
+            StateDef {
+                default: Value::Null,
+                ty: crate::r#lib::T::Any,
+            },
+        );
+        machine.checked.insert(
+            "chk".into(),
+            Checked {
+                value: Some(Value::Null),
+                ty: crate::r#lib::T::Any,
+                valid: true,
+            },
+        );
+        machine
+            .actions
+            .insert("act".into(), Expr::String { value: "a".into() });
+        let mut ir = Ir::default();
+        ir.states.insert(
+            "s".into(),
+            StateDef {
+                default: Value::Int(1),
+                ty: crate::r#lib::T::Int,
+            },
+        );
+        let mut checked = crate::SharedMap::default();
+        checked.insert(
+            "chk".into(),
+            Checked {
+                value: Some(Value::Int(1)),
+                ty: crate::r#lib::T::Int,
+                valid: true,
+            },
+        );
+        let mut actions = crate::SharedMap::default();
+        actions.insert("act".into(), Expr::String { value: "b".into() });
+        machine.metadata(&ir, &checked, &actions, &BTreeMap::new());
+        assert!(machine.dirty.contains(&state_reader));
+        assert!(machine.dirty.contains(&checked_reader));
+        assert!(machine.dirty.contains(&action_reader));
+    }
+    #[test]
+    fn invalidate_sources_follows_reverse_dependencies() {
+        let mut machine = Machine::default();
+        let a = TaskId {
+            path: "a".into(),
+            statement: "a".into(),
+        };
+        let b = TaskId {
+            path: "b".into(),
+            statement: "b".into(),
+        };
+        machine
+            .readers
+            .insert("a".into(), std::iter::once(a.clone()).collect());
+        machine
+            .readers
+            .insert("b".into(), std::iter::once(b.clone()).collect());
+        let mut reverse = BTreeMap::new();
+        reverse.insert("a".to_string(), BTreeSet::from(["b".to_string()]));
+        machine.invalidate_sources(&BTreeSet::from(["a".to_string()]), &reverse);
+        assert!(machine.dirty.contains(&a));
+        assert!(
+            machine.dirty.contains(&b),
+            "reverse dependents must be invalidated"
+        );
+    }
+    fn frame(start: usize) -> Frame {
+        Frame {
+            id: TaskId {
+                path: "root".into(),
+                statement: "root".into(),
+            },
+            start,
+            profile: resource::Profile {
+                lower: 1,
+                upper: Some(10),
+                ..Default::default()
+            },
+            indices: Default::default(),
+            limits: Default::default(),
+            owners: Default::default(),
+            children: Default::default(),
+            child_effects: 0,
+            old_source: false,
+            old_ranges: Default::default(),
+            ranges: Default::default(),
+            reuse_ranges: false,
+        }
+    }
+    #[test]
+    fn constrain_projects_a_child_profile_through_the_allocated_offset() {
+        let mut machine = Machine::default();
+        machine.frames.push(frame(5));
+        machine.constrain(
+            8,
+            resource::Profile {
+                lower: 2,
+                upper: Some(3),
+                ..Default::default()
+            },
+        );
+        let profile = machine.frames[0].profile;
+        assert_eq!(profile.lower, 5);
+        assert_eq!(profile.upper, Some(6));
+    }
+    #[test]
+    fn recording_a_diagnostic_charges_one_unit_of_work() {
+        let mut machine = Machine::default();
+        let id = TaskId {
+            path: "root".into(),
+            statement: "root".into(),
+        };
+        machine.diagnostic(
+            &id,
+            0,
+            &OwnedDiagnostic {
+                value: Diagnostic::new(Code::NoRoot, None, None),
+                order: None,
+            },
+            true,
+        );
+        assert_eq!(machine.diagnostic_work, 1);
+        assert_eq!(machine.diagnostics.len(), 1);
+    }
+    fn retained_task(_path: &str, statement: &str, effects: usize) -> Task {
+        Task {
+            source: std::sync::Arc::new(Expr::String {
+                value: statement.into(),
+            }),
+            profile: resource::Profile {
+                effects,
+                ..Default::default()
+            },
+            output: Default::default(),
+            plans: Default::default(),
+            diagnostics: Vec::new(),
+            owners: Vec::new(),
+            children: Default::default(),
+            effects,
+            ranges: Default::default(),
+            reject: false,
+            reads: Default::default(),
+            context: Context::at(statement, None),
+            depth: 1,
+            place: None,
+            ancestors: Default::default(),
+        }
+    }
+    #[test]
+    fn deactivation_skips_children_without_effects() {
+        let parent = TaskId {
+            path: "root".into(),
+            statement: "root".into(),
+        };
+        let live = TaskId {
+            path: "root/children:#0".into(),
+            statement: "live".into(),
+        };
+        let inert = TaskId {
+            path: "root/children:#1".into(),
+            statement: "inert".into(),
+        };
+        let mut machine = Machine::default();
+        let mut parent_task = retained_task("root", "root", 2);
+        parent_task.children = [live.clone(), inert.clone()].into_iter().collect();
+        machine.records.insert(parent.clone(), parent_task);
+        machine
+            .records
+            .insert(live.clone(), retained_task("root/children:#0", "live", 1));
+        machine
+            .records
+            .insert(inert.clone(), retained_task("root/children:#1", "inert", 0));
+        machine.active = [parent.clone(), live.clone(), inert.clone()]
+            .into_iter()
+            .collect();
+        machine.deactivate(&parent, &mut Ir::default());
+        assert!(!machine.active.contains(&parent));
+        assert!(!machine.active.contains(&live));
+        assert!(
+            machine.active.contains(&inert),
+            "zero-effect children are left untouched"
+        );
+    }
+    #[test]
+    fn activation_only_restores_children_with_effects() {
+        let parent = TaskId {
+            path: "root".into(),
+            statement: "root".into(),
+        };
+        let live = TaskId {
+            path: "root/children:#0".into(),
+            statement: "live".into(),
+        };
+        let inert = TaskId {
+            path: "root/children:#1".into(),
+            statement: "inert".into(),
+        };
+        let mut machine = Machine::default();
+        let mut parent_task = retained_task("root", "root", 2);
+        parent_task.children = [live.clone(), inert.clone()].into_iter().collect();
+        machine.records.insert(parent.clone(), parent_task);
+        machine
+            .records
+            .insert(live.clone(), retained_task("root/children:#0", "live", 1));
+        machine
+            .records
+            .insert(inert.clone(), retained_task("root/children:#1", "inert", 0));
+        machine.activate(&parent, &mut Ir::default());
+        assert!(machine.active.contains(&parent));
+        assert!(machine.active.contains(&live));
+        assert!(
+            !machine.active.contains(&inert),
+            "zero-effect children are not activated"
+        );
+    }
+    fn input(path: &str, depth: usize, place: Option<&str>, reject: bool) -> Input {
+        Input {
+            expression: std::sync::Arc::new(Expr::String { value: "e".into() }),
+            context: Context::at("s", None),
+            path: NodePath(path.into()),
+            depth,
+            place: place.map(str::to_string),
+            reject,
+        }
+    }
+    #[test]
+    fn input_identity_compares_every_retained_field() {
+        let base = input("root", 1, Some("p"), false);
+        assert!(base == base.clone());
+        let mut different_arc = input("root", 1, Some("p"), false);
+        different_arc.expression = std::sync::Arc::new(Expr::String { value: "e".into() });
+        assert!(base != different_arc);
+        let mut different_context = base.clone();
+        different_context.context = Context::at("other", None);
+        assert!(base != different_context);
+        let mut different_path = base.clone();
+        different_path.path = NodePath("root/children:#0".into());
+        assert!(base != different_path);
+        let mut different_depth = base.clone();
+        different_depth.depth = 2;
+        assert!(base != different_depth);
+        let mut different_place = base.clone();
+        different_place.place = Some("q".into());
+        assert!(base != different_place);
+        let mut no_place = base.clone();
+        no_place.place = None;
+        assert!(base != no_place);
+        let mut different_reject = base.clone();
+        different_reject.reject = true;
+        assert!(base != different_reject);
+    }
+    #[test]
+    fn aggregate_sameness_requires_shared_or_both_empty_vectors() {
+        let empty_a = Output::default();
+        let empty_b = Output::default();
+        assert!(resource::Aggregate::same(&empty_a, &empty_b));
+        assert!(!empty_a.nodes.ptr_eq(&empty_b.nodes));
+
+        let mut nodes = crate::SharedVector::default();
+        nodes.push_back(NodeId(1));
+        let mut plans = crate::SharedVector::default();
+        plans.push_back(crate::ir::SlotPlan {
+            base: NodePath("root".into()),
+            expression: ExprId {
+                hash: 1,
+                key: "k".into(),
+            },
+            accepts: Vec::new(),
+        });
+        let shared = Output {
+            nodes: nodes.clone(),
+            plans: plans.clone(),
+        };
+        assert!(resource::Aggregate::same(&shared, &shared.clone()));
+
+        let only_nodes = Output {
+            nodes: nodes.clone(),
+            plans: Default::default(),
+        };
+        assert!(!resource::Aggregate::same(&shared, &only_nodes));
+
+        let distinct_nodes = crate::SharedVector::from(vec![NodeId(1)]);
+        let distinct_plans = crate::SharedVector::from(vec![crate::ir::SlotPlan {
+            base: NodePath("root".into()),
+            expression: ExprId {
+                hash: 1,
+                key: "k".into(),
+            },
+            accepts: Vec::new(),
+        }]);
+        let equal_but_distinct = Output {
+            nodes: distinct_nodes,
+            plans: distinct_plans,
+        };
+        assert!(
+            !resource::Aggregate::same(&equal_but_distinct, &shared),
+            "equal values with distinct roots are not the same aggregate"
+        );
+    }
+    fn machine_library() -> Library {
+        use crate::r#lib::{ComponentDef, GroupDef, Role as LibRole, T};
+        Library::builder("tasks", "0.1.0")
+            .group(GroupDef::new("G", 0, "Test components."))
+            .component(
+                ComponentDef::new("Column", LibRole::Group)
+                    .group("G")
+                    .doc("A column.")
+                    .req("children", T::nodes())
+                    .example("Column([])"),
+            )
+            .component(
+                ComponentDef::new("Leaf", LibRole::Paragraph)
+                    .group("G")
+                    .doc("A leaf.")
+                    .req("text", T::text())
+                    .example("Leaf(\"x\")"),
+            )
+            .component(
+                ComponentDef::new("Control", LibRole::Button)
+                    .group("G")
+                    .doc("A control.")
+                    .opt_none("on_click", T::action())
+                    .example("Control()"),
+            )
+            .build()
+            .unwrap()
+    }
+    fn parsed(source: &str) -> crate::syntax::ast::Program {
+        crate::syntax::parse_batch(source.as_bytes(), Default::default()).program
+    }
+    fn first_pass(
+        lib: &Library,
+        program: &crate::syntax::ast::Program,
+    ) -> (Validation, crate::MaintenanceWork, ValidationCache) {
+        let options = Options::default();
+        let dirty: BTreeSet<String> = program
+            .statements
+            .iter()
+            .map(|statement| statement.name.clone())
+            .collect();
+        let reverse = BTreeMap::new();
+        let (validation, _, work, cache) = crate::validate::validate_incremental(
+            lib,
+            &options,
+            None,
+            Changes {
+                dirty: &dirty,
+                sources: &program.statements,
+                reverse: &reverse,
+            },
+            None,
+            None,
+            None,
+        );
+        (validation, work, cache)
+    }
+    fn unchanged_pass(
+        lib: &Library,
+        previous: &Validation,
+        cache: &ValidationCache,
+    ) -> (Validation, usize, crate::MaintenanceWork, ValidationCache) {
+        let options = Options::default();
+        let dirty = BTreeSet::new();
+        let reverse = BTreeMap::new();
+        crate::validate::validate_incremental(
+            lib,
+            &options,
+            Some(previous),
+            Changes {
+                dirty: &dirty,
+                sources: &[],
+                reverse: &reverse,
+            },
+            None,
+            Some(cache),
+            Some(cache),
+        )
+    }
+    #[test]
+    fn an_unchanged_second_pass_reuses_tasks_and_counts_range_examination() {
+        // §3.8/I7: revalidation must be bounded by the dirty set, so an
+        // unchanged pass reuses retained tasks and reports one range visit per
+        // retained task.
+        let lib = machine_library();
+        let program = parsed("root=Leaf(\"a\")\n");
+        let (first, _, first_cache) = first_pass(&lib, &program);
+        let (second, reused, work, _) = unchanged_pass(&lib, &first, &first_cache);
+        assert_eq!(first.ir.nodes, second.ir.nodes);
+        assert!(reused > 0, "retained tasks were not reused");
+        assert!(
+            work.resource_ranges_examined > 0,
+            "reuse must charge range examination work"
+        );
+    }
+    #[test]
+    fn a_first_pass_over_a_list_charges_range_reconciliation_work() {
+        let lib = machine_library();
+        let program = parsed("root=Column([Leaf(\"a\"), Leaf(\"b\")])\n");
+        let (validation, work, _) = first_pass(&lib, &program);
+        assert!(validation.ir.root.is_some());
+        assert!(
+            work.resource_ranges_examined > 0,
+            "retained list reconciliation must charge range work"
+        );
+    }
+    #[test]
+    fn a_partially_dirty_list_charges_only_the_reused_element_usage() {
+        let lib = machine_library();
+        let program = parsed("one=Leaf(\"a\")\ntwo=Leaf(\"b\")\nroot=Column([one, two])\n");
+        let (first, _, first_cache) = first_pass(&lib, &program);
+        let options = Options::default();
+        let dirty = BTreeSet::from(["one".to_string()]);
+        let reverse = BTreeMap::new();
+        let (second, reused, _, _) = crate::validate::validate_incremental(
+            &lib,
+            &options,
+            Some(&first),
+            Changes {
+                dirty: &dirty,
+                sources: &[],
+                reverse: &reverse,
+            },
+            None,
+            Some(&first_cache),
+            Some(&first_cache),
+        );
+        assert_eq!(first.ir.nodes, second.ir.nodes);
+        assert_eq!(
+            reused, 2,
+            "reused usage counts only the elements the reconciliation did not evaluate"
+        );
+    }
+    fn stale_range_counts_after(mutate: impl FnOnce(&mut Task)) -> usize {
+        let lib = machine_library();
+        let program = parsed("root=Column([Leaf(\"a\"), Leaf(\"b\")])\n");
+        let (first, _, mut first_cache) = first_pass(&lib, &program);
+        let id = TaskId {
+            path: "root".into(),
+            statement: "root".into(),
+        };
+        let task = first_cache
+            .tasks
+            .as_mut()
+            .and_then(|machine| machine.records.get_mut(&id))
+            .expect("retained root task");
+        mutate(task);
+        task.ranges
+            .get_mut("children")
+            .expect("retained slot range")
+            .counts
+            .set(0, 999);
+        let options = Options::default();
+        let dirty = BTreeSet::new();
+        let reverse = BTreeMap::new();
+        let (_, _, _, cache) = crate::validate::validate_incremental(
+            &lib,
+            &options,
+            Some(&first),
+            Changes {
+                dirty: &dirty,
+                sources: &[],
+                reverse: &reverse,
+            },
+            None,
+            Some(&first_cache),
+            Some(&first_cache),
+        );
+        let key = RangeKey {
+            owner: id,
+            name: "children".into(),
+        };
+        cache
+            .tasks
+            .as_ref()
+            .and_then(|machine| machine.graph.ranges.get(&key))
+            .map(|sequence| sequence.counts.prefix(1))
+            .expect("retained range")
+    }
+    #[test]
+    fn a_range_is_reused_only_when_every_retained_input_matches() {
+        // §3.6/§5.5: geometry (depth, place, ancestors) is part of a task's
+        // reuse identity. A mismatch must rebuild the range instead of keeping
+        // stale materialized counts.
+        assert_eq!(
+            stale_range_counts_after(|task| task.depth = 99),
+            1,
+            "a depth mismatch must rebuild the range"
+        );
+        assert_eq!(
+            stale_range_counts_after(|task| task.place = Some("ghost".into())),
+            1,
+            "a place mismatch must rebuild the range"
+        );
+        assert_eq!(
+            stale_range_counts_after(|task| {
+                task.ancestors.insert("ghost".into());
+            }),
+            1,
+            "an ancestors mismatch must rebuild the range"
+        );
+    }
+    #[test]
+    fn a_dirty_single_node_task_reuses_its_equal_output_vector() {
+        // §3.6: an equal retained result is kept by identity, so a re-walk of a
+        // single-node task does not replace the stored output vector.
+        let lib = machine_library();
+        let program = parsed("root=Leaf(\"a\")\n");
+        let (first, _, mut first_cache) = first_pass(&lib, &program);
+        let id = TaskId {
+            path: "root".into(),
+            statement: "root".into(),
+        };
+        // Make the retained task ineligible for the early reuse branch without
+        // changing its recorded result, forcing the post-walk equal-output path.
+        first_cache
+            .tasks
+            .as_mut()
+            .and_then(|machine| machine.records.get_mut(&id))
+            .expect("retained root task")
+            .depth = 99;
+        let before = first_cache
+            .tasks
+            .as_ref()
+            .and_then(|machine| machine.records.get(&id))
+            .map(|task| task.output.clone())
+            .expect("retained root task");
+        let options = Options::default();
+        let dirty = BTreeSet::from(["root".to_string()]);
+        let reverse = BTreeMap::new();
+        let (_, _, _, cache) = crate::validate::validate_incremental(
+            &lib,
+            &options,
+            Some(&first),
+            Changes {
+                dirty: &dirty,
+                sources: &[],
+                reverse: &reverse,
+            },
+            None,
+            Some(&first_cache),
+            Some(&first_cache),
+        );
+        let after = cache
+            .tasks
+            .as_ref()
+            .and_then(|machine| machine.records.get(&id))
+            .map(|task| task.output.clone())
+            .expect("retained root task");
+        assert!(
+            before.ptr_eq(&after),
+            "an equal retained output must keep its shared vector"
+        );
+    }
+    #[test]
+    fn a_slot_range_restores_its_hidden_prefix() {
+        // §3.6: a retained slot range owns its path prefix, so a fresh range
+        // must un-hide the prefix before its children become visible.
+        let lib = machine_library();
+        let options = Options::default();
+        let mut validator = Validator::new(&Program::default(), Vec::new(), &lib, &options);
+        let owner = TaskId {
+            path: "root".into(),
+            statement: "root".into(),
+        };
+        let mut machine = Machine::default();
+        machine.frames.push(Frame {
+            id: owner,
+            start: 0,
+            profile: Default::default(),
+            indices: Default::default(),
+            limits: Default::default(),
+            owners: Default::default(),
+            children: Default::default(),
+            child_effects: 0,
+            old_source: true,
+            old_ranges: Default::default(),
+            ranges: Default::default(),
+            reuse_ranges: false,
+        });
+        machine.graph.hide("root/children:");
+        assert!(machine.graph.hidden_by("root/children:", true).is_some());
+        validator.tasks = Some(machine);
+        let component = lib
+            .components()
+            .iter()
+            .find(|component| component.name == "Column")
+            .expect("Column component");
+        let arg = &component.args[0];
+        let parent = NodePath("root".into());
+        let ctx = Context::at("root", Some(parent.clone()));
+        validator.retained_sequence(
+            "children",
+            &[],
+            &ctx,
+            &parent,
+            2,
+            Some("children"),
+            Some((arg, 0)),
+        );
+        let machine = validator.tasks.as_ref().expect("retained machine");
+        assert!(
+            machine.graph.hidden_by("root/children:", true).is_none(),
+            "a new slot range must show its prefix"
+        );
+    }
+    #[test]
+    fn nested_child_effects_reach_the_root_for_deactivation() {
+        // §3.6: effects propagate through retained children so that removing an
+        // ancestor retracts action plans owned below it.
+        let lib = machine_library();
+        let program = parsed(
+            "$s = 0\nact = restore($s)\nleaf = Control(on_click: act)\ninner = Column([leaf])\nroot = Column([inner])\n",
+        );
+        let (mut validation, _, mut cache) = first_pass(&lib, &program);
+        assert_eq!(validation.ir.actions.len(), 1);
+        let machine = cache.tasks.as_mut().expect("retained machine");
+        machine.deactivate(
+            &TaskId {
+                path: "root".into(),
+                statement: "root".into(),
+            },
+            &mut validation.ir,
+        );
+        assert!(
+            validation.ir.actions.is_empty(),
+            "nested action plans must be retracted with their ancestor"
+        );
+    }
+    #[test]
+    fn deactivating_a_task_drops_its_expression_free_action_owner() {
+        // §5.5: action plans are retained by their source owner. An owner whose
+        // plan interns no expression (restore) must still be captured so that
+        // deactivation removes the plan from the IR.
+        let lib = machine_library();
+        let program = parsed("$s = 0\nact = restore($s)\nroot = Control(on_click: act)\n");
+        let (validation, _, mut cache) = first_pass(&lib, &program);
+        assert_eq!(validation.ir.actions.len(), 1);
+        let mut validation = validation;
+        let machine = cache.tasks.as_mut().expect("retained machine");
+        machine.deactivate(
+            &TaskId {
+                path: "root".into(),
+                statement: "root".into(),
+            },
+            &mut validation.ir,
+        );
+        assert!(
+            validation.ir.actions.is_empty(),
+            "owners must be captured even when they intern no expression"
+        );
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]

@@ -253,6 +253,15 @@ mod tests {
         assert_eq!(map.changed_keys(&changed), vec![7, 1001]);
     }
     #[test]
+    fn map_pointer_identity_distinguishes_equal_values_with_distinct_roots() {
+        let a: SharedMap<u8, u8> = [(1, 2)].into_iter().collect();
+        let clone = a.clone();
+        assert!(a.ptr_eq(&clone));
+        let b: SharedMap<u8, u8> = [(1, 2)].into_iter().collect();
+        assert_eq!(a, b);
+        assert!(!a.ptr_eq(&b), "equal contents must not report shared roots");
+    }
+    #[test]
     fn small_arena_clones_share_the_root_and_preserve_old_values() {
         let values: SharedVector<_> = vec![String::from("a")].into();
         let mut next = values.clone();

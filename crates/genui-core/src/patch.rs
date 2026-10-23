@@ -1090,5 +1090,183 @@ mod tests {
         });
         assert_eq!(wire_value(&tool), json!("x\u{200b}"));
     }
+    fn wire_library() -> Library {
+        use crate::r#lib::{ComponentDef, GroupDef, Role as LibRole, T};
+        Library::builder("wire", "0.1.0")
+            .group(GroupDef::new("G", 0, "Test components."))
+            .component(
+                ComponentDef::new("Column", LibRole::Group)
+                    .group("G")
+                    .doc("A column.")
+                    .req("children", T::nodes())
+                    .example("Column([])"),
+            )
+            .component(
+                ComponentDef::new("Leaf", LibRole::Paragraph)
+                    .group("G")
+                    .doc("A leaf.")
+                    .req("text", T::text())
+                    .example("Leaf(\"x\")"),
+            )
+            .build()
+            .unwrap()
+    }
+    fn column(id: u64, path: &str) -> crate::ir::Node {
+        crate::ir::Node {
+            id: crate::ir::NodeId(id),
+            path: crate::ir::NodePath(path.into()),
+            kind: crate::ir::ComponentId(0),
+            role: crate::ir::Role::Group,
+            props: BTreeMap::new(),
+            slots: Vec::new(),
+            status: NodeStatus::Sealed,
+            origin: "root".into(),
+        }
+    }
+    fn address(path: &str, parent: Option<&str>, index: usize) -> crate::validate::Address {
+        crate::validate::Address {
+            path: path.into(),
+            parent: parent.map(str::to_string),
+            slot: if parent.is_some() {
+                "children".into()
+            } else {
+                "root".into()
+            },
+            index,
+            order: parent
+                .map(|_| vec![("children".into(), index)])
+                .unwrap_or_default(),
+        }
+    }
+    fn projection(
+        ids: Vec<u64>,
+        before: &[(u64, &str, Option<&str>, usize)],
+        after: &[(u64, &str, Option<&str>, usize)],
+    ) -> crate::validate::Projection {
+        crate::validate::Projection {
+            ids: ids.into_iter().map(crate::ir::NodeId).collect(),
+            before: before
+                .iter()
+                .map(|(id, path, parent, index)| {
+                    (crate::ir::NodeId(*id), address(path, *parent, *index))
+                })
+                .collect(),
+            after: after
+                .iter()
+                .map(|(id, path, parent, index)| {
+                    (crate::ir::NodeId(*id), address(path, *parent, *index))
+                })
+                .collect(),
+        }
+    }
+    fn tree_with(children: &[&str]) -> (Tree, Library, Ir) {
+        let lib = wire_library();
+        let mut tree = Tree::default();
+        tree.apply(&insert("root", None, 0)).unwrap();
+        let mut ir = Ir::default();
+        ir.nodes.insert(crate::ir::NodeId(1), column(1, "root"));
+        for (index, id) in children.iter().enumerate() {
+            tree.apply(&insert(id, Some("root"), index as u32)).unwrap();
+        }
+        for (index, id) in children.iter().enumerate() {
+            ir.nodes.insert(
+                crate::ir::NodeId(11 + index as u64),
+                column(11 + index as u64, id),
+            );
+        }
+        (tree, lib, ir)
+    }
+    fn root_children(tree: &Tree) -> Vec<String> {
+        tree.nodes
+            .get("root")
+            .and_then(|entry| entry.children.get("children"))
+            .map(|children| children.iter().cloned().collect())
+            .unwrap_or_default()
+    }
+    #[test]
+    fn maintain_inserts_a_prefix_without_moving_retained_siblings() {
+        let (mut tree, lib, mut ir) = tree_with(&["a"]);
+        ir.nodes.insert(crate::ir::NodeId(12), column(12, "x"));
+        let projection = projection(
+            vec![12, 11],
+            &[(11, "a", Some("root"), 0)],
+            &[(12, "x", Some("root"), 0), (11, "a", Some("root"), 1)],
+        );
+        let (ops, _) = tree.maintain(&ir, &lib, &projection);
+        assert_eq!(ops.len(), 1, "only the insert is required: {ops:?}");
+        assert!(matches!(&ops[0], Op::Insert { node, index: 0, .. } if node.id == "x"));
+        assert_eq!(root_children(&tree), vec!["x", "a"]);
+    }
+    #[test]
+    fn maintain_reorders_siblings_from_their_retained_positions() {
+        let (mut tree, lib, ir) = tree_with(&["a", "b"]);
+        let projection = projection(
+            vec![11, 12],
+            &[(11, "a", Some("root"), 0), (12, "b", Some("root"), 1)],
+            &[(12, "b", Some("root"), 0), (11, "a", Some("root"), 1)],
+        );
+        let (ops, _) = tree.maintain(&ir, &lib, &projection);
+        assert!(
+            matches!(&ops[0], Op::Move { id, index: 0, .. } if id == "b"),
+            "unexpected ops: {ops:?}"
+        );
+        assert_eq!(root_children(&tree), vec!["b", "a"]);
+    }
+    #[test]
+    fn maintain_moves_a_node_between_slots_at_an_unchanged_index() {
+        let (mut tree, lib, ir) = tree_with(&["a", "other"]);
+        let projection = projection(
+            vec![11],
+            &[(11, "a", Some("root"), 0)],
+            &[(11, "a", Some("other"), 0)],
+        );
+        let (ops, _) = tree.maintain(&ir, &lib, &projection);
+        assert!(
+            matches!(&ops[0], Op::Move { id, parent: Some(parent), index: 0, .. }
+                if id == "a" && parent == "other"),
+            "unexpected ops: {ops:?}"
+        );
+        assert_eq!(
+            tree.nodes.get("a").and_then(|entry| entry.parent.clone()),
+            Some("other".into())
+        );
+    }
+    #[test]
+    fn update_props_charges_one_comparison_per_candidate_and_retained_prop() {
+        let lib = wire_library();
+        let id = crate::ir::NodeId(1);
+        let mut ir = Ir::default();
+        ir.root = Some(id);
+        let mut node = column(1, "root");
+        node.kind = crate::ir::ComponentId(1);
+        node.role = crate::ir::Role::Paragraph;
+        node.props.insert(
+            crate::ir::PropId(0),
+            Prop::Static(PropValue::Value(Value::from("old"))),
+        );
+        ir.nodes.insert(id, node.clone());
+        let mut tree = Tree::from_ir(&ir, &lib);
+        node.props.insert(
+            crate::ir::PropId(0),
+            Prop::Static(PropValue::Value(Value::from("new"))),
+        );
+        ir.nodes.insert(id, node);
+        let (ops, work) = tree.update_props(&ir, &lib, &[id]);
+        assert!(ops.iter().any(|op| matches!(op, Op::SetProps { .. })));
+        assert_eq!(
+            work.props_compared, 3,
+            "one target prop, one retained prop and the re-materialized prop"
+        );
+    }
+    #[test]
+    fn wire_values_recurse_through_lists_and_maps_for_model_text_hygiene() {
+        let list = Value::List(Arc::new(vec![Value::from("a\u{202e}b")]));
+        assert_eq!(wire_value(&list), json!(["ab"]));
+        let map = Value::Map(Arc::new(vec![(
+            "k".into(),
+            Value::List(Arc::new(vec![Value::from("c\u{200b}d")])),
+        )]));
+        assert_eq!(wire_value(&map), json!({"map": [["k", ["cd"]]]}));
+    }
     use std::sync::Arc;
 }

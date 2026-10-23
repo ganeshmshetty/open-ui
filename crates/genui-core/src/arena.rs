@@ -293,4 +293,61 @@ mod tests {
         assert_eq!(arena.get(&a), Some(&string("a")));
         assert_eq!(arena.get(&b), Some(&string("b")));
     }
+    #[test]
+    fn public_arena_views_report_exactly_the_retained_entries() {
+        // SPEC §§5.5,7: owners retain only live expressions; the observer views
+        // must enumerate those bodies and distinguish shared roots.
+        let mut arena = ExpressionArena::default();
+        let scope = arena.enter("a".into(), vec![0]);
+        let first = arena.intern(&string("first"));
+        let second = arena.intern(&string("second"));
+        arena.exit(scope);
+        let mut observed: Vec<_> = arena.iter().cloned().collect();
+        observed.sort_by_key(|e| format!("{e:?}"));
+        assert_eq!(observed, vec![string("first"), string("second")]);
+        let mut ids = arena.owner_ids("a");
+        ids.sort();
+        let mut expected = vec![first, second];
+        expected.sort();
+        assert_eq!(ids, expected);
+        assert!(arena.owner_ids("missing").is_empty());
+
+        let clone = arena.clone();
+        assert!(arena.ptr_eq(&clone));
+        let mut other = ExpressionArena::default();
+        let scope = other.enter("a".into(), vec![0]);
+        other.intern(&string("first"));
+        other.exit(scope);
+        assert!(!arena.ptr_eq(&other));
+    }
+    #[test]
+    fn action_arena_views_enumerate_plans_and_distinguish_roots() {
+        let plan = ActionPlan {
+            steps: vec![crate::ir::Step::Set {
+                state: "x".into(),
+                value: ExprId {
+                    hash: 1,
+                    key: "k".into(),
+                },
+            }],
+            origin: crate::ir::NodeId(1),
+            submit_scope: None,
+        };
+        let mut arena = ActionArena::default();
+        assert!(arena.is_empty());
+        let id = ActionPlanId("root|arg:on_click".into());
+        arena.insert(id.clone(), plan.clone());
+        assert!(!arena.is_empty());
+        assert_eq!(arena.len(), 1);
+        assert_eq!(arena.iter().collect::<Vec<_>>(), vec![&plan]);
+        assert_eq!(arena.ids().collect::<Vec<_>>(), vec![&id]);
+
+        let clone = arena.clone();
+        assert!(arena.ptr_eq(&clone));
+        let distinct = ActionArena::default();
+        assert!(!arena.ptr_eq(&distinct));
+        let mut same_contents = ActionArena::default();
+        same_contents.insert(id, plan);
+        assert!(!arena.ptr_eq(&same_contents));
+    }
 }

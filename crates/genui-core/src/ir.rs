@@ -338,6 +338,16 @@ mod tests {
         assert_eq!(a.allocate_with(&x, |_| 7), i);
     }
     #[test]
+    fn expression_debug_identity_names_the_hash_not_the_body() {
+        // SPEC §5.5: ExprId is an opaque structural identity. Its debug form is
+        // used as an internal key, so it must carry the hash and stay O(1).
+        let id = ExprId {
+            hash: 0xfeed,
+            key: "a very long expression body".into(),
+        };
+        assert_eq!(format!("{id:?}"), "ExprId(65261)");
+    }
+    #[test]
     fn typed_keys_escape_only_reserved_characters() {
         let p = NodePath::root().child("items", "e0");
         let mut seen = BTreeSet::new();

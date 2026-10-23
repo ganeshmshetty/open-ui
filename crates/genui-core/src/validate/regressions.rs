@@ -571,6 +571,7 @@ fn plan_nodes_rejects_malformed_if_and_coalesce_shapes() {
     let invalid = [
         "root=Stack([if(true, Leaf(\"a\"))])\n",
         "root=Stack([if(true, Leaf(\"a\"), extra: 1)])\n",
+        "root=Stack([if(true, Leaf(\"a\"), Leaf(\"b\"), extra: 1)])\n",
         "root=Stack([coalesce(Leaf(\"a\"))])\n",
     ];
     for source in invalid {

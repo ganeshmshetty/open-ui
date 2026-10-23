@@ -64,6 +64,31 @@ class IntegrationTests(unittest.TestCase):
             self.assertEqual(len(errors), 1)
             self.assertIn(bad, errors[0])
 
+    def test_force_pushed_base_checks_the_new_head(self):
+        from pathlib import Path
+        import subprocess
+        import tempfile
+        from quality import fixtures
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            def git(*args):
+                return subprocess.check_output(["git", "-C", str(root), *args], text=True).strip()
+            git("init", "-q")
+            git("config", "user.name", "Gate Test")
+            git("config", "user.email", "gate@example.invalid")
+            (root / "initial").write_text("base")
+            git("add", ".")
+            git("commit", "-qm", "base")
+            abandoned = git("rev-parse", "HEAD")
+            git("checkout", "-q", "--orphan", "rewritten")
+            (root / "want.ir.json").write_text("{}")
+            git("add", ".")
+            git("commit", "-qm", "unprotected fixture after force push")
+            head = git("rev-parse", "HEAD")
+            errors = fixtures(root, abandoned, "HEAD")
+            self.assertEqual(len(errors), 1)
+            self.assertIn(head, errors[0])
+
     def test_cargo_deny_rejects_a_renamed_gpui_dependency(self):
         from pathlib import Path
         import subprocess

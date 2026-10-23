@@ -87,7 +87,16 @@ def fixture_errors(names, commit):
 
 def fixtures(root, base, head):
     # Every commit is checked independently, including added/deleted/renamed goldens.
-    revision = f"{base}..{head}" if base and set(base) != {"0"} else head
+    # A force-push makes github.event.before unreachable from the new head; the
+    # range is then invalid, so fall back to checking the new head commit itself.
+    revision = head
+    if base and set(base) != {"0"}:
+        try:
+            git(root, "merge-base", "--is-ancestor", base, head)
+        except subprocess.CalledProcessError:
+            pass
+        else:
+            revision = f"{base}..{head}"
     commits = git(root, "rev-list", revision).splitlines()
     errors = []
     for commit in commits:

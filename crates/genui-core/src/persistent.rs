@@ -260,6 +260,12 @@ mod tests {
         let b: SharedMap<u8, u8> = [(1, 2)].into_iter().collect();
         assert_eq!(a, b);
         assert!(!a.ptr_eq(&b), "equal contents must not report shared roots");
+        let different_value: SharedMap<u8, u8> = [(1, 3)].into_iter().collect();
+        assert_ne!(a, different_value);
+        let different_key: SharedMap<u8, u8> = [(2, 2)].into_iter().collect();
+        assert_ne!(a, different_key);
+        let different_len: SharedMap<u8, u8> = [(1, 2), (2, 3)].into_iter().collect();
+        assert_ne!(a, different_len);
     }
     #[test]
     fn small_arena_clones_share_the_root_and_preserve_old_values() {

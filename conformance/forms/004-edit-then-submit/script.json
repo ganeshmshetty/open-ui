@@ -1,0 +1,12 @@
+[
+  {
+    "op": "edit",
+    "node": "root/children:@finder/children:@name_f",
+    "value": "Ada"
+  },
+  {
+    "op": "activate",
+    "node": "root/children:@finder/children:@go",
+    "prop": "on_click"
+  }
+]

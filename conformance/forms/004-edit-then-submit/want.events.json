@@ -1,0 +1,1 @@
+[{"kind":"say","label":"Create","node":"root/children:@finder/children:@go","source":"ui_event","stmt":"go","text":"Clicked","v":1},{"kind":"say","label":"Create","node":"root/children:@finder/children:@go","source":"ui_event","stmt":"finder","text":"Create","v":1}]

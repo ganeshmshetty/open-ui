@@ -1,0 +1,12 @@
+[
+  {
+    "op": "deliver",
+    "request": 1,
+    "result": "A"
+  },
+  {
+    "op": "deliver",
+    "request": 2,
+    "result": "B"
+  }
+]

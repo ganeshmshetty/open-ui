@@ -1,10 +1,12 @@
 //! Synchronous, UI-free runtime evaluation (§§2.6–2.7,5.5,7.1–7.4).
 //!
-//! This module is the M4 foundation: values, pure builtins, fuel, state reads and
-//! state-writing action steps. Host query dispatch, ref delivery and model events
-//! are deliberately not implemented here; a query name resolves to its declared
-//! default and `ref("id")` stays a `Value::Ref` placeholder, matching the static
-//! evaluation described by §4.6.
+//! This module owns values, pure builtins, fuel, state reads/writes, field status,
+//! delivered query/ref data and evaluated action effects. The session owns request
+//! identity, host delivery and model-event construction so no host effect can be
+//! produced by validation or streaming.
+mod fields;
+pub use fields::{Field, FieldError, FieldRegistry, FieldStatus};
+
 use crate::{
     diag::{Code, Diagnostic},
     ir::{Ir, NodeId, Prop, PropId, PropValue, Step},
@@ -151,6 +153,20 @@ impl StateStore {
         slot.rev = slot.rev.saturating_add(1);
         true
     }
+    #[cfg(test)]
+    pub(crate) fn insert_test(&mut self, name: &str, value: Value) {
+        let ty = crate::r#lib::T::infer(&value);
+        self.slots.insert(
+            name.into(),
+            StateSlot {
+                value: value.clone(),
+                ty,
+                origin: StateOrigin::Default,
+                default: value,
+                rev: 0,
+            },
+        );
+    }
 }
 fn value_size(value: &Value) -> usize {
     serde_json::to_vec(value).map_or(usize::MAX, |bytes| bytes.len())
@@ -172,6 +188,14 @@ impl Resolved {
     pub fn is_empty(&self) -> bool {
         self.props.is_empty()
     }
+    pub fn entries(&self) -> impl Iterator<Item = (NodeId, PropId, &PropValue)> {
+        self.props
+            .iter()
+            .flat_map(|(node, props)| props.iter().map(move |(prop, value)| (*node, *prop, value)))
+    }
+    pub fn node_props(&self, node: NodeId) -> Option<&crate::SharedMap<PropId, PropValue>> {
+        self.props.get(&node)
+    }
     pub fn set(&mut self, node: NodeId, prop: PropId, value: PropValue) {
         let mut props = self.props.get(&node).cloned().unwrap_or_default();
         props.insert(prop, value);
@@ -179,62 +203,133 @@ impl Resolved {
     }
 }
 
-/// Runtime state plus the one explicit entry point for state-writing action steps.
+/// Runtime state, delivered host data and the explicit action entry point.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Runtime {
     pub state: StateStore,
+    queries: BTreeMap<String, Value>,
+    refs: BTreeMap<String, Value>,
 }
 impl Runtime {
     pub fn new() -> Self {
         Self::default()
     }
-    pub fn evaluate(&self, ir: &Ir, library: &Library, limits: &Limits) -> Resolved {
-        evaluate_with_state(ir, library, limits, &self.state)
+    pub fn evaluate(
+        &self,
+        ir: &Ir,
+        library: &Library,
+        limits: &Limits,
+        catalog: &BTreeSet<String>,
+    ) -> Resolved {
+        evaluate_full(
+            ir,
+            library,
+            limits,
+            &self.state,
+            &self.queries,
+            &self.refs,
+            catalog,
+        )
     }
-    /// Run a plan's state steps. Host-effect steps are returned in execution order
-    /// instead of being dispatched; that transport belongs to the next runtime slice.
+    /// Evaluate one expression outside the resolved tree (query arguments and
+    /// action-step arguments). Errors are returned, never dispatched.
+    pub fn evaluate_expression(
+        &self,
+        ir: &Ir,
+        library: &Library,
+        limits: &Limits,
+        catalog: &BTreeSet<String>,
+        expression: &Expr,
+        stmt: &str,
+    ) -> (Value, Vec<Diagnostic>) {
+        let mut diagnostics = Vec::new();
+        let values = evaluate_values(
+            ir,
+            library,
+            limits,
+            &self.state,
+            &self.queries,
+            &self.refs,
+            catalog,
+            &mut diagnostics,
+        );
+        let mut queries = BTreeMap::new();
+        let mut evaluator = Evaluator::new(
+            ir,
+            library,
+            limits,
+            &self.state,
+            &values,
+            &self.queries,
+            &self.refs,
+            catalog,
+            &mut queries,
+            &mut diagnostics,
+        );
+        let value = evaluator.eval(
+            expression,
+            &BTreeMap::new(),
+            &Context {
+                stmt: stmt.into(),
+                path: None,
+            },
+        );
+        if evaluator.failed {
+            (Value::Null, diagnostics)
+        } else {
+            (value, diagnostics)
+        }
+    }
+    pub fn query_result(&self, name: &str) -> Option<&Value> {
+        self.queries.get(name)
+    }
+    pub fn ref_value(&self, id: &str) -> Option<&Value> {
+        self.refs.get(id)
+    }
+    pub fn set_query_result(&mut self, name: &str, value: Value) {
+        self.queries.insert(name.into(), value);
+    }
+    pub fn set_ref_value(&mut self, id: &str, value: Value) {
+        self.refs.insert(id.into(), value);
+    }
+    pub fn clear_query_result(&mut self, name: &str) {
+        self.queries.remove(name);
+    }
+    pub fn resolved_ref_count(&self) -> usize {
+        self.refs.len()
+    }
+    /// Run a plan's steps in order. State steps apply immediately; host effects
+    /// are returned in execution order and never dispatched here (§7.4).
     pub fn execute_action(
         &mut self,
         ir: &Ir,
         library: &Library,
         limits: &Limits,
+        catalog: &BTreeSet<String>,
         plan: &crate::ir::ActionPlan,
     ) -> ActionExecution {
         let mut diagnostics = Vec::new();
-        let mut deferred = Vec::new();
+        let mut effects = Vec::new();
         let mut applied = 0usize;
-        let values = evaluate_values(ir, library, limits, &self.state, &mut diagnostics);
-        let mut queries = BTreeMap::new();
         for step in &plan.steps {
+            let evaluate = |runtime: &Runtime, expression: &crate::ir::ExprId| {
+                ir.expressions
+                    .get(expression)
+                    .map_or((Value::Null, Vec::new()), |expression| {
+                        runtime.evaluate_expression(
+                            ir,
+                            library,
+                            limits,
+                            catalog,
+                            expression,
+                            &plan_owner(ir, plan),
+                        )
+                    })
+            };
             match step {
                 Step::Set { state, value } => {
-                    let expression = ir.expressions.get(value);
-                    let mut step_diagnostics = Vec::new();
-                    let mut evaluator = Evaluator::new(
-                        ir,
-                        library,
-                        limits,
-                        &self.state,
-                        &values,
-                        &mut queries,
-                        &mut step_diagnostics,
-                    );
-                    let evaluated = expression.map_or(Value::Null, |expression| {
-                        evaluator.eval(
-                            expression,
-                            &BTreeMap::new(),
-                            &Context {
-                                stmt: format!("${state}"),
-                                path: None,
-                            },
-                        )
-                    });
-                    let failed = evaluator.failed;
-                    drop(evaluator);
+                    let (evaluated, step_diagnostics) = evaluate(self, value);
                     diagnostics.extend(step_diagnostics);
-                    if failed {
-                        continue;
-                    }
                     if let Err(code) =
                         self.state
                             .write(state, evaluated, StateOrigin::Action, limits, library)
@@ -251,31 +346,93 @@ impl Runtime {
                         }
                     }
                 }
-                Step::Refresh { .. } | Step::Say { .. } | Step::Open { .. } | Step::Emit { .. } => {
-                    deferred.push(step.clone());
+                Step::Refresh { query } => effects.push(Effect::Refresh {
+                    query: query.clone(),
+                }),
+                Step::Say { text, ctx } => {
+                    let (text, text_diagnostics) = evaluate(self, text);
+                    diagnostics.extend(text_diagnostics);
+                    let (ctx, ctx_diagnostics) = match ctx {
+                        Some(ctx) => evaluate(self, ctx),
+                        None => (Value::Null, Vec::new()),
+                    };
+                    diagnostics.extend(ctx_diagnostics);
+                    effects.push(Effect::Say { text, ctx });
+                }
+                Step::Open { url } => {
+                    let (url, step_diagnostics) = evaluate(self, url);
+                    diagnostics.extend(step_diagnostics);
+                    effects.push(Effect::Open { url });
+                }
+                Step::Emit { name, params } => {
+                    let mut values = Vec::new();
+                    for params in params {
+                        let (value, step_diagnostics) = evaluate(self, params);
+                        diagnostics.extend(step_diagnostics);
+                        values.push(value);
+                    }
+                    let params = match values.len() {
+                        0 => Value::Null,
+                        1 => values.pop().unwrap_or(Value::Null),
+                        _ => Value::List(Arc::new(values)),
+                    };
+                    effects.push(Effect::Emit {
+                        name: name.clone(),
+                        params,
+                    });
                 }
             }
         }
         sort_diagnostics(&mut diagnostics);
         ActionExecution {
             applied,
-            deferred,
+            effects,
             diagnostics,
         }
     }
 }
+fn plan_owner(ir: &Ir, plan: &crate::ir::ActionPlan) -> String {
+    ir.nodes.get(&plan.origin).map_or_else(
+        || format!("<action:{}>", plan.origin.0),
+        |node| node.origin.clone(),
+    )
+}
+#[derive(Clone, Debug, PartialEq)]
+pub enum Effect {
+    Refresh { query: String },
+    Say { text: Value, ctx: Value },
+    Open { url: Value },
+    Emit { name: String, params: Value },
+}
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ActionExecution {
     pub applied: usize,
-    /// Host-facing steps in execution order. The caller must not treat these as
-    /// delivered; they are the boundary for the events slice.
-    pub deferred: Vec<Step>,
+    /// Host-facing effects in execution order. The session turns these into
+    /// epoch-bound requests; they are not delivered by this module.
+    pub effects: Vec<Effect>,
     pub diagnostics: Vec<Diagnostic>,
 }
 
 /// Evaluate a fresh IR with declaration defaults (§4.6 static evaluation).
 pub fn evaluate_from_ir(ir: &Ir, library: &Library, limits: &Limits) -> Resolved {
-    evaluate_with_state(ir, library, limits, &StateStore::from_ir(ir))
+    evaluate_with_catalog(ir, library, limits, &BTreeSet::new())
+}
+/// Evaluate with an explicit ref catalog and empty host caches (§4.6).
+pub fn evaluate_with_catalog(
+    ir: &Ir,
+    library: &Library,
+    limits: &Limits,
+    catalog: &BTreeSet<String>,
+) -> Resolved {
+    evaluate_full(
+        ir,
+        library,
+        limits,
+        &StateStore::from_ir(ir),
+        &BTreeMap::new(),
+        &BTreeMap::new(),
+        catalog,
+    )
 }
 
 /// Evaluate all Dynamic props, capped per prop by `fuel_per_prop`.
@@ -285,8 +442,38 @@ pub fn evaluate_with_state(
     limits: &Limits,
     state: &StateStore,
 ) -> Resolved {
+    evaluate_full(
+        ir,
+        library,
+        limits,
+        state,
+        &BTreeMap::new(),
+        &BTreeMap::new(),
+        &BTreeSet::new(),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn evaluate_full(
+    ir: &Ir,
+    library: &Library,
+    limits: &Limits,
+    state: &StateStore,
+    query_results: &BTreeMap<String, Value>,
+    ref_values: &BTreeMap<String, Value>,
+    catalog: &BTreeSet<String>,
+) -> Resolved {
     let mut diagnostics = Vec::new();
-    let values = evaluate_values(ir, library, limits, state, &mut diagnostics);
+    let values = evaluate_values(
+        ir,
+        library,
+        limits,
+        state,
+        query_results,
+        ref_values,
+        catalog,
+        &mut diagnostics,
+    );
     let mut queries = BTreeMap::new();
     let mut resolved = Resolved::default();
     let mut nodes: Vec<_> = ir.nodes.values().collect();
@@ -316,13 +503,20 @@ pub fn evaluate_with_state(
                 limits,
                 state,
                 &values,
+                query_results,
+                ref_values,
+                catalog,
                 &mut queries,
                 &mut prop_diagnostics,
             );
             let mut value = evaluator.eval(expression, &BTreeMap::new(), &context);
             let failed = evaluator.failed;
             drop(evaluator);
-            if !failed && value != Value::Null && !library.accepts(&arg.ty, &value) {
+            if !failed
+                && value != Value::Null
+                && !matches!(value, Value::Ref(_))
+                && !library.accepts(&arg.ty, &value)
+            {
                 push_diagnostic(
                     &mut prop_diagnostics,
                     Code::ExprType,
@@ -380,6 +574,9 @@ struct Evaluator<'a> {
     limits: &'a Limits,
     state: &'a StateStore,
     values: &'a BTreeMap<String, Value>,
+    query_results: &'a BTreeMap<String, Value>,
+    ref_values: &'a BTreeMap<String, Value>,
+    ref_catalog: &'a BTreeSet<String>,
     queries: &'a mut BTreeMap<String, Value>,
     visiting_queries: BTreeSet<String>,
     diagnostics: &'a mut Vec<Diagnostic>,
@@ -387,12 +584,16 @@ struct Evaluator<'a> {
     failed: bool,
 }
 impl<'a> Evaluator<'a> {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         ir: &'a Ir,
         library: &'a Library,
         limits: &'a Limits,
         state: &'a StateStore,
         values: &'a BTreeMap<String, Value>,
+        query_results: &'a BTreeMap<String, Value>,
+        ref_values: &'a BTreeMap<String, Value>,
+        ref_catalog: &'a BTreeSet<String>,
         queries: &'a mut BTreeMap<String, Value>,
         diagnostics: &'a mut Vec<Diagnostic>,
     ) -> Self {
@@ -402,6 +603,9 @@ impl<'a> Evaluator<'a> {
             limits,
             state,
             values,
+            query_results,
+            ref_values,
+            ref_catalog,
             queries,
             visiting_queries: BTreeSet::new(),
             diagnostics,
@@ -463,7 +667,13 @@ impl<'a> Evaluator<'a> {
                 }
                 Value::Null
             }
-            Expr::State { name } => self.state.value(name).cloned().unwrap_or(Value::Null),
+            Expr::State { name } => match self.state.get(name) {
+                Some(slot) if slot.origin == StateOrigin::User => {
+                    retag(slot.value.clone(), Provenance::User)
+                }
+                Some(slot) => slot.value.clone(),
+                None => Value::Null,
+            },
             Expr::List { items } => {
                 let cap = self.limits.max_list_len;
                 if items.len() > cap {
@@ -726,7 +936,18 @@ impl<'a> Evaluator<'a> {
                 Value::Null
             }
             "ref" => match args.first().map(|a| &a.value) {
-                Some(Expr::String { value }) => Value::Ref(value.clone()),
+                Some(Expr::String { value }) => {
+                    if !valid_ref_id(value) {
+                        self.fail(Code::RefInvalid, context)
+                    } else if !self.ref_catalog.contains(value) {
+                        self.fail(Code::RefUnknown, context)
+                    } else if let Some(value) = self.ref_values.get(value) {
+                        value.clone()
+                    } else {
+                        // No host data before delivery (§7.7): keep the placeholder.
+                        Value::Ref(value.clone())
+                    }
+                }
                 _ => self.fail(Code::RefInvalid, context),
             },
             "each" => self.fail(Code::ExprType, context),
@@ -1232,11 +1453,13 @@ impl<'a> Evaluator<'a> {
             return self.fail(Code::ExprType, context);
         };
         let mut rendered = Vec::new();
+        let mut prov = template.prov;
         for argument in args.iter().skip(1) {
             let value = self.eval(&argument.value, locals, context);
             if self.failed {
                 return Value::Null;
             }
+            prov = mix(prov, provenance(&value));
             match scalar_text(&value) {
                 Some(text) => rendered.push(text),
                 None => return self.fail(Code::ExprType, context),
@@ -1275,7 +1498,7 @@ impl<'a> Evaluator<'a> {
         }
         Value::Str(PStr {
             text: self.cap_string(&output, context),
-            prov: mix(template.prov, provenance_of(&rendered)),
+            prov,
         })
     }
     fn query_value(
@@ -1284,6 +1507,9 @@ impl<'a> Evaluator<'a> {
         locals: &BTreeMap<String, Value>,
         context: &Context,
     ) -> Value {
+        if let Some(value) = self.query_results.get(name) {
+            return value.clone();
+        }
         if let Some(value) = self.queries.get(name) {
             return value.clone();
         }
@@ -1317,11 +1543,15 @@ impl<'a> Evaluator<'a> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn evaluate_values(
     ir: &Ir,
     library: &Library,
     limits: &Limits,
     state: &StateStore,
+    query_results: &BTreeMap<String, Value>,
+    ref_values: &BTreeMap<String, Value>,
+    catalog: &BTreeSet<String>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> BTreeMap<String, Value> {
     let mut values = BTreeMap::new();
@@ -1341,8 +1571,18 @@ fn evaluate_values(
             continue;
         }
         let seen = values.clone();
-        let mut evaluator =
-            Evaluator::new(ir, library, limits, state, &seen, &mut queries, diagnostics);
+        let mut evaluator = Evaluator::new(
+            ir,
+            library,
+            limits,
+            state,
+            &seen,
+            query_results,
+            ref_values,
+            catalog,
+            &mut queries,
+            diagnostics,
+        );
         let value = evaluator.eval(
             &entry.expression,
             &BTreeMap::new(),
@@ -1462,9 +1702,6 @@ fn provenance(value: &Value) -> Provenance {
         _ => Provenance::Model,
     }
 }
-fn provenance_of(_rendered: &[String]) -> Provenance {
-    Provenance::Model
-}
 fn scalar_text(value: &Value) -> Option<String> {
     match value {
         Value::Null => Some(String::new()),
@@ -1536,6 +1773,145 @@ pub fn format_float(value: f64) -> String {
         }
         output.push_str(&decimal_exponent.to_string());
         output
+    }
+}
+
+/// Ref ids match `[A-Za-z0-9_.:-]{1,128}` (§7.7).
+pub fn valid_ref_id(id: &str) -> bool {
+    (1..=128).contains(&id.len())
+        && id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'.' | b':' | b'-'))
+}
+
+/// Tag every string in delivered data with the request's provenance (§7.6).
+pub fn retag(value: Value, prov: Provenance) -> Value {
+    match value {
+        Value::Str(text) => Value::Str(PStr {
+            text: text.text,
+            prov,
+        }),
+        Value::List(items) => Value::List(Arc::new(
+            items.iter().cloned().map(|v| retag(v, prov)).collect(),
+        )),
+        Value::Map(entries) => Value::Map(Arc::new(
+            entries
+                .iter()
+                .map(|(key, value)| (key.clone(), retag(value.clone(), prov)))
+                .collect(),
+        )),
+        other => other,
+    }
+}
+
+/// True when delivered host data still contains an unresolved ref (§7.7 nesting).
+pub fn contains_ref(value: &Value) -> bool {
+    match value {
+        Value::Ref(_) => true,
+        Value::List(items) => items.iter().any(contains_ref),
+        Value::Map(entries) => entries.iter().any(|(_, value)| contains_ref(value)),
+        _ => false,
+    }
+}
+
+/// Canonical data size used by `max_resolved_data_bytes` and `max_state_bytes`.
+pub fn value_bytes(value: &Value) -> usize {
+    serde_json::to_vec(value).map_or(usize::MAX, |bytes| bytes.len())
+}
+
+/// Resolved retained tree in the §12.2 canonical shape. `provenance` emits
+/// `{"s":text,"prov":tag}` for strings; it is used only by provenance fixtures.
+pub fn resolved_tree_json(
+    ir: &Ir,
+    library: &Library,
+    resolved: &Resolved,
+    provenance: bool,
+) -> serde_json::Value {
+    fn visit(
+        ir: &Ir,
+        library: &Library,
+        resolved: &Resolved,
+        id: NodeId,
+        provenance: bool,
+    ) -> serde_json::Value {
+        use serde_json::{Value as J, json};
+        let Some(node) = ir.nodes.get(&id) else {
+            return J::Null;
+        };
+        let Some(component) = library.components().get(node.kind.0 as usize) else {
+            return J::Null;
+        };
+        let props: serde_json::Map<_, _> = node
+            .props
+            .iter()
+            .filter_map(|(prop_id, prop)| {
+                let arg = component.args.get(prop_id.0 as usize)?;
+                let value = match prop {
+                    Prop::Dynamic(_) => {
+                        match resolved.node_props(id).and_then(|props| props.get(prop_id)) {
+                            Some(PropValue::Value(value)) => value_json(value, provenance),
+                            _ => return None,
+                        }
+                    }
+                    Prop::Static(PropValue::Value(value)) => value_json(value, provenance),
+                    Prop::Static(PropValue::Token { scale, value }) => {
+                        json!({"tok":[scale,value.plain_json()]})
+                    }
+                    Prop::Static(PropValue::Binding(name)) => json!({"bind":format!("${name}")}),
+                    Prop::Static(PropValue::Action(id)) => json!({"action":id.0.as_ref()}),
+                };
+                Some((arg.name.clone(), value))
+            })
+            .collect();
+        let children: serde_json::Map<_, _> = node
+            .slots
+            .iter()
+            .map(|slot| {
+                (
+                    slot.name.clone(),
+                    J::Array(
+                        slot.children
+                            .iter()
+                            .map(|child| visit(ir, library, resolved, *child, provenance))
+                            .collect(),
+                    ),
+                )
+            })
+            .collect();
+        json!({
+            "id": node.path.0,
+            "kind": component.name,
+            "role": node.role,
+            "props": props,
+            "status": node.status,
+            "children": children,
+        })
+    }
+    ir.root.map_or(serde_json::Value::Null, |root| {
+        visit(ir, library, resolved, root, provenance)
+    })
+}
+fn value_json(value: &Value, provenance: bool) -> serde_json::Value {
+    use serde_json::{Value as J, json};
+    match value {
+        Value::Str(text) if provenance => {
+            json!({"s": text.text.as_ref(), "prov": prov_name(text.prov)})
+        }
+        Value::Str(text) => J::String(crate::patch::strip_invisibles(&text.text)),
+        Value::List(items) => J::Array(items.iter().map(|v| value_json(v, provenance)).collect()),
+        Value::Map(items) => {
+            json!({"map":items.iter().map(|(k,v)|json!([k,value_json(v,provenance)])).collect::<Vec<_>>()})
+        }
+        other => other.ir_json(),
+    }
+}
+fn prov_name(prov: Provenance) -> &'static str {
+    match prov {
+        Provenance::Model => "model",
+        Provenance::Host => "host",
+        Provenance::Tool => "tool",
+        Provenance::User => "user",
+        Provenance::Mixed => "mixed",
     }
 }
 

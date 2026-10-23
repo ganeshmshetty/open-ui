@@ -41,7 +41,7 @@ pub enum Role {
 pub struct ComponentId(pub u16);
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct PropId(pub u16);
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct NodeId(pub u64);
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct NodePath(pub String);

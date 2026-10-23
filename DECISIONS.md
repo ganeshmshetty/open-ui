@@ -85,3 +85,25 @@ implementation work; the owner requirement and acceptance conditions are unchang
   future M4 work; the current slice only replaces values and reports diagnostics.
 - `each` and node-producing `if`/`coalesce` stay checked plans until node
   instantiation is implemented; calling `each` in a value position is `expr.type`.
+
+## M4 runtime slice 2 decisions (host boundary)
+
+- Queries request after `finish()`; dependency changes are debounced through the
+  virtual clock (300 ms). Pending requests beyond `max_concurrent_requests` stay
+  queued and are pumped by delivery. A delivery is accepted only for the current
+  `(stmt, args_hash)`; stale and cross-epoch ids are dropped. This is the simplest
+  reading of §7.5's request table and avoids any real clock or async work in core.
+- Tool descriptors are not part of `SessionOptions` yet. Every accepted query
+  therefore reports `needs_approval = true`, the §7.5 default for `auto_run =
+  false`. When descriptors arrive, this becomes descriptor- and provenance-based.
+- Ref delivery error mapping is fixed because §7.7 names only three codes: a
+  denied/failed host delivery is `ref.unknown`, too many bytes or too many
+  resolutions is `ref.too_large`, and a nested ref is `ref.invalid`.
+- Field formats are fixed in §2.14: scalar-value length, one `@` with a dotted
+  domain for email, `http(s)://authority` for url, finite `f64` and `i64` parsing.
+  Field status is exposed by node path until the renderer adds error/touched props.
+- Event truncation drops `ctx` first, then trims `text`. Keeping visible text is
+  more useful than keeping optional context; `limit.event` is emitted once.
+- Action steps that create host requests are returned in `Update.requests` and,
+  for `say`/custom actions, `Update.model_events`. The host still decides whether
+  to send the model event; the core never transmits anything.

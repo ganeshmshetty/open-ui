@@ -1,0 +1,8 @@
+{
+  "title": "Query results are Tool provenance",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a77.6: delivered tool data is tagged Tool."
+}

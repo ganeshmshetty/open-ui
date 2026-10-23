@@ -1,0 +1,8 @@
+{
+  "title": "Failed refresh keeps last good",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a77.5: query.failed keeps the last good result; refresh produces a new request."
+}

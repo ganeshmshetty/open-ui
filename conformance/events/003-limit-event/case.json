@@ -1,0 +1,11 @@
+{
+  "title": "Oversized model event is truncated",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a7\u00a74.3,7.8: events are capped by max_event_bytes with limit.event.",
+  "limits": {
+    "max_event_bytes": 120
+  }
+}

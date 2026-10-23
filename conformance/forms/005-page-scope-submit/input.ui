@@ -1,0 +1,4 @@
+$name=""
+name_f=Input("Name",bind:$name,required:true)
+go=Button("Create",submit:true,on_click:say("Clicked"))
+root=Column([name_f,go])

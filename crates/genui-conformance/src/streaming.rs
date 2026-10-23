@@ -65,7 +65,7 @@ impl Oracle {
             }
             next_seq += 1;
             check_prose(&session, &update, &mut prose)?;
-            live(&session, &update, &mut replay, &mut trace)
+            live(&session, &update, &mut replay, &mut trace, false)
                 .map_err(|e| format!("chunk {i}: {e}"))?;
             if let Some(batch) = update.patches {
                 batches.push(batch);
@@ -78,7 +78,8 @@ impl Oracle {
             return Err("finish sequence has a gap".into());
         }
         check_prose(&session, &update, &mut prose)?;
-        live(&session, &update, &mut replay, &mut trace).map_err(|e| format!("finish: {e}"))?;
+        live(&session, &update, &mut replay, &mut trace, true)
+            .map_err(|e| format!("finish: {e}"))?;
         if let Some(batch) = update.patches {
             batches.push(batch);
         }
@@ -108,10 +109,11 @@ impl Oracle {
                 "final diagnostics differ\nstream {actual:?}\nbatch {expected:?}"
             ));
         }
-        let resolved = genui_core::runtime::evaluate_from_ir(
+        let resolved = genui_core::runtime::evaluate_with_catalog(
             &self.batch.ir,
             &self.library,
             &self.options.limits,
+            &self.options.refs,
         );
         if replay.tree != Tree::from_ir_resolved(&self.batch.ir, &self.library, &resolved) {
             return Err("final patch replay differs from evaluated batch tree".into());
@@ -189,6 +191,7 @@ fn live(
     update: &genui_core::Update,
     replay: &mut Replay,
     trace: &mut Vec<genui_core::syntax::streaming::Seal>,
+    at_finish: bool,
 ) -> Result<()> {
     let work = session.parser_work();
     if work.parsed_seals > session.seals().len() || work.tail_bytes > work.tail_limit {
@@ -206,8 +209,8 @@ fn live(
     }) {
         return Err("a sealed origin became provisional".into());
     }
-    if !update.requests.is_empty() || !update.model_events.is_empty() {
-        return Err("M3 emitted host effects".into());
+    if !at_finish && (!update.requests.is_empty() || !update.model_events.is_empty()) {
+        return Err("streaming emitted host effects".into());
     }
     if !session.seals().starts_with(trace) {
         return Err("sealed statements changed or disappeared".into());
@@ -449,7 +452,7 @@ fn run_script(
                 session.reset()
             }
         };
-        live(&session, &update, &mut replay, &mut trace)?;
+        live(&session, &update, &mut replay, &mut trace, finish)?;
         if finish {
             let batch = if message {
                 validate_message(&source, &library, &options).1

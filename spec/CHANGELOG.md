@@ -15,6 +15,23 @@
   limit before all mutants finished; the inventory and per-mutant timeout are
   unchanged.
 
+## 2026-10-23 — M4 host boundary (§§2.14–2.15,5.5,7.3,7.5,7.7–7.8,12.2,13)
+
+- Define fixed field format/length/range rules so `FieldStatus` is deterministic
+  without a renderer: scalar-value length, four named formats, numeric comparison
+  and the existing first-failure order. Expose status by canonical node path.
+- Define query issuance: accepted queries at `finish()` in name order up to
+  `max_concurrent_requests`, queued remainder, `advance_clock` 300 ms debounce,
+  current `(stmt,args_hash)` delivery check, `Tool` tagging and size caps. Assume
+  `auto_run = false` until tool descriptors are supplied, so approval is requested.
+- Define ref delivery outcomes: placeholder before delivery, `Host` tagging,
+  `ref.unknown` for denied/failed, `ref.too_large` for size or the per-message
+  resolution cap, and `ref.invalid` for nested refs.
+- Define model-event truncation order (drop `ctx`, then trim `text`) and that
+  `open` yields only a request plus URL-policy errors.
+- Runtime fixtures may assert `want.requests.json`, `want.events.json` and
+  `want.fields.json`; §13 lists the new inspection entries.
+
 ## 2026-10-23 — M4 runtime evaluation foundation (§§2.6–2.7,5.5,7.1–7.4,12.2)
 
 - Dynamic props are evaluated for live patches to resolved values; a failing

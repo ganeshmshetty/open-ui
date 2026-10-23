@@ -3,22 +3,6 @@
     "milestone": "M5",
     "reason": "Requires stored-message replay with a recorded library identity."
   },
-  "limit.event": {
-    "milestone": "M4",
-    "reason": "Requires construction of a gesture event, including resolved label and context."
-  },
-  "query.denied": {
-    "milestone": "M4",
-    "reason": "Requires a host approval decision."
-  },
-  "query.failed": {
-    "milestone": "M4",
-    "reason": "Requires a host tool delivery."
-  },
-  "ref.too_large": {
-    "milestone": "M4",
-    "reason": "Requires resolved host data and delivery byte accounting."
-  },
   "render.panic": {
     "milestone": "M6",
     "reason": "Requires a renderer subtree boundary and renderer failure."

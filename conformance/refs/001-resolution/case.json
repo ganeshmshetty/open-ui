@@ -1,0 +1,8 @@
+{
+  "title": "Resolved ref delivers Host data",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a77.7: a catalog ref requests host resolution and shows the delivered value."
+}

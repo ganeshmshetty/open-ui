@@ -10,7 +10,7 @@ A milestone is complete only after its acceptance checks pass and CI is green.
 | M1 — Batch syntax | Complete | 124 fixtures / 28,225 chunkings; 23 tests including 2,048 generated round trips; four clean 600-second fuzz campaigns; Linux/macOS CI green. |
 | M2 — Library, validation, IR and limits | Complete, including tree and quality gates | 295 fixtures / 66,772 chunkings / 400 permutations; 66 Rust + 10 gate tests; 8 CLI fixtures; 24 exemplars; renewed parser/validator ASan 601s each; 609 mutations audited; Linux/macOS/quality and mutation CI green. |
 | M3 — Streaming and patches | Complete (mutation advisory) | CI green; fresh 601 s fuzz; 100k property; fixtures/replay. Mutation survivors recorded as backlog per the 2026-10-24 gate change. |
-| M4 — Runtime | In progress on milestone/m4 (slice 1) | Evaluator, fuel, state reads/writes, explicit action entry, resolved wire props and 20 runtime fixtures pass. Queries/refs/events, forms, provenance and `each` instantiation remain. |
+| M4 — Runtime | In progress on milestone/m4 (slice 2) | Slice 1 evaluator/state/actions; slice 2 queries, refs, events, forms and provenance: 24 new runtime fixtures, 404 fixtures / 96,248 chunkings. `each` instantiation and status props remain. |
 | M5 — Prompt, feedback and messages | Not started | Golden output and cross-platform determinism. |
 | M6 — GPUI skeleton | Not started | Live streaming demo and recorded performance. |
 | M7 — Inputs and forms | Not started | Stable editing, keyboard form demo and accessibility. |
@@ -1188,3 +1188,60 @@ targets), 380 fixtures / 89,161 chunkings / 430 seeded permutations,
 exemplars) and the `serde_json/preserve_order` workspace tests. No fuzz or
 mutation campaign was run.
 
+
+## M4 slice 2 — runtime host boundary (2026-10-23)
+
+Fixtures were authored before each fix (and observed failing where behavior was
+wrong): `queries` (5), `refs` (4), `events` (2), `forms` (5), `provenance` (6)
+and `actions/002`. They use exact `want.resolved.json` (provenance trees encode
+`{"s":text,"prov":tag}`), `want.diag.json`, and optional `want.requests.json`,
+`want.events.json` and `want.fields.json`.
+
+Implemented:
+
+- Accepted queries request once at `finish()` in name order, up to
+  `max_concurrent_requests`; the rest queue and pump on delivery. Dependency
+  changes debounce for 300 ms through `advance_clock`. A delivery is accepted only
+  for the current `(stmt, args_hash)`; stale, unknown and cross-epoch ids are
+  dropped. Results are tagged `Tool`, capped by `max_resolved_data_bytes`, and
+  `query.denied`/`query.failed` keep the default or last good value. Request status
+  is exposed via `query_status`.
+- `ref()` validates `[A-Za-z0-9_.:-]{1,128}`, stays a `Ref` placeholder before
+  delivery, and requests only catalog ids that reach a prop. Delivered data is
+  tagged `Host`; denial/failure is `ref.unknown`, size or
+  `max_ref_resolutions` overflow is `ref.too_large`, and a nested ref is
+  `ref.invalid`. No resolution happens before delivery.
+- `UiEvent::{Activate,Edit,Blur}` and `deliver` are the runtime entries. `say`,
+  `open`, declared custom actions and `refresh` become epoch-bound
+  `HostRequest`s; `say`/custom actions also produce a `ModelEvent` with the
+  activated node's visible label. `limit.event` truncates by dropping `ctx` then
+  trimming text. `open` enforces provenance and the host URL allowlist
+  (`expr.tainted_url`). Host effects are never dispatched internally.
+- Field registry by nearest `Form`/page scope with the §2.14 fixed check order;
+  failed submit marks scope fields touched and runs no step. A submit button runs
+  its own `on_click` first, then the form's `on_submit`. Field status is exposed
+  by canonical node path; the renderer props remain M6 work.
+- Resolved trees are unchanged for existing categories; runtime fixtures compare
+  the retained tree and provenance fixtures compare the tagged projection. Stream
+  equality, provisional isolation and the absence of streaming host effects are
+  still checked by the shared oracle.
+
+Bugs found while authoring fixtures (fixed with the fixture present): debounce was
+restarted on every clock advance; delivered values did not mark the wire tree
+dirty; multiple ref rejections re-requested the same id forever; `say` after `set`
+used the activated node's statement for the form's `on_submit`; `fmt` lost mixed
+provenance; oversized events trimmed visible text before context.
+
+Gates: `cargo fmt`, workspace Clippy `-D warnings`, `cargo test --workspace`
+(88 core + 47 conformance + 5 std + 4 CLI/quality tests and empty doc targets),
+`--features serde_json/preserve_order`, 404 fixtures / 96,248 chunkings / 430
+seeded permutations, `genui-cli fixtures`, and `spec-check` (3 programs, 4
+fragments, 24 exemplars). `query.denied`, `query.failed`, `ref.too_large` and
+`limit.event` moved from deferred to covered; only `lib.mismatch` (M5) and
+`render.panic` (M6) remain deferred.
+
+Remaining M4 work: `each`/node-producing `if`/`coalesce` instantiation, synthetic
+`Status`/field props on the wire, `ToolDescriptor`-driven `auto_run`/argument
+shapes, URL policy for tool arguments, form-scope rendering semantics at M6, and
+fuzz/mutation acceptance for this changed runtime source. M3's I7/review state is
+unchanged by this slice.

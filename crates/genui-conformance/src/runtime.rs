@@ -1,10 +1,10 @@
-//! M4 runtime fixtures: evaluated trees, runtime diagnostics and explicit actions.
+//! M4 runtime fixtures: evaluated trees, delivered host data and explicit actions.
 use super::*;
 use genui_core::{
     Session, SessionOptions,
     ir::NodePath,
     r#lib::Library,
-    session::InputMode,
+    session::{HostError, InputMode, RequestId},
     validate::{Options, validate},
 };
 use serde::Deserialize;
@@ -13,10 +13,35 @@ use std::sync::Arc;
 #[derive(Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 enum Step {
-    Activate { node: String, prop: String },
+    Activate {
+        node: String,
+        prop: String,
+    },
+    Deliver {
+        request: u64,
+        #[serde(default)]
+        result: Option<genui_core::value::Value>,
+        #[serde(default)]
+        error: Option<String>,
+    },
+    Advance {
+        ms: u64,
+    },
+    Edit {
+        node: String,
+        value: genui_core::value::Value,
+    },
+    Blur {
+        node: String,
+    },
 }
 
-pub fn run_case(path: &Path, schemas: &Schemas, library: Arc<Library>) -> Result<semantic::Checks> {
+pub fn run_case(
+    path: &Path,
+    schemas: &Schemas,
+    library: Arc<Library>,
+    category: &str,
+) -> Result<semantic::Checks> {
     let case: Case = checked_json(&path.join("case.json"), &schemas.case)?;
     let allowed = [
         "case.json",
@@ -24,6 +49,9 @@ pub fn run_case(path: &Path, schemas: &Schemas, library: Arc<Library>) -> Result
         "stream.json",
         "want.resolved.json",
         "want.diag.json",
+        "want.requests.json",
+        "want.events.json",
+        "want.fields.json",
         "options.json",
         "script.json",
     ];
@@ -66,11 +94,19 @@ pub fn run_case(path: &Path, schemas: &Schemas, library: Arc<Library>) -> Result
         input: InputMode::Program,
     });
     session.push(&input);
-    session.finish();
+    let mut requests = Vec::new();
+    let mut events = Vec::new();
+    requests.extend(
+        session
+            .finish()
+            .requests
+            .into_iter()
+            .filter_map(|request| genui_core::canonical::serialize(&request).ok()),
+    );
     if path.join("script.json").exists() {
         let steps: Vec<Step> = read_json(&path.join("script.json"))?;
         for step in steps {
-            match step {
+            let update = match step {
                 Step::Activate { node, prop } => {
                     let path = NodePath(node);
                     let handle = session
@@ -83,12 +119,51 @@ pub fn run_case(path: &Path, schemas: &Schemas, library: Arc<Library>) -> Result
                         .find(|node| node.path == path)
                         .map(|node| node.id)
                         .ok_or_else(|| format!("no node {path:?}"))?;
-                    session.activate(id, &handle);
+                    session.activate(id, &handle)
                 }
-            }
+                Step::Deliver {
+                    request,
+                    result,
+                    error,
+                } => {
+                    let result = match error.as_deref() {
+                        Some("denied") => Err(HostError::Denied),
+                        Some("failed") => Err(HostError::Failed),
+                        Some("too_large") => Err(HostError::TooLarge),
+                        Some(other) => return Err(format!("unknown delivery error {other:?}")),
+                        None => Ok(result.unwrap_or(genui_core::value::Value::Null)),
+                    };
+                    session.deliver(RequestId(request), result)
+                }
+                Step::Advance { ms } => session.advance_clock(ms),
+                Step::Edit { node, value } => {
+                    let node = node_by_path(&session, &node)?;
+                    session.event(genui_core::session::UiEvent::Edit { node, value })
+                }
+                Step::Blur { node } => {
+                    let node = node_by_path(&session, &node)?;
+                    session.event(genui_core::session::UiEvent::Blur { node })
+                }
+            };
+            requests.extend(
+                update
+                    .requests
+                    .into_iter()
+                    .filter_map(|request| genui_core::canonical::serialize(&request).ok()),
+            );
+            events.extend(
+                update
+                    .model_events
+                    .into_iter()
+                    .filter_map(|event| genui_core::canonical::serialize(&event).ok()),
+            );
         }
     }
-    let actual = session.tree().canonical_tree();
+    let actual = if category == "provenance" {
+        genui_core::runtime::resolved_tree_json(session.ir(), &library, session.resolved(), true)
+    } else {
+        session.tree().canonical_tree()
+    };
     if actual != want {
         return Err(format!(
             "resolved tree mismatch\nexpected {want}\nactual {actual}"
@@ -105,6 +180,49 @@ pub fn run_case(path: &Path, schemas: &Schemas, library: Arc<Library>) -> Result
         return Err(format!(
             "runtime diagnostic mismatch\nexpected {want_diags:?}\nactual {actual_diags:?}"
         ));
+    }
+    if path.join("want.requests.json").exists() {
+        let want: Vec<Value> = checked_json(&path.join("want.requests.json"), &schemas.requests)?;
+        let actual: Vec<Value> = requests
+            .iter()
+            .filter_map(|request| serde_json::from_str(request).ok())
+            .collect();
+        if actual != want {
+            return Err(format!(
+                "request mismatch\nexpected {want:?}\nactual {actual:?}"
+            ));
+        }
+    }
+    if path.join("want.events.json").exists() {
+        let want: Vec<Value> = checked_json(&path.join("want.events.json"), &schemas.events)?;
+        let actual: Vec<Value> = events
+            .iter()
+            .filter_map(|event| serde_json::from_str(event).ok())
+            .collect();
+        if actual != want {
+            return Err(format!(
+                "model-event mismatch\nexpected {want:?}\nactual {actual:?}"
+            ));
+        }
+    }
+    if path.join("want.fields.json").exists() {
+        let want: Vec<Value> = checked_json(&path.join("want.fields.json"), &schemas.fields)?;
+        let actual: Vec<Value> = session
+            .field_status()
+            .iter()
+            .map(|(path, status)| {
+                serde_json::json!({
+                    "path": path,
+                    "error": status.error,
+                    "touched": status.touched,
+                })
+            })
+            .collect();
+        if actual != want {
+            return Err(format!(
+                "field status mismatch\nexpected {want:?}\nactual {actual:?}"
+            ));
+        }
     }
     if batch.ir != *session.ir() {
         return Err("runtime session IR differs from batch validation".into());
@@ -125,4 +243,14 @@ pub fn run_case(path: &Path, schemas: &Schemas, library: Arc<Library>) -> Result
         chunkings: count,
         permutations: 0,
     })
+}
+
+fn node_by_path(session: &Session, path: &str) -> Result<genui_core::ir::NodeId> {
+    session
+        .ir()
+        .nodes
+        .values()
+        .find(|node| node.path.0 == path)
+        .map(|node| node.id)
+        .ok_or_else(|| format!("no node {path:?}"))
 }

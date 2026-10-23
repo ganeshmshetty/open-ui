@@ -1,0 +1,8 @@
+{
+  "title": "Query defaults stay Model provenance",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a77.6: a literal default written by the model stays Model."
+}

@@ -504,6 +504,10 @@ The model never supplies a regular expression. A library MAY add named format ki
 - The empty value is `""`, `[]` or `null`. An empty field fails only if `required` is set; every other check passes it.
 - Checks run in this fixed order: required, format, length, range. A field shows the first check it fails.
 
+Length counts Unicode scalar values for text and elements for lists. The fixed formats are: `email` needs one non-empty local part, a non-empty domain containing a dot and no whitespace; `url` needs an `http://` or `https://` prefix followed by a non-empty authority; `number` needs a finite numeric string; `integer` needs an `i64` string. `min`/`max` compare a numeric value or numeric string.
+
+The session exposes each field's `FieldStatus` by canonical node path (`field_status()`), and a later renderer mirrors `error` and `touched` into resolved props. Validation and submit gating never dispatch a host effect.
+
 **Submit.**
 
 - Inside a `Form`, a `Button` with `submit: true` validates that form, then runs the form's `on_submit` if every field passes. If the button also has its own `on_click`, that runs first.
@@ -1237,7 +1241,9 @@ pub enum ReqKind {
 
 The host decides, typically asking the user for each distinct args hash, and then delivers either a result or `Err(Denied)`.
 
-**Status display.** Request status reaches renderers as a `Status` resolved prop on the data-bearing nodes that read the query (a loading dim, an error notice). It is never visible to expressions.
+**Issuance and delivery.** `finish()` requests every accepted query in query-name order, up to `max_concurrent_requests`; the remainder stay queued and are requested as deliveries free capacity. A dependency change does not request immediately: `advance_clock(now_ms)` starts a 300 ms debounce, then requests the new `(stmt, args_hash)`. A delivery is accepted only while that request is current for its statement and args hash; stale ids and ids from another epoch are dropped. A delivered result is tagged `Tool`, capped by `max_resolved_data_bytes`, and a `TooLarge` result is `query.failed`. When no tool descriptor is supplied the core assumes `auto_run = false`, so queries request host approval.
+
+**Status display.** Request status reaches renderers as a `Status` resolved prop on the data-bearing nodes that read the query (a loading dim, an error notice). It is never visible to expressions. Until that projection exists, the session exposes `query_status(name)`.
 
 **Results** are untrusted data. They are capped by `max_resolved_data_bytes`, tagged with `Tool` provenance, and never parsed as program text.
 
@@ -1275,6 +1281,8 @@ Images are never fetched from a URL by the renderer. The host fetches them and h
 - **Nesting.** A resolved value MUST NOT contain further refs.
 - **Caching.** Resolution is cached per `(message, RefId)`. The limits are in 7.1.
 
+Before delivery the ref id is validated against the catalog and the prop keeps a `Ref` placeholder; no data is invented. Delivery replaces it with the value tagged `Host`, capped by `max_resolved_data_bytes` and by `max_ref_resolutions` per message. A `Denied` or `Failed` delivery is `ref.unknown`, an oversized value or an exceeded resolution cap is `ref.too_large`, and a resolved value that still contains a ref is `ref.invalid`; all three use the §4.3 recovery.
+
 ### 7.8 UI events and events to the model
 
 ```rust
@@ -1294,6 +1302,7 @@ Events that leave the process become `ModelEvent`s once the host lets them throu
 
 - **`label`** is the visible label of the node the user activated, read from the IR. It is not taken from model-supplied event text. This lets the host and the model see what the user actually clicked.
 - **Size.** Events are capped at `max_event_bytes` (`limit.event`).
+- **Truncation.** An oversized event first drops its `ctx`, then trims `text` at a character boundary; `limit.event` is reported once. `say` and declared custom actions produce a model event beside their host request; `open` produces only an `OpenUrl` request and fails with `expr.tainted_url` when provenance or the host URL policy forbids it.
 - **Sending.** The host turns the event into a synthetic user turn (9.3) and MUST show it in the transcript exactly as sent. The core never sends anything itself.
 
 ### 7.9 Conversations: one session per message
@@ -1870,7 +1879,7 @@ If an implementation and a fixture disagree, the disagreement is treated as a sp
 - **IR** goldens are compact canonical JSON followed by one file-terminating LF, and are compared as canonical JSON: sorted keys, `{id, kind, role, props, children}`, absent props omitted, encoded as in 6.5. `children` includes every validated slot, including its empty array. Retained patch-tree comparisons normalize empty slots, since inserts do not carry empty slot declarations.
 - **Diagnostics** are compared as a multiset of `(code, stmt, path, recovery)`. `message` and `hint` are not compared, except in category `feedback`, which compares the rendered `ui-diag` text byte for byte.
 - **Patches** are compared exactly in category `patches`. Elsewhere they are checked by replay: applying them to an empty tree must give `want.ir.json` or `want.resolved.json`.
-- **Resolved trees** (runtime categories and `want.resolved.json`) use the retained-tree canonical JSON: `{id, kind, role, props, status, children}`, with evaluated values encoded as in 6.5. They are compared byte for byte after canonical encoding, like IR.
+- **Resolved trees** (runtime categories and `want.resolved.json`) use the retained-tree canonical JSON: `{id, kind, role, props, status, children}`, with evaluated values encoded as in 6.5. They are compared byte for byte after canonical encoding, like IR. Category `provenance` additionally encodes strings as `{"s":text,"prov":tag}`. Runtime fixtures MAY carry `want.requests.json`, `want.events.json` and `want.fields.json`; those compare canonical session requests, model events and per-field `{path,error,touched}` exactly.
 - **Prompts and the Library Spec** are compared byte for byte.
 - **Strict schemas.** `want.*` files may not contain unknown fields.
 
@@ -2061,6 +2070,10 @@ impl Session {
     pub fn event(&mut self, ev: UiEvent) -> Update;
     pub fn deliver(&mut self, id: RequestId, res: Result<Value, HostError>) -> Update;
     pub fn advance_clock(&mut self, now_ms: u64) -> Update;  // debounce timers
+
+    // Runtime inspection
+    pub fn query_status(&self, name: &str) -> QueryStatus;
+    pub fn field_status(&self) -> &BTreeMap<String, FieldStatus>;
 
     // Inspection
     pub fn snapshot(&mut self) -> Update;                // reset + inserts, current epoch, next seq

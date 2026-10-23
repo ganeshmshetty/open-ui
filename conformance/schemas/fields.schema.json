@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["path", "error", "touched"],
+    "properties": {
+      "path": { "type": "string" },
+      "error": {
+        "anyOf": [
+          { "type": "null" },
+          {
+            "enum": ["required", "format", "too_short", "too_long", "too_small", "too_large"]
+          }
+        ]
+      },
+      "touched": { "type": "boolean" }
+    }
+  }
+}

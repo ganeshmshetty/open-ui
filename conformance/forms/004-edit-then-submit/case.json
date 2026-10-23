@@ -1,0 +1,8 @@
+{
+  "title": "Editing a sealed field writes user state",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a7\u00a77.2,7.8: edit writes with User origin and a later submit passes."
+}

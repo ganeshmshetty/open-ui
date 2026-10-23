@@ -1,0 +1,8 @@
+{
+  "title": "fmt mixing yields Mixed",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a77.6: fmt combines provenance tags."
+}

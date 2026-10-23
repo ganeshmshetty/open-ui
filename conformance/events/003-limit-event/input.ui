@@ -1,0 +1,2 @@
+go=Button("Go",on_click:say("Recommend a laptop under budget for coding",{budget:"mid"}))
+root=Column([go])

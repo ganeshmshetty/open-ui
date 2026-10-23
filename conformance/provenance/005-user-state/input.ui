@@ -1,0 +1,3 @@
+$x="d"
+f=Input("X",bind:$x)
+root=Column([f,Text($x)])

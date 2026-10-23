@@ -79,6 +79,9 @@ struct Schemas {
     segments: jsonschema::Validator,
     options: jsonschema::Validator,
     resolved: jsonschema::Validator,
+    requests: jsonschema::Validator,
+    events: jsonschema::Validator,
+    fields: jsonschema::Validator,
 }
 
 impl Schemas {
@@ -97,6 +100,9 @@ impl Schemas {
             segments: load(root, "segments")?,
             options: load(root, "options")?,
             resolved: load(root, "resolved")?,
+            requests: load(root, "requests")?,
+            events: load(root, "events")?,
+            fields: load(root, "fields")?,
         })
     }
 }
@@ -170,6 +176,11 @@ pub fn run_suite(root: &Path) -> Result<SuiteReport> {
                     | "expr"
                     | "state"
                     | "actions"
+                    | "queries"
+                    | "refs"
+                    | "events"
+                    | "forms"
+                    | "provenance"
             ) {
                 return Err(format!(
                     "{}: category is not implemented in M2",
@@ -182,11 +193,23 @@ pub fn run_suite(root: &Path) -> Result<SuiteReport> {
                     &schemas,
                     std::sync::Arc::new(genui_std::std_library().map_err(|e| format!("{e:?}"))?),
                 )
-            } else if matches!(category_name, "numbers" | "expr" | "state" | "actions") {
+            } else if matches!(
+                category_name,
+                "numbers"
+                    | "expr"
+                    | "state"
+                    | "actions"
+                    | "queries"
+                    | "refs"
+                    | "events"
+                    | "forms"
+                    | "provenance"
+            ) {
                 runtime::run_case(
                     &path,
                     &schemas,
                     std::sync::Arc::new(genui_std::std_library().map_err(|e| format!("{e:?}"))?),
+                    category_name,
                 )
             } else if matches!(
                 category_name,

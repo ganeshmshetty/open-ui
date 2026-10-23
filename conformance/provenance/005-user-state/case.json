@@ -1,0 +1,8 @@
+{
+  "title": "User-written state reads as User",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a7\u00a77.2,7.6: a binding write has User origin and reads carry User provenance."
+}

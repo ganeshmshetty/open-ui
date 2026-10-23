@@ -1,0 +1,7 @@
+[
+  {
+    "op": "activate",
+    "node": "root/children:#1",
+    "prop": "on_click"
+  }
+]

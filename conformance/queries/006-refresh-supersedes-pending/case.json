@@ -1,0 +1,8 @@
+{
+  "title": "Refresh supersedes an outstanding request",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a77.5: a refresh replaces the current entry; the old delivery is dropped."
+}

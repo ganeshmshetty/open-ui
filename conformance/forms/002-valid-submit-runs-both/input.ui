@@ -1,0 +1,5 @@
+$name="Ada"
+finder=Form([name_f,go],on_submit:say("Create account"))
+name_f=Input("Name",bind:$name,required:true)
+go=Button("Create",tone:"primary",submit:true,on_click:say("Clicked"))
+root=Card([finder])

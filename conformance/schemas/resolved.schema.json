@@ -90,6 +90,28 @@
           ]
         },
         {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "s": {
+              "type": "string"
+            },
+            "prov": {
+              "enum": [
+                "model",
+                "host",
+                "tool",
+                "user",
+                "mixed"
+              ]
+            }
+          },
+          "required": [
+            "s",
+            "prov"
+          ]
+        },
+        {
           "type": "array",
           "items": {
             "$ref": "#/$defs/value"

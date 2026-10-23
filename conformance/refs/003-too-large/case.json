@@ -1,0 +1,11 @@
+{
+  "title": "Oversized ref delivery is dropped",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a7\u00a74.3,7.7: resolved data bytes are capped and ref.too_large leaves the placeholder.",
+  "limits": {
+    "max_resolved_data_bytes": 3
+  }
+}

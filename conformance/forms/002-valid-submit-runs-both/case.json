@@ -1,0 +1,8 @@
+{
+  "title": "Valid submit runs on_click then on_submit",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a72.14: a submit button validates its form, then runs its own action followed by the form action."
+}

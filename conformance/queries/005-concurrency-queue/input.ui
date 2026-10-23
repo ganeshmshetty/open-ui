@@ -1,0 +1,3 @@
+query b=tool("known",{n:2},default:"b")
+query a=tool("known",{n:1},default:"a")
+root=Column([Text(a),Text(b)])

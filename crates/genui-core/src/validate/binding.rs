@@ -362,6 +362,13 @@ mod tests {
                     .doc("A stack.")
                     .req("children", T::nodes()),
             )
+            .component(
+                ComponentDef::new("Card", Role::Group)
+                    .group("G")
+                    .doc("A titled card.")
+                    .req("title", T::text())
+                    .req("children", T::nodes()),
+            )
             .build()
             .unwrap()
     }
@@ -480,6 +487,27 @@ mod tests {
             &mut out,
         );
         assert!(out.is_empty());
+    }
+
+    #[test]
+    fn compose_binds_successive_positionals_to_unbound_required_arguments() {
+        let lib = library();
+        let node_cache = cache(&[("child", vec![("s".into(), T::Text)], &[])]);
+        let node_kinds = kinds(&[("child", Kind::Node)]);
+        let mut out = Summary::new();
+        compose(
+            &value("root=Card(\"title\", child)"),
+            &BTreeSet::new(),
+            &node_cache,
+            &node_kinds,
+            &lib,
+            &mut out,
+        );
+        assert_eq!(
+            out,
+            vec![("s".into(), T::Text)],
+            "the second positional must bind the remaining required slot"
+        );
     }
 
     #[test]
@@ -688,6 +716,34 @@ mod tests {
         );
         assert!(next.contains_key("a"));
         assert!(next.contains_key("c"));
+    }
+
+    #[test]
+    fn refresh_reads_changed_dependencies_from_the_live_table() {
+        // No root evidence exists, so the changed node's retained (empty) deps
+        // must not hide the dependency introduced by its new source text.
+        let lib = library();
+        let table = table(&[("a", "a=Stack([c])"), ("c", "c=Show(value:$s)")]);
+        let node_kinds = kinds(&[("a", Kind::Node), ("c", Kind::Node)]);
+        let old = cache(&[("a", vec![], &[])]);
+        let (next, _, _) = refresh(
+            &old,
+            &table,
+            &node_kinds,
+            &lib,
+            &std::iter::once("a".to_string()).collect(),
+            &std::iter::once("a".to_string()).collect(),
+        );
+        assert!(
+            next.contains_key("a"),
+            "{:?}",
+            next.keys().collect::<Vec<_>>()
+        );
+        assert!(
+            next.contains_key("c"),
+            "{:?}",
+            next.keys().collect::<Vec<_>>()
+        );
     }
 
     #[test]

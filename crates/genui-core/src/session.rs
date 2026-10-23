@@ -1069,6 +1069,12 @@ mod session_contract_tests {
                         .opt_none("label", T::text())
                         .example("Control()"),
                 )
+                .component(
+                    ComponentDef::new("ShowList", Role::Paragraph)
+                        .group("G")
+                        .doc("A list binding sink.")
+                        .req("value", T::binding(T::list(T::text()))),
+                )
                 .build()
                 .unwrap(),
         )
@@ -1293,6 +1299,23 @@ mod session_contract_tests {
             Some(&Prop::Static(PropValue::Value(crate::value::Value::from(
                 "ab"
             ))))
+        );
+    }
+
+    #[test]
+    fn live_reinference_keeps_an_empty_list_binding_target() {
+        let mut session = session();
+        session.push(b"$xs = []\nroot = Stack([ShowList($xs)])\n");
+        assert_eq!(
+            session.ir().states["xs"].ty,
+            T::list(T::text()),
+            "the first binding target widens the empty-list state"
+        );
+        session.push(b"extra = 1\n");
+        assert_eq!(
+            session.ir().states["xs"].ty,
+            T::list(T::text()),
+            "live inference must not retract the widened list type"
         );
     }
 

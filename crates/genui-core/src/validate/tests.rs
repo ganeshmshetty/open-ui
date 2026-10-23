@@ -26,6 +26,18 @@ fn library() -> Library {
                 .opt_none("on_click", T::action())
                 .example("Control()"),
         )
+        .component(
+            ComponentDef::new("Show", Role::Paragraph)
+                .group("G")
+                .doc("A text binding sink.")
+                .req("value", T::binding(T::text())),
+        )
+        .component(
+            ComponentDef::new("ShowList", Role::Paragraph)
+                .group("G")
+                .doc("A list binding sink.")
+                .req("value", T::binding(T::list(T::text()))),
+        )
         .build()
         .unwrap()
 }
@@ -49,6 +61,18 @@ fn expression_errors_stop_required_prop_cascades() {
         assert!(r.ir.root.is_none());
     }
 }
+#[test]
+fn ambiguous_state_types_follow_the_first_binding_target() {
+    let lib = library();
+    let result = validate(b"$s=null\nroot=Show($s)\n", &lib, &Options::default());
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    assert_eq!(result.ir.states["s"].ty, T::Text);
+
+    let result = validate(b"$xs=[]\nroot=ShowList($xs)\n", &lib, &Options::default());
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    assert_eq!(result.ir.states["xs"].ty, T::list(T::text()));
+}
+
 #[test]
 fn literal_only_validation_never_calls_library_functions() {
     use std::sync::atomic::{AtomicUsize, Ordering};

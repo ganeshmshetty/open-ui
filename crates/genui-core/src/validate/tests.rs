@@ -1,5 +1,6 @@
 use super::*;
 use crate::r#lib::{ActionDef, ComponentDef, FunctionDef, GroupDef, Role};
+use crate::limits::SyntaxLimits;
 use proptest::prelude::*;
 fn library() -> Library {
     Library::builder("test", "0.1.0")
@@ -249,6 +250,358 @@ fn nested_container_aliases_remain_bounded_expression_plans() {
         r.ir.nodes.values().next().unwrap().props.get(&PropId(0)),
         Some(Prop::Dynamic(_))
     ));
+}
+
+fn statement(source: &str) -> Statement {
+    let mut parsed = parse_batch(source.as_bytes(), SyntaxLimits::default());
+    assert!(
+        parsed.diagnostics.is_empty(),
+        "{source}: {:?}",
+        parsed.diagnostics
+    );
+    parsed.program.statements.pop().expect("one statement")
+}
+
+fn retained_base() -> (Library, Options, Validation, ValidationCache) {
+    let library = library();
+    let options = Options::default();
+    let parsed = parse_batch(
+        b"root=Stack([Leaf(\"ok\"),keep])\nkeep=Leaf(\"k\")\n",
+        options.limits.clone().bounded().syntax,
+    );
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let (base, _, cache) =
+        Validator::new(&parsed.program, parsed.diagnostics, &library, &options).run_measured();
+    (library, options, base, cache)
+}
+
+#[test]
+fn unrelated_validation_accepts_only_independent_fresh_definitions() {
+    let (library, options, base, cache) = retained_base();
+    let dirty = BTreeSet::new();
+
+    let value = statement("extra=1");
+    let (checked, work, next) = validate_unrelated(
+        &cache,
+        &base,
+        std::slice::from_ref(&value),
+        &dirty,
+        &library,
+        &options,
+    )
+    .expect("an independent value is local");
+    assert_eq!(work.statements_checked, 1, "{work:?}");
+    assert!(next.table.contains_key("extra"));
+    assert!(checked.ir.values.contains_key("extra"));
+    assert!(!checked.ir.templates.contains_key("extra"));
+
+    let node = statement("extra=Leaf(\"x\")");
+    let (checked, _, next) = validate_unrelated(
+        &cache,
+        &base,
+        std::slice::from_ref(&node),
+        &dirty,
+        &library,
+        &options,
+    )
+    .expect("an independent node is local");
+    assert!(checked.ir.templates.contains_key("extra"));
+    assert!(!checked.ir.values.contains_key("extra"));
+    assert!(
+        checked.diagnostics.iter().all(|d| d.code == Code::Orphan),
+        "{:?}",
+        checked.diagnostics
+    );
+    assert!(next.table.contains_key("extra"));
+
+    let action = statement("extra=say(\"hi\")");
+    let (checked, _, next) = validate_unrelated(
+        &cache,
+        &base,
+        std::slice::from_ref(&action),
+        &dirty,
+        &library,
+        &options,
+    )
+    .expect("an independent action is local");
+    assert!(next.action_sources.contains_key("extra"));
+    assert!(next.checked["extra"].valid);
+    assert!(next.table.contains_key("extra"));
+    assert!(checked.ir.values.contains_key("extra"));
+}
+
+#[test]
+fn unrelated_validation_falls_back_for_root_existing_state_and_dirty_globals() {
+    let (library, options, base, cache) = retained_base();
+    let fresh = statement("extra=1");
+    let dirty = |name: &str| BTreeSet::from([name.to_string()]);
+
+    // Fresh changes whose dirty closure touches a global or an existing name
+    // must use the general maintenance path.
+    for name in ["root", "keep", "$state"] {
+        assert!(
+            validate_unrelated(
+                &cache,
+                &base,
+                std::slice::from_ref(&fresh),
+                &dirty(name),
+                &library,
+                &options,
+            )
+            .is_none(),
+            "dirty {name} must fall back"
+        );
+    }
+
+    // A changed root, an existing definition, and every statement kind other
+    // than Bind are likewise not local additions.
+    for change in [
+        statement("root=Leaf(\"new\")"),
+        statement("keep=2"),
+        statement("$s=1"),
+        statement("query q=tool(\"known\",{})"),
+    ] {
+        assert!(
+            validate_unrelated(
+                &cache,
+                &base,
+                std::slice::from_ref(&change),
+                &dirty("missing"),
+                &library,
+                &options,
+            )
+            .is_none(),
+            "{:?} must fall back",
+            (change.kind, change.name)
+        );
+    }
+}
+
+#[test]
+fn unrelated_validation_rejects_changes_that_depend_on_each_other() {
+    let (library, options, base, cache) = retained_base();
+    let dirty = BTreeSet::new();
+    for dependent in ["x=-v", "x=v+1", "x=v[0]"] {
+        let changes = [statement("v=1"), statement(dependent)];
+        assert!(
+            validate_unrelated(&cache, &base, &changes, &dirty, &library, &options).is_none(),
+            "{dependent} depends on the other change"
+        );
+    }
+}
+
+#[test]
+fn unrelated_validation_partitions_owned_diagnostics_exactly() {
+    let (library, options, base, cache) = retained_base();
+    let dirty = BTreeSet::new();
+    let value = statement("extra=upper(1)");
+    let (checked, work, next) = validate_unrelated(
+        &cache,
+        &base,
+        std::slice::from_ref(&value),
+        &dirty,
+        &library,
+        &options,
+    )
+    .expect("a fresh scalar is local");
+    assert_eq!(
+        next.value_diagnostics["extra"]
+            .iter()
+            .map(|d| d.code)
+            .collect::<Vec<_>>(),
+        vec![Code::ExprType],
+        "{:?}",
+        checked.diagnostics
+    );
+    assert_eq!(
+        next.orphan_diagnostics["extra"]
+            .iter()
+            .map(|d| d.code)
+            .collect::<Vec<_>>(),
+        vec![Code::Orphan]
+    );
+    assert!(work.diagnostics_examined > 0);
+    assert_eq!(
+        work.diagnostics_examined,
+        checked
+            .diagnostics
+            .iter()
+            .filter(|d| d.stmt.as_deref() == Some("extra"))
+            .count() as u64
+    );
+
+    let node = statement("extra=Leaf()");
+    let (_, work, next) = validate_unrelated(
+        &cache,
+        &base,
+        std::slice::from_ref(&node),
+        &dirty,
+        &library,
+        &options,
+    )
+    .expect("a fresh failing node is local");
+    assert_eq!(
+        next.orphan_diagnostics["extra"]
+            .iter()
+            .map(|d| d.code)
+            .collect::<Vec<_>>(),
+        vec![Code::MissingRequired, Code::Orphan]
+    );
+    assert!(work.diagnostics_examined > 0);
+}
+
+#[test]
+fn node_order_reads_the_retained_instance_context() {
+    let (_, _, base, cache) = retained_base();
+    let root = base.ir.root.expect("root instance");
+    assert_eq!(cache.node_order(&root), Some(&Vec::new()));
+    let child = base.ir.nodes[&root].slots[0].children[0];
+    assert_eq!(
+        cache.node_order(&child),
+        Some(&vec![("children".to_string(), 0, 0)])
+    );
+}
+
+#[test]
+fn kind_inference_charges_each_table_entry_and_queue_pop() {
+    let library = library();
+    let options = Options::default();
+    let parsed = parse_batch(
+        b"root=Leaf(\"ok\")\na=1\nb=2\nc=3\n",
+        options.limits.clone().bounded().syntax,
+    );
+    let mut validator = Validator::new(&parsed.program, parsed.diagnostics, &library, &options);
+    validator.work.statements_checked = 0;
+    validator.infer_kinds();
+    assert_eq!(
+        validator.work.statements_checked,
+        2 * validator.table.len() as u64
+    );
+}
+
+#[test]
+fn reachability_walks_each_name_exactly_once() {
+    let library = library();
+    let options = Options::default();
+    let parsed = parse_batch(
+        b"root=Stack([a])\na=Leaf(b)\nb=\"done\"\nc=\"unused\"\n",
+        options.limits.clone().bounded().syntax,
+    );
+    let mut validator = Validator::new(&parsed.program, parsed.diagnostics, &library, &options);
+    validator.work.statements_checked = 0;
+    validator.mark_reachable();
+    // root, a, b are reached once each; c is never enqueued.
+    assert_eq!(validator.work.statements_checked, 3);
+    assert_eq!(
+        validator.reachable.iter().cloned().collect::<Vec<_>>(),
+        vec!["a", "b", "root"]
+    );
+}
+
+#[test]
+fn state_accounting_charges_each_source_without_a_reconcile_visit() {
+    let library = library();
+    let options = Options::default();
+    let parsed = parse_batch(
+        b"$x=unknown()\nroot=Leaf(\"ok\")\n",
+        options.limits.clone().bounded().syntax,
+    );
+    assert_eq!(parsed.program.statements.len(), 2);
+    let mut validator = Validator::new(&parsed.program, parsed.diagnostics, &library, &options);
+    validator.work.statements_checked = 0;
+    validator.states();
+    assert_eq!(validator.work.statements_checked, 1);
+}
+
+#[test]
+fn batch_validation_reports_exact_source_and_diagnostic_work() {
+    let library = library();
+    let options = Options::default();
+    let parsed = parse_batch(
+        b"root=Stack([Leaf(\"ok\"),keep])\nkeep=Leaf(\"k\")\n",
+        options.limits.clone().bounded().syntax,
+    );
+    let (validation, work, cache) =
+        Validator::new(&parsed.program, parsed.diagnostics, &library, &options).run_measured();
+    assert!(validation.diagnostics.is_empty());
+    assert_eq!(work.statements_checked, 16, "{work:?}");
+    assert_eq!(work.diagnostics_examined, 0, "{work:?}");
+    assert_eq!(work.instances_examined, 3, "{work:?}");
+    assert!(!cache.state_limited);
+}
+
+#[test]
+fn unrelated_validation_rejects_a_root_name_even_without_a_retained_root() {
+    let library = library();
+    let options = Options::default();
+    let parsed = parse_batch(
+        b"keep=Leaf(\"k\")\n",
+        options.limits.clone().bounded().syntax,
+    );
+    let (base, _, cache) =
+        Validator::new(&parsed.program, parsed.diagnostics, &library, &options).run_measured();
+    assert!(base.ir.root.is_none());
+    let fresh = statement("extra=1");
+    let root = statement("root=Leaf(\"ok\")");
+    assert!(
+        validate_unrelated(
+            &cache,
+            &base,
+            std::slice::from_ref(&root),
+            &BTreeSet::new(),
+            &library,
+            &options,
+        )
+        .is_none(),
+        "a new root is not an unrelated definition"
+    );
+    for dirty in [BTreeSet::from(["root".to_string()])] {
+        assert!(
+            validate_unrelated(
+                &cache,
+                &base,
+                std::slice::from_ref(&fresh),
+                &dirty,
+                &library,
+                &options,
+            )
+            .is_none(),
+            "dirty {dirty:?}"
+        );
+    }
+}
+
+#[test]
+fn state_limited_tracks_only_state_size_diagnostics() {
+    let library = library();
+    let options = Options::default();
+    let parsed = parse_batch(b"root=Leaf()\n", options.limits.clone().bounded().syntax);
+    let (validation, work, cache) =
+        Validator::new(&parsed.program, parsed.diagnostics, &library, &options).run_measured();
+    assert!(
+        validation
+            .diagnostics
+            .iter()
+            .any(|d| d.code == Code::MissingRequired)
+    );
+    assert_eq!(work.diagnostics_examined, 2, "{work:?}");
+    assert!(!cache.state_limited);
+
+    let mut small = Options::default();
+    small.limits.max_state_bytes = 1;
+    let parsed = parse_batch(
+        b"$x=\"too long\"\nroot=Leaf(\"ok\")\n",
+        small.limits.clone().bounded().syntax,
+    );
+    let (validation, _, cache) =
+        Validator::new(&parsed.program, parsed.diagnostics, &library, &small).run_measured();
+    assert!(
+        validation
+            .diagnostics
+            .iter()
+            .any(|d| d.code == Code::StateSize)
+    );
+    assert!(cache.state_limited);
 }
 
 #[test]

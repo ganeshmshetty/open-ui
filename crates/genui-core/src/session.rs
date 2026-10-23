@@ -1039,6 +1039,235 @@ pub(crate) fn dependencies(e: &Expr, out: &mut BTreeSet<String>) {
 }
 
 #[cfg(test)]
+mod session_contract_tests {
+    use super::*;
+    use crate::r#lib::{ComponentDef, GroupDef, Library, Role, T};
+
+    fn library() -> Arc<Library> {
+        Arc::new(
+            Library::builder("test", "0.1.0")
+                .group(GroupDef::new("G", 0, "`Leaf` and `Stack`."))
+                .component(
+                    ComponentDef::new("Leaf", Role::Paragraph)
+                        .group("G")
+                        .doc("A leaf.")
+                        .req("text", T::text())
+                        .example("Leaf(\"ok\")"),
+                )
+                .component(
+                    ComponentDef::new("Stack", Role::Group)
+                        .group("G")
+                        .doc("A stack.")
+                        .req("children", T::nodes())
+                        .example("Stack([])"),
+                )
+                .component(
+                    ComponentDef::new("Control", Role::Button)
+                        .group("G")
+                        .doc("A control.")
+                        .opt_none("on_click", T::action())
+                        .opt_none("label", T::text())
+                        .example("Control()"),
+                )
+                .build()
+                .unwrap(),
+        )
+    }
+
+    fn session() -> Session {
+        Session::new(SessionOptions::program(library()))
+    }
+
+    fn node<'a>(session: &'a Session, path: &str) -> &'a crate::ir::Node {
+        session
+            .ir()
+            .nodes
+            .values()
+            .find(|node| node.path.0 == path)
+            .unwrap_or_else(|| panic!("missing node {path}"))
+    }
+
+    #[test]
+    fn a_visible_draft_text_edits_one_node_and_then_seals_in_place() {
+        let mut session = session();
+        session.push(b"root=Stack([a,draft])\na=Leaf(\"x\")\ndraft=Leaf(\"a");
+        let draft = node(&session, "root/children:@draft");
+        assert_eq!(
+            draft.props.get(&crate::ir::PropId(0)),
+            Some(&Prop::Static(PropValue::Value(crate::value::Value::from(
+                "a"
+            ))))
+        );
+        assert_eq!(draft.status, NodeStatus::Partial);
+
+        let update = session.push(b"b");
+        assert_eq!(
+            update.patches.expect("draft edit patch").ops,
+            vec![crate::patch::Op::AppendText {
+                id: "root/children:@draft".into(),
+                prop: "text".into(),
+                text: "b".into(),
+            }]
+        );
+        assert_eq!(
+            node(&session, "root/children:@draft")
+                .props
+                .get(&crate::ir::PropId(0)),
+            Some(&Prop::Static(PropValue::Value(crate::value::Value::from(
+                "ab"
+            ))))
+        );
+
+        let update = session.push(b"\")\n");
+        assert!(update.patches.is_some());
+        let draft = node(&session, "root/children:@draft");
+        assert_eq!(draft.status, NodeStatus::Sealed);
+        assert_eq!(
+            draft.props.get(&crate::ir::PropId(0)),
+            Some(&Prop::Static(PropValue::Value(crate::value::Value::from(
+                "ab"
+            ))))
+        );
+        assert_eq!(session.phase(), SessionPhase::Streaming);
+        assert!(
+            session.diagnostics().is_empty(),
+            "{:?}",
+            session.diagnostics()
+        );
+    }
+
+    #[test]
+    fn provisional_action_props_stay_unpublished_until_the_source_seals() {
+        let mut session = session();
+        session.push(b"root=Stack([draft])\ndraft=Control(on_click:say(\"hi\"),label:\"keep\")");
+        let draft = node(&session, "root/children:@draft");
+        assert_eq!(draft.status, NodeStatus::Partial);
+        assert!(
+            draft
+                .props
+                .values()
+                .all(|prop| !matches!(prop, Prop::Static(PropValue::Action(_)))),
+            "{:?}",
+            draft.props
+        );
+        assert!(
+            draft
+                .props
+                .values()
+                .any(|prop| matches!(prop, Prop::Static(PropValue::Value(value)) if value.string() == Some("keep"))),
+            "{:?}",
+            draft.props
+        );
+        assert_eq!(session.ir().actions.len(), 0);
+        assert!(
+            session.diagnostics().is_empty(),
+            "{:?}",
+            session.diagnostics()
+        );
+
+        let update = session.push(b")\n");
+        assert!(update.patches.is_some());
+        let draft = node(&session, "root/children:@draft");
+        assert_eq!(draft.status, NodeStatus::Sealed);
+        assert!(
+            draft
+                .props
+                .values()
+                .any(|prop| matches!(prop, Prop::Static(PropValue::Action(_)))),
+            "{:?}",
+            draft.props
+        );
+        assert_eq!(session.ir().actions.len(), 1);
+        assert_eq!(session.provisional_origins().len(), 0);
+    }
+
+    #[test]
+    fn a_first_root_candidate_is_published_as_partial_with_bounded_work() {
+        let mut session = session();
+        let before = session.maintenance_work();
+        let update = session.push(b"root=Leaf(\"a");
+        let after = session.maintenance_work();
+        let draft = node(&session, "root");
+        assert_eq!(draft.status, NodeStatus::Partial);
+        assert_eq!(update.phase, SessionPhase::Streaming);
+        assert!(
+            after.instances_examined - before.instances_examined <= 8,
+            "{before:?} -> {after:?}"
+        );
+
+        let update = session.push(b"b\")\n");
+        assert!(update.patches.is_some());
+        session.finish();
+        let root = node(&session, "root");
+        assert_eq!(root.status, NodeStatus::Sealed);
+        assert_eq!(
+            root.props.get(&crate::ir::PropId(0)),
+            Some(&Prop::Static(PropValue::Value(crate::value::Value::from(
+                "ab"
+            ))))
+        );
+    }
+
+    #[test]
+    fn sealing_an_unrelated_definition_leaves_the_displayed_tree_unchanged() {
+        let mut session = session();
+        session.push(b"root=Stack([a])\na=Leaf(\"x\")\n");
+        let before: Vec<_> = session
+            .tree()
+            .nodes
+            .iter()
+            .map(|(path, node)| (path.clone(), node.clone()))
+            .collect();
+        let work = session.maintenance_work();
+        session.push(b"extra=1\n");
+        let after: Vec<_> = session
+            .tree()
+            .nodes
+            .iter()
+            .map(|(path, node)| (path.clone(), node.clone()))
+            .collect();
+        assert_eq!(before, after);
+        let after = session.maintenance_work();
+        assert_eq!(
+            after.statements_checked - work.statements_checked,
+            6,
+            "{work:?} -> {after:?}"
+        );
+        assert_eq!(
+            after.diagnostics_examined - work.diagnostics_examined,
+            2,
+            "{work:?} -> {after:?}"
+        );
+        assert_eq!(
+            after.instances_examined, work.instances_examined,
+            "{work:?} -> {after:?}"
+        );
+        assert!(session.diagnostics().iter().any(|d| d.code == Code::Orphan));
+    }
+
+    #[test]
+    fn maintenance_work_includes_retained_scanner_diagnostics() {
+        let mut session = session();
+        session.push(b"root=Stack([a])\na=Leaf(\"x\")\n");
+        let base = session.maintenance_work();
+        assert_eq!(
+            base.diagnostics_examined,
+            session.work.diagnostics_examined + session.parser_work().diagnostics_examined as u64
+        );
+        session.push(b"bad=1 &\n");
+        let after = session.maintenance_work();
+        assert!(
+            after.diagnostics_examined > base.diagnostics_examined,
+            "{base:?} -> {after:?}"
+        );
+        assert_eq!(
+            after.diagnostics_examined,
+            session.work.diagnostics_examined + session.parser_work().diagnostics_examined as u64
+        );
+    }
+}
+
+#[cfg(test)]
 mod tracking_tests {
     use super::*;
     fn statement(source: &str) -> Statement {
@@ -1046,6 +1275,31 @@ mod tracking_tests {
             crate::syntax::parse_batch(source.as_bytes(), crate::limits::SyntaxLimits::default());
         parsed.program.statements.pop().expect("one statement")
     }
+    #[test]
+    fn dependency_collection_covers_unary_member_binary_index_and_lambda() {
+        for (source, expected) in [
+            ("x=-a.b\n", vec!["a"]),
+            ("x=a+b[0]\n", vec!["a", "b"]),
+            ("x=!a.b + c[1]\n", vec!["a", "c"]),
+        ] {
+            let statement = statement(source);
+            let mut deps = BTreeSet::new();
+            dependencies(&statement.value, &mut deps);
+            assert_eq!(deps.into_iter().collect::<Vec<_>>(), expected, "{source}");
+        }
+        let lambda = Expr::Lambda {
+            params: vec!["p".into()],
+            body: Box::new(Expr::Binary {
+                op: crate::syntax::ast::BinaryOp::Add,
+                left: Box::new(Expr::Name { name: "p".into() }),
+                right: Box::new(Expr::Name { name: "q".into() }),
+            }),
+        };
+        let mut deps = BTreeSet::new();
+        dependencies(&lambda, &mut deps);
+        assert_eq!(deps.into_iter().collect::<Vec<_>>(), vec!["q"]);
+    }
+
     #[test]
     fn removing_a_draft_clears_its_dependency_edges() {
         let mut tracking = DirtyTracking::default();

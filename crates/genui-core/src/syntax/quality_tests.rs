@@ -3,6 +3,7 @@ use super::{
     ast::*,
     extract::{self, Extractor, Segment},
 };
+use crate::diag::Code;
 use crate::ir::Ir;
 
 fn nested(null: Expr) -> Vec<Expr> {
@@ -223,6 +224,142 @@ fn extractor_public_batch_and_segment_views_preserve_text() {
     );
     assert!(!finished.rejected);
     assert!(finished.diagnostics.is_empty());
+}
+
+#[test]
+fn extractor_public_status_views_track_end_rejection_and_diagnostics() {
+    let mut fenced = Extractor::default();
+    fenced.push(b"```ui\nroot=Divider()\n");
+    assert!(!fenced.program_ended());
+    assert!(!fenced.rejected());
+    assert!(fenced.diagnostics().is_empty());
+    fenced.push(b"```\n");
+    assert!(fenced.program_ended());
+    assert!(!fenced.rejected());
+    assert!(fenced.diagnostics().is_empty());
+
+    let mut version = Extractor::default();
+    version.push(b"```ui v2\nroot=Divider()\n```\n");
+    assert!(version.rejected());
+    assert_eq!(
+        version
+            .diagnostics()
+            .iter()
+            .map(|d| d.code)
+            .collect::<Vec<_>>(),
+        vec![Code::Version]
+    );
+
+    let mut extra = Extractor::default();
+    extra.push(b"```ui\nroot=Divider()\n```\n```ui\nroot=Divider()\n```\n");
+    assert!(!extra.rejected());
+    assert_eq!(
+        extra
+            .diagnostics()
+            .iter()
+            .map(|d| d.code)
+            .collect::<Vec<_>>(),
+        vec![Code::ExtraProgram]
+    );
+}
+
+#[test]
+fn extractor_continues_unfenced_programs_across_lines_without_fences() {
+    let extracted = extract::extract(b"root=Text(\"a\")\nnext=Text(\"b\")\n");
+    assert_eq!(
+        extracted.segments,
+        vec![Segment::Program(
+            "root=Text(\"a\")\nnext=Text(\"b\")\n".into()
+        )]
+    );
+    assert!(extracted.diagnostics.is_empty());
+    assert!(!extracted.rejected);
+
+    let mut split = Extractor::default();
+    split.push(b"root=Text(\"a\")\n");
+    assert_eq!(
+        split.segments(),
+        [Segment::Program("root=Text(\"a\")\n".into())]
+    );
+    split.push(b"next=Text(\"b\")\n");
+    assert_eq!(
+        split.segments(),
+        [Segment::Program(
+            "root=Text(\"a\")\nnext=Text(\"b\")\n".into()
+        )]
+    );
+}
+
+#[test]
+fn extractor_keeps_prose_prefixes_and_detects_a_later_program_start() {
+    for prose in ["a b c\n", "ab cd\n", "query x y\n", "true false\n"] {
+        let source = format!("{prose}root=Divider()\n");
+        let extracted = extract::extract(source.as_bytes());
+        assert_eq!(
+            extracted.segments,
+            vec![
+                Segment::Markdown(prose.into()),
+                Segment::Program("root=Divider()\n".into())
+            ],
+            "{prose}"
+        );
+        assert!(extracted.diagnostics.is_empty(), "{prose}");
+    }
+}
+
+#[test]
+fn lexer_reports_only_a_pending_colon_and_parses_at_the_numeric_limit() {
+    let mut colon = super::Lexer::default();
+    colon.push(b"root");
+    assert!(!colon.pending_colon());
+    colon.push(b":");
+    assert!(colon.pending_colon());
+    colon.push(b" 1");
+    assert!(!colon.pending_colon());
+
+    let mut at_limit = super::Lexer::with_numeric_limit(3);
+    at_limit.push(b"123 ");
+    let events = at_limit.take_events();
+    assert!(
+        events
+            .iter()
+            .any(|event| matches!(event, super::LexEvent::Token(token)
+            if token.token.kind == super::TokenKind::Int && token.token.text == "123")),
+        "{events:?}"
+    );
+    assert!(
+        events
+            .iter()
+            .all(|event| !matches!(event, super::LexEvent::Diagnostic(_))),
+        "{events:?}"
+    );
+
+    let mut over = super::Lexer::with_numeric_limit(3);
+    over.push(b"1234 ");
+    let events = over.take_events();
+    assert!(
+        events
+            .iter()
+            .any(|event| matches!(event, super::LexEvent::Token(token)
+            if token.token.kind == super::TokenKind::Null)),
+        "{events:?}"
+    );
+}
+
+#[test]
+fn sealing_a_statement_charges_its_relevant_scanner_diagnostics() {
+    use crate::limits::SyntaxLimits;
+    let mut parser = super::streaming::StreamingParser::new(SyntaxLimits::default());
+    parser.push(b"root=999999999999999999999999\n");
+    assert!(
+        parser
+            .diagnostic_snapshot()
+            .iter()
+            .any(|d| d.code == Code::Overflow),
+        "{:?}",
+        parser.diagnostic_snapshot()
+    );
+    assert!(parser.work().diagnostics_examined > 0);
 }
 
 #[test]

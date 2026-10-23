@@ -69,10 +69,18 @@ pub struct ModelEvent {
     pub name: String,
     pub payload: serde_json::Value,
 }
+/// An epoch-bound handle for an explicit action entry point (§7.4).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ActionHandle {
+    pub plan: crate::ir::ActionPlanId,
+    pub epoch: u32,
+}
 #[derive(Clone, Debug, PartialEq)]
 pub struct Update {
     pub patches: Option<PatchBatch>,
     pub diagnostics: Vec<Diagnostic>,
+    /// Runtime evaluation and action-write diagnostics for the current tree.
+    pub runtime_diagnostics: Vec<Diagnostic>,
     pub requests: Vec<HostRequest>,
     pub model_events: Vec<ModelEvent>,
     pub prose: Vec<ProseDelta>,
@@ -185,6 +193,10 @@ pub struct Session {
     local_grafts: Option<Vec<crate::validate::Graft>>,
     reused_instances: usize,
     provisional_origins: BTreeSet<String>,
+    runtime: crate::runtime::Runtime,
+    resolved: crate::runtime::Resolved,
+    runtime_diagnostics: Vec<Diagnostic>,
+    action_diagnostics: Vec<Diagnostic>,
 }
 impl Session {
     pub fn new(mut options: SessionOptions) -> Self {
@@ -235,6 +247,10 @@ impl Session {
             local_grafts: None,
             reused_instances: 0,
             provisional_origins: BTreeSet::new(),
+            runtime: crate::runtime::Runtime::new(),
+            resolved: crate::runtime::Resolved::default(),
+            runtime_diagnostics: Vec::new(),
+            action_diagnostics: Vec::new(),
         }
     }
     pub fn push(&mut self, chunk: &[u8]) -> Update {
@@ -313,6 +329,63 @@ impl Session {
     pub fn tree(&self) -> &Tree {
         &self.tree
     }
+    /// Evaluated Dynamic props for the current tree (§5.5).
+    pub fn resolved(&self) -> &crate::runtime::Resolved {
+        &self.resolved
+    }
+    /// Runtime-only diagnostics. Static validation diagnostics stay in `diagnostics()`.
+    pub fn runtime_diagnostics(&self) -> &[Diagnostic] {
+        &self.runtime_diagnostics
+    }
+    /// Look up the current handle for a node's action prop by its wire name.
+    pub fn action_handle(&self, path: &crate::ir::NodePath, prop: &str) -> Option<ActionHandle> {
+        let node = self
+            .current
+            .ir
+            .nodes
+            .values()
+            .find(|node| node.path == *path)?;
+        let component = self
+            .options
+            .library
+            .components()
+            .get(node.kind.0 as usize)?;
+        let index = component.args.iter().position(|arg| arg.name == prop)?;
+        match node
+            .props
+            .get(&crate::ir::PropId(u16::try_from(index).ok()?))
+        {
+            Some(Prop::Static(PropValue::Action(plan))) => Some(ActionHandle {
+                plan: plan.clone(),
+                epoch: self.epoch,
+            }),
+            _ => None,
+        }
+    }
+    /// Explicit action entry point. Events are gated while streaming and stale
+    /// epoch/plan handles are inert. Host-effect steps are not dispatched yet.
+    pub fn activate(&mut self, node: crate::ir::NodeId, handle: &ActionHandle) -> Update {
+        if !self.finished || handle.epoch != self.epoch {
+            return self.empty_update();
+        }
+        let Some(plan) = self.current.ir.actions.get(&handle.plan).cloned() else {
+            return self.empty_update();
+        };
+        if plan.origin != node {
+            return self.empty_update();
+        }
+        self.action_diagnostics.clear();
+        let execution = self.runtime.execute_action(
+            &self.current.ir,
+            &self.options.library,
+            &self.options.validation.limits,
+            &plan,
+        );
+        self.action_diagnostics.extend(execution.diagnostics);
+        self.tree_dirty = true;
+        self.evaluate();
+        self.update(false, false)
+    }
     pub fn diagnostics(&self) -> &[Diagnostic] {
         self.diagnostic_snapshot.get_or_init(|| {
             self.current
@@ -363,6 +436,7 @@ impl Session {
         Update {
             patches: None,
             diagnostics: Vec::new(),
+            runtime_diagnostics: Vec::new(),
             requests: Vec::new(),
             model_events: Vec::new(),
             prose: Vec::new(),
@@ -857,6 +931,31 @@ impl Session {
             previous_cache.as_ref(),
             self.current_cache.as_ref(),
         ));
+        self.evaluate();
+    }
+    fn evaluate(&mut self) {
+        if self.rejected {
+            self.resolved = crate::runtime::Resolved::default();
+            self.runtime_diagnostics.clear();
+            return;
+        }
+        self.runtime.state.sync(&self.current.ir.states);
+        self.resolved = self.runtime.evaluate(
+            &self.current.ir,
+            &self.options.library,
+            &self.options.validation.limits,
+        );
+        let mut diagnostics = self.resolved.diagnostics().to_vec();
+        diagnostics.extend(self.action_diagnostics.iter().cloned());
+        if !self.finished {
+            for diagnostic in &mut diagnostics {
+                diagnostic.provisional = true;
+            }
+        }
+        diagnostics.sort_by(|a, b| {
+            (&a.stmt, &a.path, a.code, a.recovery).cmp(&(&b.stmt, &b.path, b.code, b.recovery))
+        });
+        self.runtime_diagnostics = diagnostics;
     }
     fn update(&mut self, emit_empty: bool, snapshot: bool) -> Update {
         let local = if snapshot {
@@ -871,24 +970,34 @@ impl Session {
         };
         let projection = self.projection.take();
         let ops = if snapshot || !self.started {
-            let (tree, work) = Tree::from_ir_measured(&self.current.ir, &self.options.library);
+            let (tree, work) = Tree::from_ir_measured(
+                &self.current.ir,
+                &self.options.library,
+                Some(&self.resolved),
+            );
             self.work += work;
             let ops = tree.snapshot_ops();
             self.tree = tree;
             self.tree_dirty = false;
             ops
         } else if let Some(projection) = projection {
-            let (ops, work) =
-                self.tree
-                    .maintain(&self.current.ir, &self.options.library, &projection);
+            let (ops, work) = self.tree.maintain(
+                &self.current.ir,
+                &self.options.library,
+                Some(&self.resolved),
+                &projection,
+            );
             self.work += work;
             self.tree_dirty = false;
             ops
         } else if let Some(mut grafts) = grafts {
             grafts.sort_by_key(|graft| graft.order.clone());
-            let (mut ops, work) =
-                self.tree
-                    .insert_grafts(&self.current.ir, &self.options.library, &grafts);
+            let (mut ops, work) = self.tree.insert_grafts(
+                &self.current.ir,
+                &self.options.library,
+                Some(&self.resolved),
+                &grafts,
+            );
             self.work += work;
             if let Some(mut ids) = local {
                 ids.sort_by_key(|id| {
@@ -897,9 +1006,12 @@ impl Session {
                         .and_then(|cache| cache.node_order(id))
                         .cloned()
                 });
-                let (changes, work) =
-                    self.tree
-                        .update_props(&self.current.ir, &self.options.library, &ids);
+                let (changes, work) = self.tree.update_props(
+                    &self.current.ir,
+                    &self.options.library,
+                    Some(&self.resolved),
+                    &ids,
+                );
                 self.work += work;
                 ops.extend(changes);
             }
@@ -912,14 +1024,21 @@ impl Session {
                     .and_then(|cache| cache.node_order(id))
                     .cloned()
             });
-            let (ops, work) = self
-                .tree
-                .update_props(&self.current.ir, &self.options.library, &ids);
+            let (ops, work) = self.tree.update_props(
+                &self.current.ir,
+                &self.options.library,
+                Some(&self.resolved),
+                &ids,
+            );
             self.work += work;
             self.tree_dirty = false;
             ops
         } else if self.tree_dirty || snapshot || !self.started {
-            let (next, work) = Tree::from_ir_measured(&self.current.ir, &self.options.library);
+            let (next, work) = Tree::from_ir_measured(
+                &self.current.ir,
+                &self.options.library,
+                Some(&self.resolved),
+            );
             self.work += work;
             let ops = if snapshot || !self.started {
                 next.snapshot_ops()
@@ -983,6 +1102,7 @@ impl Session {
         Update {
             patches,
             diagnostics,
+            runtime_diagnostics: self.runtime_diagnostics.clone(),
             requests: Vec::new(),
             model_events: Vec::new(),
             prose,

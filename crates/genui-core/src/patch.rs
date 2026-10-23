@@ -135,22 +135,29 @@ impl Tree {
         ir: &Ir,
         library: &Library,
         id: crate::ir::NodeId,
+        resolved: Option<&crate::runtime::Resolved>,
         work: &mut crate::MaintenanceWork,
     ) -> Option<NodeInit> {
         let n = ir.nodes.get(&id)?;
         let c = library.components().get(n.kind.0 as usize)?;
         let mut props = Props::new();
-        for (id, p) in &n.props {
+        for (prop_id, p) in &n.props {
             work.props_compared += 1;
-            let Some(arg) = c.args.get(id.0 as usize) else {
+            let Some(arg) = c.args.get(prop_id.0 as usize) else {
                 continue;
             };
             let value = match p {
                 Prop::Dynamic(e) => {
-                    let Some(e) = ir.expressions.get(e) else {
-                        continue;
-                    };
-                    json!({"deferred":e})
+                    if let Some(PropValue::Value(value)) =
+                        resolved.and_then(|resolved| resolved.prop(id, *prop_id))
+                    {
+                        wire_value(value)
+                    } else {
+                        let Some(e) = ir.expressions.get(e) else {
+                            continue;
+                        };
+                        json!({"deferred":e})
+                    }
                 }
                 Prop::Static(PropValue::Value(v)) => wire_value(v),
                 Prop::Static(PropValue::Token { scale, value }) => {
@@ -173,6 +180,7 @@ impl Tree {
         &mut self,
         ir: &Ir,
         library: &Library,
+        resolved: Option<&crate::runtime::Resolved>,
         grafts: &[crate::validate::Graft],
     ) -> (Vec<Op>, crate::MaintenanceWork) {
         let mut work = crate::MaintenanceWork::default();
@@ -196,7 +204,7 @@ impl Tree {
             }
             while let Some((id, parent, slot, index)) = queue.pop() {
                 work.wire_nodes_examined += 1;
-                let Some(node) = Self::props_from_ir(ir, library, id, &mut work) else {
+                let Some(node) = Self::props_from_ir(ir, library, id, resolved, &mut work) else {
                     continue;
                 };
                 let path = node.id.clone();
@@ -205,7 +213,7 @@ impl Tree {
                     .get(&path)
                     .is_some_and(|old| old.node.kind == node.kind)
                 {
-                    let (changes, charged) = self.update_props(ir, library, &[id]);
+                    let (changes, charged) = self.update_props(ir, library, resolved, &[id]);
                     work += charged;
                     ops.extend(changes);
                 } else {
@@ -242,6 +250,7 @@ impl Tree {
         &mut self,
         ir: &Ir,
         library: &Library,
+        resolved: Option<&crate::runtime::Resolved>,
         projection: &crate::validate::Projection,
     ) -> (Vec<Op>, crate::MaintenanceWork) {
         use crate::ir::NodeId;
@@ -347,7 +356,7 @@ impl Tree {
             });
             if !self.nodes.contains_key(&path) {
                 work.wire_nodes_examined += 1;
-                let Some(node) = Self::props_from_ir(ir, library, id, &mut work) else {
+                let Some(node) = Self::props_from_ir(ir, library, id, resolved, &mut work) else {
                     continue;
                 };
                 let op = Op::Insert {
@@ -383,7 +392,7 @@ impl Tree {
                         }
                     }
                 }
-                let (changes, charged) = self.update_props(ir, library, &[id]);
+                let (changes, charged) = self.update_props(ir, library, resolved, &[id]);
                 work += charged;
                 ops.extend(changes);
             }
@@ -394,13 +403,14 @@ impl Tree {
         &mut self,
         ir: &Ir,
         library: &Library,
+        resolved: Option<&crate::runtime::Resolved>,
         ids: &[crate::ir::NodeId],
     ) -> (Vec<Op>, crate::MaintenanceWork) {
         let mut work = crate::MaintenanceWork::default();
         let mut ops = Vec::new();
         for id in ids {
             work.wire_nodes_examined += 1;
-            let Some(target) = Self::props_from_ir(ir, library, *id, &mut work) else {
+            let Some(target) = Self::props_from_ir(ir, library, *id, resolved, &mut work) else {
                 continue;
             };
             let Some(entry) = self.nodes.get_mut(&target.id) else {
@@ -453,9 +463,20 @@ impl Tree {
         (ops, work)
     }
     pub fn from_ir(ir: &Ir, library: &Library) -> Self {
-        Self::from_ir_measured(ir, library).0
+        Self::from_ir_measured(ir, library, None).0
     }
-    pub(crate) fn from_ir_measured(ir: &Ir, library: &Library) -> (Self, crate::MaintenanceWork) {
+    pub fn from_ir_resolved(
+        ir: &Ir,
+        library: &Library,
+        resolved: &crate::runtime::Resolved,
+    ) -> Self {
+        Self::from_ir_measured(ir, library, Some(resolved)).0
+    }
+    pub(crate) fn from_ir_measured(
+        ir: &Ir,
+        library: &Library,
+        resolved: Option<&crate::runtime::Resolved>,
+    ) -> (Self, crate::MaintenanceWork) {
         let mut work = crate::MaintenanceWork::default();
         let mut tree = Self::default();
         let Some(root) = ir.root else {
@@ -467,7 +488,7 @@ impl Tree {
             let Some(n) = ir.nodes.get(&id) else {
                 continue;
             };
-            let Some(init) = Self::props_from_ir(ir, library, id, &mut work) else {
+            let Some(init) = Self::props_from_ir(ir, library, id, resolved, &mut work) else {
                 continue;
             };
             if parent.is_none() {

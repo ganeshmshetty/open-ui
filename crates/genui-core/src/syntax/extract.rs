@@ -343,3 +343,27 @@ fn closes(line: &str, expected: Fence) -> bool {
         actual.marker == expected.marker && actual.width >= expected.width && info.is_empty()
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unfenced_programs_start_only_with_a_statement_header() {
+        let result = extract(b"x = 1\n");
+        assert_eq!(
+            result.segments,
+            vec![Segment::Program("x = 1\n".into())],
+            "{result:?}"
+        );
+
+        for prose in ["Hello there.\n", "1 = 2\n", " root = 1\n"] {
+            let result = extract(prose.as_bytes());
+            assert_eq!(
+                result.segments,
+                vec![Segment::Markdown(prose.into())],
+                "{prose:?}: {result:?}"
+            );
+        }
+    }
+}

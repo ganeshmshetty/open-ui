@@ -558,3 +558,36 @@ pub fn lex(bytes: &[u8]) -> LexResult {
     lexer.push(bytes);
     lexer.finish()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pending_token_ignores_ground_and_comment_states() {
+        let mut lexer = Lexer::default();
+        assert!(!lexer.pending_token());
+        lexer.push(b"le");
+        assert!(lexer.pending_token(), "a growing word is a pending token");
+        lexer.push(b"af ");
+        assert!(!lexer.pending_token());
+        lexer.push(b"\n# note");
+        assert!(!lexer.pending_token(), "comment text is not a token");
+        lexer.push(b"\n1");
+        assert!(lexer.pending_token(), "a growing number is a pending token");
+    }
+
+    #[test]
+    fn provisional_numbers_keep_the_configured_numeric_limit() {
+        let mut lexer = Lexer::with_numeric_limit(3);
+        lexer.push(b"1234");
+        let events = lexer.provisional_events();
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, LexEvent::Token(token)
+                if token.token.kind == K::Null && token.token.text == "null")),
+            "{events:?}"
+        );
+    }
+}

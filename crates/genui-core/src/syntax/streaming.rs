@@ -289,3 +289,27 @@ pub struct ScanWork {
     pub tail_limit: usize,
     pub diagnostics_examined: usize,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sealing_charges_each_relevant_scanner_diagnostic() {
+        let mut parser = StreamingParser::new(SyntaxLimits::default());
+        parser.push(b"root=999999999999999999999999\n");
+        assert!(
+            parser
+                .diagnostic_snapshot()
+                .iter()
+                .any(|d| d.code == Code::Overflow)
+        );
+        // The staged scan change and the scan diagnostic matched by the sealed
+        // statement are both examined; sealing must not subtract either.
+        assert_eq!(
+            parser.diagnostic_work.diagnostics_examined, 3,
+            "{:?}",
+            parser.diagnostic_work
+        );
+    }
+}

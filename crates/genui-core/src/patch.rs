@@ -1232,6 +1232,165 @@ mod tests {
         );
     }
     #[test]
+    fn insert_grafts_inserts_the_prefix_in_order_and_counts_each_wire_node() {
+        let (mut tree, lib, mut ir) = tree_with(&[]);
+        ir.nodes.insert(crate::ir::NodeId(12), column(12, "x"));
+        ir.nodes.insert(crate::ir::NodeId(13), column(13, "y"));
+        let graft = crate::validate::Graft {
+            parent: "root".into(),
+            slot: "children".into(),
+            index: 0,
+            children: vec![crate::ir::NodeId(12), crate::ir::NodeId(13)].into(),
+            remove: None,
+            order: Vec::new(),
+        };
+        let (ops, work) = tree.insert_grafts(&ir, &lib, &[graft]);
+        assert_eq!(root_children(&tree), vec!["x", "y"]);
+        assert!(matches!(&ops[0], Op::Insert { node, index: 0, .. } if node.id == "x"));
+        assert!(matches!(&ops[1], Op::Insert { node, index: 1, .. } if node.id == "y"));
+        assert_eq!(work.wire_nodes_examined, 2);
+    }
+    #[test]
+    fn insert_grafts_applies_a_retained_removal_before_its_children() {
+        let (mut tree, lib, ir) = tree_with(&["a"]);
+        let graft = crate::validate::Graft {
+            parent: "root".into(),
+            slot: "children".into(),
+            index: 0,
+            children: Vec::new().into(),
+            remove: Some("a".into()),
+            order: Vec::new(),
+        };
+        let (ops, work) = tree.insert_grafts(&ir, &lib, &[graft]);
+        assert_eq!(ops, vec![Op::Remove { id: "a".into() }]);
+        assert!(!tree.nodes.contains_key("a"));
+        assert_eq!(work.wire_nodes_examined, 1);
+    }
+    #[test]
+    fn insert_grafts_updates_a_same_kind_node_instead_of_replacing_it() {
+        let (mut tree, lib, mut ir) = tree_with(&["a"]);
+        let node = ir.nodes.get_mut(&crate::ir::NodeId(11)).unwrap();
+        node.props.insert(
+            crate::ir::PropId(0),
+            Prop::Static(PropValue::Value(Value::from("new"))),
+        );
+        let graft = crate::validate::Graft {
+            parent: "root".into(),
+            slot: "children".into(),
+            index: 0,
+            children: vec![crate::ir::NodeId(11)].into(),
+            remove: None,
+            order: Vec::new(),
+        };
+        let (ops, _) = tree.insert_grafts(&ir, &lib, &[graft]);
+        assert_eq!(ops.len(), 1, "same-kind nodes are updated: {ops:?}");
+        assert!(
+            matches!(&ops[0], Op::SetProps { id, .. } if id == "a"),
+            "unexpected ops: {ops:?}"
+        );
+    }
+    #[test]
+    fn maintain_charges_removals_and_insertions_as_wire_visits() {
+        let (mut tree, lib, mut ir) = tree_with(&["a", "b"]);
+        ir.nodes.remove(&crate::ir::NodeId(11));
+        let removal = projection(vec![11], &[(11, "a", Some("root"), 0)], &[]);
+        let (ops, work) = tree.maintain(&ir, &lib, &removal);
+        assert_eq!(ops, vec![Op::Remove { id: "a".into() }]);
+        assert_eq!(work.wire_nodes_examined, 1);
+
+        let (mut tree, lib, mut ir) = tree_with(&["a"]);
+        ir.nodes.insert(crate::ir::NodeId(12), column(12, "x"));
+        let insertion = projection(vec![12], &[], &[(12, "x", Some("root"), 0)]);
+        let (ops, work) = tree.maintain(&ir, &lib, &insertion);
+        assert!(matches!(&ops[0], Op::Insert { node, .. } if node.id == "x"));
+        assert_eq!(work.wire_nodes_examined, 1);
+    }
+    #[test]
+    fn invalid_root_and_move_positions_leave_the_retained_tree_unchanged() {
+        let mut empty = Tree::default();
+        assert!(empty.apply(&insert("root", None, 1)).is_err());
+        assert_eq!(empty, Tree::default());
+
+        let mut tree = Tree::default();
+        for op in [
+            insert("root", None, 0),
+            insert("a", Some("root"), 0),
+            insert("b", Some("root"), 1),
+        ] {
+            tree.apply(&op).unwrap();
+        }
+        let before = tree.clone();
+        assert!(
+            tree.apply(&insert("other", None, 0)).is_err(),
+            "a second root cannot replace the retained one"
+        );
+        assert_eq!(tree, before);
+
+        let past_end = Op::Move {
+            id: "a".into(),
+            parent: Some("root".into()),
+            slot: "children".into(),
+            index: 2,
+        };
+        assert!(tree.apply(&past_end).is_err());
+        assert_eq!(tree, before, "a rejected same-slot move must not detach");
+
+        let far = Op::Move {
+            id: "a".into(),
+            parent: Some("root".into()),
+            slot: "children".into(),
+            index: 9,
+        };
+        assert!(tree.apply(&far).is_err());
+        assert_eq!(tree, before, "an out-of-range index must be rejected first");
+
+        let root_cycle = Op::Move {
+            id: "a".into(),
+            parent: None,
+            slot: "root".into(),
+            index: 0,
+        };
+        assert!(tree.apply(&root_cycle).is_err());
+        assert_eq!(tree, before, "a non-root node cannot become the root");
+    }
+    #[test]
+    fn moving_between_slots_allows_the_full_destination_length() {
+        let mut tree = Tree::default();
+        tree.apply(&insert("root", None, 0)).unwrap();
+        for (index, id) in ["a", "b"].iter().enumerate() {
+            tree.apply(&Op::Insert {
+                parent: Some("root".into()),
+                slot: "children".into(),
+                index: index as u32,
+                node: node(id, "Column"),
+            })
+            .unwrap();
+        }
+        for (index, id) in ["x", "y"].iter().enumerate() {
+            tree.apply(&Op::Insert {
+                parent: Some("root".into()),
+                slot: "other".into(),
+                index: index as u32,
+                node: node(id, "Column"),
+            })
+            .unwrap();
+        }
+        let op = Op::Move {
+            id: "a".into(),
+            parent: Some("root".into()),
+            slot: "other".into(),
+            index: 2,
+        };
+        tree.apply(&op).unwrap();
+        assert_eq!(
+            tree.nodes["root"].children["other"]
+                .iter()
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
+            ["x", "y", "a"]
+        );
+    }
+    #[test]
     fn update_props_charges_one_comparison_per_candidate_and_retained_prop() {
         let lib = wire_library();
         let id = crate::ir::NodeId(1);

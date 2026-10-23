@@ -870,17 +870,17 @@ root = Box([Leaf(t), Control(on_click: a)])\n";
         let lib = library();
         let mut opt = options();
         opt.limits.max_state_bytes = 8;
-        let base = BASE.replace("$count = 1\n", "$count = 1\n");
+        let base = BASE;
         let next = format!(
             "{base}$z1 = \"012345678901234567890123456789\"\n$z2 = \"012345678901234567890123456789\"\n"
         );
-        let attempt = apply(&base, &next, &["z1", "z2"], &lib, &opt, None);
+        let attempt = apply(base, &next, &["z1", "z2"], &lib, &opt, None);
         assert!(attempt.work.diagnostics_examined >= 2);
         let cache = assert_matches_batch(attempt, &next, &lib, &opt);
         assert!(cache.state_limited);
 
         let next = format!("{base}$z1 = 1\n");
-        let attempt = apply(&base, &next, &["z1"], &lib, &opt, None);
+        let attempt = apply(base, &next, &["z1"], &lib, &opt, None);
         let cache = assert_matches_batch(attempt, &next, &lib, &opt);
         assert!(!cache.state_limited);
     }

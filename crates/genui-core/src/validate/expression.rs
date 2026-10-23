@@ -1029,7 +1029,7 @@ mod tests {
 
         assert!(v.check_action(&expr("a"), &Context::at("x", None)));
         let before = v.diagnostics.len();
-        assert!(v.check_action(&expr("known"), &Context::at("x", None)) == false);
+        assert!(!v.check_action(&expr("known"), &Context::at("x", None)));
         assert_eq!(
             v.diagnostics.len(),
             before,

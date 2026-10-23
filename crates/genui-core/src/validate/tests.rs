@@ -555,20 +555,19 @@ fn unrelated_validation_rejects_a_root_name_even_without_a_retained_root() {
         .is_none(),
         "a new root is not an unrelated definition"
     );
-    for dirty in [BTreeSet::from(["root".to_string()])] {
-        assert!(
-            validate_unrelated(
-                &cache,
-                &base,
-                std::slice::from_ref(&fresh),
-                &dirty,
-                &library,
-                &options,
-            )
-            .is_none(),
-            "dirty {dirty:?}"
-        );
-    }
+    let dirty = BTreeSet::from(["root".to_string()]);
+    assert!(
+        validate_unrelated(
+            &cache,
+            &base,
+            std::slice::from_ref(&fresh),
+            &dirty,
+            &library,
+            &options,
+        )
+        .is_none(),
+        "dirty {dirty:?}"
+    );
 }
 
 #[test]

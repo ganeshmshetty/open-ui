@@ -1235,8 +1235,10 @@ mod tests {
     fn update_props_charges_one_comparison_per_candidate_and_retained_prop() {
         let lib = wire_library();
         let id = crate::ir::NodeId(1);
-        let mut ir = Ir::default();
-        ir.root = Some(id);
+        let mut ir = Ir {
+            root: Some(id),
+            ..Ir::default()
+        };
         let mut node = column(1, "root");
         node.kind = crate::ir::ComponentId(1);
         node.role = crate::ir::Role::Paragraph;

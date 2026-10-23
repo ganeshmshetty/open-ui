@@ -9,7 +9,9 @@ mod binding;
 mod slots;
 mod source;
 mod tasks;
-pub(crate) use tasks::{Address, Changes as TaskChanges, Projection};
+#[cfg(test)]
+pub(crate) use tasks::Address;
+pub(crate) use tasks::{Changes as TaskChanges, Projection};
 mod tree;
 use crate::{
     diag::{Code, Diagnostic, Recovery},

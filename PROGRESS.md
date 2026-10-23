@@ -1124,3 +1124,16 @@ diagnostics were not replayed on a rebuilt task, and action plans from a provisi
 reverse closure were still published. Regression tests for both are in
 `crates/genui-conformance/src/streaming.rs`. The mutation gate is still running, so
 M3 is not yet marked complete and nothing is merged.
+
+### M3 mutation survivor triage (2026-10-23)
+
+The corrected 16-shard campaign completed in ~2h23 but exposed 605 `MISSED`
+mutants in the new retained-source/task code, concentrated in `validate/
+incremental.rs`, `tree.rs`, `tasks.rs`, `expression.rs`, `mod.rs`, `session.rs`,
+`binding.rs` and `resource.rs`. Four parallel file-disjoint worktrees added 217
+core tests and 128 source-hashed equivalent rationales in
+`conformance/mutations/m3/review.json`. Triage also found and fixed a real bug:
+`binding::refresh` could re-push a cyclic dependency forever; the cycle guard now
+has a regression. A small number of mutants remain unclassified and will be
+rechecked by the next campaign. Full workspace tests, fixtures, fmt and Clippy
+(1.94 and 1.99) pass after merging the groups; no want.* golden was weakened.

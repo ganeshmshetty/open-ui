@@ -410,13 +410,13 @@ mod structural_tests {
                 arg,
                 depth: 2,
                 place: "children".into(),
-                items: [((0, item))].into_iter().collect(),
+                items: [(0, item)].into_iter().collect(),
                 counts: PrefixCounts::new(&[0]),
             },
         );
         cache
             .slot_readers
-            .insert("w".into(), [((key.clone(), 0))].into_iter().collect());
+            .insert("w".into(), [(key.clone(), 0)].into_iter().collect());
         cache.kinds.insert("w".into(), Kind::Node);
         (validation, cache, key, root)
     }
@@ -441,7 +441,7 @@ mod structural_tests {
     fn record_slot_tracks_and_replaces_item_readers() {
         let lib = library();
         let opt = Options::default();
-        let (validation, mut cache, key, _) = waiting(&lib, &opt);
+        let (validation, cache, key, _) = waiting(&lib, &opt);
         let mut v = Validator::new(&Program::default(), Vec::new(), &lib, &opt);
         v.ir = validation.ir.clone();
         v.record_slot(key.clone(), cache.slots.get(&key).unwrap().clone());

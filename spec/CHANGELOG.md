@@ -1,5 +1,13 @@
 # Spec changelog
 
+## 2026-10-23 — Mutation campaign sharding (§12.8)
+
+- Split the complete mutation campaign over sixteen disjoint CI shards instead of
+  eight and raise the per-shard job timeout to 240 minutes. The retained-source
+  task/validator expansion pushed an eight-shard campaign past the old 180-minute
+  limit before all mutants finished; the inventory and per-mutant timeout are
+  unchanged.
+
 ## 2026-10-23 — Static cycle ownership (§2.10)
 
 - Specify canonical ownership for cycles among static value/action definitions,

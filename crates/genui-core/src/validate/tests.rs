@@ -250,3 +250,44 @@ fn nested_container_aliases_remain_bounded_expression_plans() {
         Some(Prop::Dynamic(_))
     ));
 }
+
+#[test]
+fn state_and_query_accounting_never_underflows_from_zero() {
+    let mut options = Options::default();
+    options.tools.insert("known".into());
+    let lib = library();
+    let parsed = parse_batch(
+        b"$x=null\nquery q=tool(\"known\",{},default:[])\n",
+        options.limits.syntax.clone(),
+    );
+    assert_eq!(
+        parsed.program.statements.len(),
+        2,
+        "{:?}",
+        parsed
+            .program
+            .statements
+            .iter()
+            .map(|s| (&s.name, s.kind))
+            .collect::<Vec<_>>()
+    );
+    let mut validator = Validator::new(&parsed.program, parsed.diagnostics, &lib, &options);
+    validator.work.statements_checked = 0;
+    validator.states();
+    assert!(
+        validator.work.statements_checked > 0,
+        "state accounting must grow from zero"
+    );
+    validator.work.statements_checked = 0;
+    assert_eq!(
+        validator.table.len(),
+        1,
+        "query table: {:?}",
+        validator.table.keys().collect::<Vec<_>>()
+    );
+    validator.queries();
+    assert!(
+        validator.work.statements_checked > 0,
+        "query accounting must grow from zero"
+    );
+}

@@ -1037,3 +1037,35 @@ pub(crate) fn dependencies(e: &Expr, out: &mut BTreeSet<String>) {
         _ => {}
     }
 }
+
+#[cfg(test)]
+mod tracking_tests {
+    use super::*;
+    fn statement(source: &str) -> Statement {
+        let mut parsed =
+            crate::syntax::parse_batch(source.as_bytes(), crate::limits::SyntaxLimits::default());
+        parsed.program.statements.pop().expect("one statement")
+    }
+    #[test]
+    fn removing_a_draft_clears_its_dependency_edges() {
+        let mut tracking = DirtyTracking::default();
+        tracking.change(&statement("draft=other\n"));
+        assert!(tracking.dependencies.contains_key("draft"));
+        assert!(
+            tracking
+                .reverse
+                .get("other")
+                .is_some_and(|users| users.contains("draft"))
+        );
+        tracking.remove("draft".into());
+        assert!(!tracking.dependencies.contains_key("draft"));
+        assert!(
+            tracking
+                .reverse
+                .get("other")
+                .is_none_or(|users| !users.contains("draft"))
+        );
+        assert!(tracking.dirty.contains("draft"));
+        assert_eq!(tracking.revisions.get("draft"), Some(&2));
+    }
+}

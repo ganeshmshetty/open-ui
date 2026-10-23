@@ -1323,3 +1323,42 @@ mod binding_work_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod fuzz_regressions {
+    use super::*;
+    /// Retained argument diagnostics must be replayed when a rebuilt task skips
+    /// re-binding an unchanged instance. Fuzz artifact: crash-bcedeac5f26e2c65.
+    #[test]
+    fn retained_argument_diagnostics_survive_a_rebuilt_root_task() {
+        let data: &[u8] = &[
+            114, 111, 111, 116, 61, 67, 111, 108, 117, 109, 110, 40, 91, 97, 44, 98, 44, 97, 93,
+            57, 10, 98, 61, 68, 105, 118, 105, 100, 101, 114, 60, 0, 40, 41, 10, 3, 146, 73, 36,
+            146, 73, 13, 61, 36,
+        ];
+        let seed = data.iter().fold(0x32751u64, |s, b| {
+            s.wrapping_mul(31).wrapping_add(*b as u64)
+        });
+        let mut options = Options::default();
+        options.limits.syntax.max_stmt_bytes = (seed % 1024) as usize;
+        options.limits.syntax.max_expr_depth = (seed % 49) as usize;
+        options.limits.max_nodes = (seed % 100) as usize;
+        options.limits.max_ir_depth = (seed % 25) as usize;
+        options.limits.max_state_bytes = (seed % 1024) as usize;
+        options.limits.max_queries = (seed % 9) as usize;
+        options.limits.syntax.max_program_bytes = (seed % 32769) as usize;
+        options.tools.insert("known".into());
+        options.refs.insert("t.data".into());
+        let parts = [&data[..32], &data[32..]];
+        for message in [false, true] {
+            crate::streaming::check(
+                data,
+                &parts,
+                Arc::new(genui_std::std_library().unwrap()),
+                options.clone(),
+                message,
+            )
+            .unwrap();
+        }
+    }
+}

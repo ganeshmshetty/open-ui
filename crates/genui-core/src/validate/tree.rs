@@ -437,11 +437,23 @@ impl Validator<'_> {
         }
         let ctx = &local;
         let local_diag_start = self.diagnostics.len();
-        let mut bound = self
-            .retained_instance
-            .as_ref()
-            .map(|instance| instance.bound.clone())
-            .unwrap_or_else(|| self.bind_args(def, args, ctx));
+        let retained = self.retained_instance.clone();
+        let mut bound = if let Some(instance) = &retained {
+            for diagnostic in &instance.diagnostics {
+                if matches!(
+                    diagnostic.code,
+                    Code::DuplicateArg
+                        | Code::UnknownArg
+                        | Code::RequiredByName
+                        | Code::ExtraPositional
+                ) {
+                    self.replay(diagnostic.clone());
+                }
+            }
+            instance.bound.clone()
+        } else {
+            self.bind_args(def, args, ctx)
+        };
         let mut props = BTreeMap::new();
         let mut slots = Vec::new();
         let mut failed = false;

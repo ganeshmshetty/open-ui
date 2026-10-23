@@ -572,6 +572,12 @@ impl<'a> Validator<'a> {
         if !self.checking_orphan {
             d.path = ctx.path.as_ref().map(|p| p.0.clone());
         }
+        self.replay(d)
+    }
+    /// Reinsert a retained diagnostic into the current task frame. Argument
+    /// binding is skipped when its checked instance is reused, but its
+    /// diagnostics still belong to the rebuilt task.
+    fn replay(&mut self, d: Diagnostic) -> usize {
         self.diagnostics.push(d);
         let index = self.diagnostics.len() - 1;
         if let Some(frame) = self

@@ -971,4 +971,6 @@ impl<'a> Validator<'a> {
     }
 }
 #[cfg(test)]
+mod regressions;
+#[cfg(test)]
 mod tests;

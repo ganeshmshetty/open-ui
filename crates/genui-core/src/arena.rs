@@ -236,6 +236,53 @@ mod tests {
         }
     }
     #[test]
+    fn empty_owner_views_follow_the_live_frame_and_released_uses() {
+        let mut arena = ExpressionArena::default();
+        assert!(arena.is_empty());
+        assert_eq!(arena.owner(), None);
+        let scope = arena.enter("a".into(), vec![1]);
+        assert_eq!(arena.owner(), Some("a"), "the active frame names its owner");
+        let first = arena.intern(&string("first"));
+        assert!(!arena.is_empty());
+        arena.exit(scope);
+        assert_eq!(arena.owner(), None);
+        assert_eq!(arena.owner_ids("a"), vec![first.clone()]);
+
+        let scope = arena.enter("a".into(), vec![1]);
+        let second = arena.intern(&string("second"));
+        arena.exit(scope);
+        assert_eq!(
+            arena.owner_ids("a"),
+            vec![second],
+            "a changed owner retains only its current uses"
+        );
+        assert!(arena.get(&first).is_none());
+        assert_eq!(arena.len(), 1);
+    }
+    #[test]
+    fn canonical_indices_use_the_recorded_owner_order_not_the_owner_key() {
+        let mut arena = ExpressionArena::default();
+        let scope = arena.enter("later".into(), vec![1]);
+        let later = arena.intern(&string("later"));
+        arena.exit(scope);
+        let scope = arena.enter("earlier".into(), vec![2]);
+        let earlier = arena.intern(&string("earlier"));
+        arena.exit(scope);
+        let indices = arena.canonical_indices();
+        assert_eq!(indices[&later], 0, "owner order 1 sorts before order 2");
+        assert_eq!(indices[&earlier], 1);
+
+        let scope = arena.enter("later".into(), vec![3]);
+        arena.intern(&string("later"));
+        arena.exit(scope);
+        let reordered = arena.canonical_indices();
+        assert_eq!(
+            reordered[&earlier], 0,
+            "an owner's updated order participates in canonical sorting"
+        );
+        assert_eq!(reordered[&later], 1);
+    }
+    #[test]
     fn changing_an_owner_releases_obsolete_bodies_and_retains_shared_ones() {
         let mut arena = ExpressionArena::default();
         let scope = arena.enter("a".into(), vec![0]);

@@ -23,7 +23,7 @@ jobs:
       - name: Install mutation tester
         run: cargo install cargo-mutants --version 27.1.0 --locked
       - name: Syntax, IR and patch mutations with all workspace tests
-        run: python3 scripts/mutation.py --output mutation-results --shard ${{ matrix.shard }}/8
+        run: python3 scripts/mutation.py --output mutation-results --shard ${{ matrix.shard }}/16
       - name: Upload complete mutation evidence
         if: always()
         uses: actions/upload-artifact@v4

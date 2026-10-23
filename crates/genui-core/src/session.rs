@@ -1088,6 +1088,94 @@ mod session_contract_tests {
     }
 
     #[test]
+    fn phase_reports_waiting_and_rejection_from_each_committed_layer() {
+        let waiting = session();
+        assert_eq!(waiting.phase(), SessionPhase::Waiting);
+
+        let mut rejected = session();
+        rejected.push(b"x=1\n");
+        rejected.finish();
+        assert!(
+            rejected.current.diagnostics.has_committed_fatal(),
+            "{:?}",
+            rejected.diagnostics()
+        );
+        assert_eq!(rejected.phase(), SessionPhase::Rejected);
+    }
+    #[test]
+    fn a_draft_publishes_its_reverse_provisional_closure() {
+        let mut session = session();
+        session.push(b"root=Stack([draft])\ndraft=Leaf(\"a");
+        let origins = session.provisional_origins();
+        assert!(origins.contains("draft"), "{origins:?}");
+        assert!(
+            origins.contains("root"),
+            "sealed consumers of a draft stay provisional: {origins:?}"
+        );
+    }
+    #[test]
+    fn sealing_an_unrelated_definition_reuses_retained_instances() {
+        let mut session = session();
+        session.push(b"root=Stack([a])\na=Leaf(\"x\")\n");
+        let before = session.reused_instances();
+        session.push(b"extra=1\n");
+        assert!(
+            session.reused_instances() > before,
+            "the unchanged displayed subtree must be reused"
+        );
+    }
+    #[test]
+    fn withdrawing_a_stale_action_keeps_the_nodes_other_props() {
+        let mut session = session();
+        session.push(b"root=Stack([Control(on_click:say(\"go\"),label:\"Keep\"),draft])\n");
+        assert_eq!(
+            session.ir().actions.len(),
+            1,
+            "the sealed control publishes its action plan"
+        );
+        session.push(b"draft=Leaf(\"a");
+        assert!(session.ir().actions.is_empty());
+        let control = session
+            .ir()
+            .nodes
+            .values()
+            .find(|node| node.kind.0 == 2)
+            .expect("control node");
+        assert!(
+            control.props.values().any(
+                |prop| matches!(prop, Prop::Static(PropValue::Value(value)) if value.string() == Some("Keep"))
+            ),
+            "the stale action withdrawal must not drop the label: {:?}",
+            control.props
+        );
+    }
+    #[test]
+    fn a_recovered_null_becoming_a_literal_rebuilds_the_draft_candidate() {
+        let mut session = session();
+        session.push(
+            b"root=Stack([draft])\ndraft=Leaf(99999999999999999999999999999999999999999999999999",
+        );
+        let before = session.dirty().revisions["draft"];
+        session.push(b",");
+        assert!(
+            session.dirty().revisions["draft"] > before,
+            "a recovery-metadata-only candidate change must still be tracked"
+        );
+    }
+    #[test]
+    fn a_visible_draft_change_advances_its_instance_revision() {
+        let mut session = session();
+        session.push(b"root=Stack([draft])\ndraft=Leaf(\"a");
+        let path = "root/children:@draft";
+        let first = session.dirty().instances[path].origin_rev;
+        session.push(b"b");
+        let second = session.dirty().instances[path].origin_rev;
+        assert!(
+            second > first,
+            "a changed draft-owned node must take the candidate's new revision: {first} -> {second}"
+        );
+    }
+    #[test]
     fn a_visible_draft_text_edits_one_node_and_then_seals_in_place() {
         let mut session = session();
         session.push(b"root=Stack([a,draft])\na=Leaf(\"x\")\ndraft=Leaf(\"a");

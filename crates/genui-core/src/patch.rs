@@ -882,10 +882,12 @@ pub fn strip_invisibles(text: &str) -> String {
 }
 pub fn wire_value(v: &Value) -> J {
     match v {
-        Value::Str(s) if s.prov == Provenance::Model => J::String(strip_invisibles(&s.text)),
+        Value::Str(s) if matches!(s.prov, Provenance::Model | Provenance::Mixed) => {
+            J::String(strip_invisibles(&s.text))
+        }
         Value::List(items) => J::Array(items.iter().map(wire_value).collect()),
         Value::Map(items) => {
-            json!({"map":items.iter().map(|(k,v)|json!([k,wire_value(v)])).collect::<Vec<_>>()})
+            json!({"map":items.iter().map(|(k,v)|json!([strip_invisibles(k),wire_value(v)])).collect::<Vec<_>>()})
         }
         _ => v.ir_json(),
     }
@@ -1216,6 +1218,11 @@ mod tests {
         );
         let model = Value::from("a\u{202e}b\u{200b}c");
         assert_eq!(wire_value(&model), json!("abc"));
+        let mixed = Value::Str(crate::value::PStr {
+            text: "a\u{202e}b".into(),
+            prov: Provenance::Mixed,
+        });
+        assert_eq!(wire_value(&mixed), json!("ab"));
         let tool = Value::Str(crate::value::PStr {
             text: "x\u{200b}".into(),
             prov: Provenance::Tool,

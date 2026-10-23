@@ -7,6 +7,36 @@
   shard is avoided by halving each job's mutant count; the inventory, per-mutant
   timeout and review rules are unchanged.
 
+## 2026-10-23 — M4 review fixes (§§4.3,6.5,7.3–7.8,11,12.1,12.4–12.5,13)
+
+- `query.denied` recovery is now `Defaulted`, matching the §7.5 effect text: a
+  denied refresh clears the previous result and the declared default returns.
+  `query.failed` keeps `KeptLastGood`.
+- Deliveries carry an epoch. Request ids restart at 1 after `reset()`, so
+  `Session::deliver_from(epoch, id, ...)` rejects an id from another epoch even
+  when the number is reused; `deliver` remains the current-epoch convenience.
+- A failed or denied ref delivery replaces the `Ref` placeholder with `Null`
+  under `ValueNulled`; the §4.4 ladder then continues (a required node may drop).
+  This resolves the contradiction between the recovery table and the old
+  placeholder behavior.
+- `max_event_bytes` is enforced for every event shape: dropping `ctx`, then one
+  linear text trim, and exactly one `limit.event` even when text/label/params
+  alone exceed the limit or the limit is 0.
+- Dynamic field props (`bind`, `required`, `kind`, `min_len`, `max_len`, `min`,
+  `max`) and dynamic `submit`/`on_submit` are read from evaluated props, not only
+  from static literals.
+- Data limits use canonical §6.5 bytes. Bidi/zero-width stripping now also
+  covers `Mixed` strings, map keys, model-event text/labels and host-request text.
+  `open` applies the host `UrlPolicy` to `Tool` provenance as well.
+- The 300 ms debounce starts at the dependency change, is cancelled when the
+  arguments revert, and is not skipped for queued queries. Runtime diagnostics
+  keep repeated independent occurrences; only re-evaluation de-duplicates.
+- Document the runtime `script.json` ops (including `reset`, `finish`, `push` and
+  an optional delivery epoch), runtime `library.json` extensions, and the new
+  `want.events.json`/`want.fields.json` comparison. Runners now reject unexpected
+  requests/events when the corresponding want file is absent and replay every
+  scripted patch batch.
+
 ## 2026-10-23 — M4 data-dependent nodes and runtime recovery (§§2.10–2.11,4.4,5.5,7.3–7.4,7.5,12.3)
 
 - Instantiate retained `each`, node-producing `if` and `coalesce` plans at runtime

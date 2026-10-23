@@ -1,0 +1,8 @@
+{
+  "title": "Blur marks a field touched",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a77.3: a field becomes touched on blur."
+}

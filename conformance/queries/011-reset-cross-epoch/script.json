@@ -1,0 +1,24 @@
+[
+  {
+    "op": "reset"
+  },
+  {
+    "op": "push",
+    "input": "query q=tool(\"known\",{},default:\"d\")\nroot=Text(q)\n"
+  },
+  {
+    "op": "finish"
+  },
+  {
+    "op": "deliver",
+    "request": 1,
+    "epoch": 1,
+    "result": "old"
+  },
+  {
+    "op": "deliver",
+    "request": 1,
+    "epoch": 2,
+    "result": "new"
+  }
+]

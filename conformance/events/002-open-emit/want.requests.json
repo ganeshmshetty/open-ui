@@ -1,0 +1,1 @@
+[{"epoch":1,"id":1,"kind":"open_url","node":"root/children:@btn","origin":{"user_gesture":{"node":755725509733868113}},"stmt":"btn","url":"https://allowed.example/report"},{"epoch":1,"id":2,"kind":"emit","label":"Export","name":"export","node":"root/children:@btn","origin":{"user_gesture":{"node":755725509733868113}},"params":1,"stmt":"btn"}]

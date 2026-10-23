@@ -1,0 +1,8 @@
+{
+  "tools": [
+    "known"
+  ],
+  "url_hosts": [
+    "allowed.example"
+  ]
+}

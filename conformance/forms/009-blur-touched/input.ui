@@ -1,0 +1,3 @@
+$name=""
+name_f=Input("Name",bind:$name,required:true)
+root=Column([name_f])

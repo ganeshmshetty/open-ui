@@ -1,0 +1,7 @@
+[
+  {
+    "op": "activate",
+    "node": "root/children:@go",
+    "prop": "on_click"
+  }
+]

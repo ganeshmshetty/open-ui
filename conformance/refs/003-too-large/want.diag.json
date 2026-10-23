@@ -1,1 +1,1 @@
-[{"code":"ref.too_large","path":"root","recovery":"ValueNulled","stmt":"root"}]
+[{"code":"schema.missing_required","path":"root","recovery":"NodeDropped","stmt":"root"},{"code":"ref.too_large","path":"root","recovery":"ValueNulled","stmt":"root"}]

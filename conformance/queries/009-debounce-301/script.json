@@ -1,0 +1,11 @@
+[
+  {
+    "op": "activate",
+    "node": "root/children:@go",
+    "prop": "on_click"
+  },
+  {
+    "op": "advance",
+    "ms": 301
+  }
+]

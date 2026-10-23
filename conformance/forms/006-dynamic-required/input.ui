@@ -1,0 +1,6 @@
+$flag=true
+$name=""
+finder=Form([name_f,go],on_submit:say("Create"))
+name_f=Input("Name",bind:$name,required:$flag)
+go=Button("Create",submit:true,on_click:say("Clicked"))
+root=Column([finder])

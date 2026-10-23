@@ -79,17 +79,36 @@ reconstruction, checked patch replay and contiguous sequence numbers. Parser wor
 counters verify parse-once seals and bounded tail reparsing; they do not prove
 the unresolved dirty-only IR/patch complexity requirement (see M3 report).
 
-M4 begins runtime evaluation. `numbers`, `expr`, `state` and `actions` fixtures
-compare a canonical `want.resolved.json` retained tree (`id`, `kind`, `role`,
-evaluated `props`, `status`, `children`) plus static and runtime diagnostics.
-Dynamic props in live patches are evaluated, so the M3 deferred-object checkpoint
-in streaming 029 now asserts the resolved string. Query names use their declared
-default and `ref()` remains a placeholder in this slice. An optional
-`script.json` may contain `{"op":"activate","node":"<path>","prop":"<name>"}`;
-activation is ignored before `finish()` or for a stale epoch/handle. Host-effect
-steps (`refresh`, `say`, `open`, `emit`) are still inert; only `set` and
-`restore` change state at this boundary. `want.ir.json` remains the symbolic
-validation IR and is not compared in runtime categories.
+M4 implements runtime evaluation and the host boundary. `numbers`, `expr`,
+`iteration`, `state`, `actions`, `queries`, `refs`, `events`, `forms` and
+`provenance` fixtures compare a canonical `want.resolved.json` retained tree
+(`id`, `kind`, `role`, evaluated `props`, `status`, `children`) plus static and
+runtime diagnostics. They may also assert `want.requests.json`,
+`want.events.json` and `want.fields.json`; a missing request/event file means
+none are permitted, so unexpected host effects fail the fixture. `want.ir.json`
+remains the symbolic validation IR and is not compared in runtime categories.
+
+`script.json` is an ordered array of tagged ops:
+`{"op":"activate","node":"<path>","prop":"<name>"}`,
+`{"op":"edit","node":"<path>","value":...}`,
+`{"op":"blur","node":"<path>"}`,
+`{"op":"deliver","request":N,"epoch":E,"result":...}` (or `"error"`:
+`denied`/`failed`/`too_large`),
+`{"op":"advance","ms":N}`, `{"op":"reset"}`, `{"op":"finish"}` and
+`{"op":"push","input":"..."}`. `epoch` is optional and defaults to the current
+epoch; deliveries from another epoch are dropped. Activation is ignored before
+`finish()` or for a stale epoch/handle. The runner applies every returned patch
+batch through `Replay` and requires it to equal the live tree (G6), including
+across `reset()` epochs. A runtime fixture may add `library.json` to extend std
+with custom actions (used by the `emit` fixture).
+
+Queries request after `finish()`, debounce dependency changes for 300 ms through
+`advance_clock`, and deny/fail according to the request table. Denied refreshes
+return to the declared default; failed ones keep the last good value. `ref()`
+stays a placeholder until delivery, then becomes `Host` data or `Null` with
+`ref.unknown`/`ref.too_large`. Synthetic `error`/`touched` props mirror field
+status and `status` mirrors query state.
+
 Canonical JSON goldens are compact sorted bytes plus one file LF, independently
 encoded by the core. Typed semantic maps retain entry order as tagged pairs.
 

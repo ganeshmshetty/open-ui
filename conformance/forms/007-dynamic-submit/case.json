@@ -1,0 +1,8 @@
+{
+  "title": "Dynamic submit gates the form",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a7\u00a72.14,7.3: submit is evaluated when the button is activated."
+}

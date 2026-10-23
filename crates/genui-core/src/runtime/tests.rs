@@ -186,3 +186,42 @@ fn actions_are_gated_until_finish() {
     session.activate(node, &handle);
     assert_eq!(text_prop(&session).as_deref(), Some("2"));
 }
+
+#[test]
+fn data_byte_limits_use_canonical_semantic_bytes() {
+    assert_eq!(value_bytes(&Value::Int(2)), r#"{"i":2}"#.len());
+    assert_eq!(value_bytes(&Value::Float(2.0)), r#"{"f":2.0}"#.len());
+    let map = Value::Map(std::sync::Arc::new(vec![
+        ("z".into(), Value::Int(1)),
+        ("a".into(), Value::from("x")),
+    ]));
+    assert_eq!(
+        value_bytes(&map),
+        crate::canonical::encode(&map.ir_json()).len()
+    );
+    assert!(value_bytes(&map) > serde_json::to_vec(&map).unwrap().len());
+}
+
+#[test]
+fn request_and_event_text_is_sanitized() {
+    let value = Value::Str(crate::value::PStr {
+        text: "a\u{202e}b\u{200b}c".into(),
+        prov: Provenance::Mixed,
+    });
+    let sanitized = sanitize_value(value);
+    assert!(
+        matches!(&sanitized, Value::Str(text) if text.text.as_ref() == "abc" && text.prov == Provenance::Mixed)
+    );
+    let list = Value::List(std::sync::Arc::new(vec![
+        Value::from("x\u{2066}y"),
+        Value::Map(std::sync::Arc::new(vec![(
+            "k\u{2060}".into(),
+            Value::from("z\u{200d}"),
+        )])),
+    ]));
+    let sanitized = sanitize_value(list);
+    assert_eq!(
+        crate::canonical::encode(&sanitized.ir_json()),
+        r#"["xy",{"map":[["k","z"]]}]"#
+    );
+}

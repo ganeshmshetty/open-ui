@@ -1,0 +1,3 @@
+go=[open("https://allowed.example/report"),emit("export",1)]
+btn=Button("Export",on_click:go)
+root=Column([btn])

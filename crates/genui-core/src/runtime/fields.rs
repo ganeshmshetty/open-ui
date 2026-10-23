@@ -50,7 +50,7 @@ pub struct FieldRegistry {
 }
 
 impl FieldRegistry {
-    pub fn build(ir: &Ir, library: &Library) -> Self {
+    pub fn build(ir: &Ir, library: &Library, resolved: &crate::runtime::Resolved) -> Self {
         let parents = parents(ir);
         let mut fields = Vec::new();
         let mut nodes: Vec<_> = ir.nodes.values().collect();
@@ -59,7 +59,7 @@ impl FieldRegistry {
             let Some(component) = library.components().get(node.kind.0 as usize) else {
                 continue;
             };
-            let Some(bind) = static_arg(node, component, "bind") else {
+            let Some(bind) = arg_value(node, component, "bind", resolved) else {
                 continue;
             };
             let PropValue::Binding(bind) = bind else {
@@ -72,13 +72,17 @@ impl FieldRegistry {
                 path: node.path.clone(),
                 scope,
                 form_path,
-                bind: bind.clone(),
-                required: static_bool(node, component, "required"),
-                kind: static_string(node, component, "kind").unwrap_or_else(|| "text".into()),
-                min_len: static_int(node, component, "min_len"),
-                max_len: static_int(node, component, "max_len"),
-                min: static_number(node, component, "min"),
-                max: static_number(node, component, "max"),
+                bind,
+                required: matches!(
+                    arg_value(node, component, "required", resolved),
+                    Some(PropValue::Value(Value::Bool(true)))
+                ),
+                kind: arg_string(node, component, "kind", resolved)
+                    .unwrap_or_else(|| "text".into()),
+                min_len: arg_int(node, component, "min_len", resolved),
+                max_len: arg_int(node, component, "max_len", resolved),
+                min: arg_number(node, component, "min", resolved),
+                max: arg_number(node, component, "max", resolved),
             });
         }
         Self { fields }
@@ -167,51 +171,52 @@ fn nearest_form(
     None
 }
 
-fn static_arg<'a>(
-    node: &'a crate::ir::Node,
-    component: &'a crate::r#lib::ComponentDef,
+/// Read a field prop whether the program wrote it as a literal or an evaluated
+/// expression (§§2.14,5.5,7.3).
+fn arg_value(
+    node: &crate::ir::Node,
+    component: &crate::r#lib::ComponentDef,
     name: &str,
-) -> Option<&'a PropValue> {
+    resolved: &crate::runtime::Resolved,
+) -> Option<PropValue> {
     let index = component.args.iter().position(|arg| arg.name == name)?;
     let index = u16::try_from(index).ok()?;
-    match node.props.get(&crate::ir::PropId(index)) {
-        Some(Prop::Static(value)) => Some(value),
-        _ => None,
+    let prop = crate::ir::PropId(index);
+    match node.props.get(&prop) {
+        Some(Prop::Static(value)) => Some(value.clone()),
+        Some(Prop::Dynamic(_)) => resolved.prop(node.id, prop).cloned(),
+        None => None,
     }
 }
-
-fn static_bool(node: &crate::ir::Node, component: &crate::r#lib::ComponentDef, name: &str) -> bool {
-    matches!(
-        static_arg(node, component, name),
-        Some(PropValue::Value(Value::Bool(true)))
-    )
-}
-fn static_int(
+fn arg_int(
     node: &crate::ir::Node,
     component: &crate::r#lib::ComponentDef,
     name: &str,
+    resolved: &crate::runtime::Resolved,
 ) -> Option<i64> {
-    match static_arg(node, component, name) {
-        Some(PropValue::Value(Value::Int(value))) => Some(*value),
+    match arg_value(node, component, name, resolved) {
+        Some(PropValue::Value(Value::Int(value))) => Some(value),
         _ => None,
     }
 }
-fn static_number(
+fn arg_number(
     node: &crate::ir::Node,
     component: &crate::r#lib::ComponentDef,
     name: &str,
+    resolved: &crate::runtime::Resolved,
 ) -> Option<f64> {
-    match static_arg(node, component, name) {
+    match arg_value(node, component, name, resolved) {
         Some(PropValue::Value(value)) => value.number(),
         _ => None,
     }
 }
-fn static_string(
+fn arg_string(
     node: &crate::ir::Node,
     component: &crate::r#lib::ComponentDef,
     name: &str,
+    resolved: &crate::runtime::Resolved,
 ) -> Option<String> {
-    match static_arg(node, component, name) {
+    match arg_value(node, component, name, resolved) {
         Some(PropValue::Value(Value::Str(text))) => Some(text.text.to_string()),
         _ => None,
     }

@@ -1,0 +1,8 @@
+{
+  "title": "Denied refresh reverts to the declared default",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a77.5: denial clears the previous result and the declared default stays."
+}

@@ -177,7 +177,7 @@ impl StateStore {
     }
 }
 fn value_size(value: &Value) -> usize {
-    serde_json::to_vec(value).map_or(usize::MAX, |bytes| bytes.len())
+    value_bytes(value)
 }
 
 /// Evaluated Dynamic props for the current tree. Static props remain in the IR.
@@ -232,6 +232,7 @@ pub struct Runtime {
     pub state: StateStore,
     queries: BTreeMap<String, Value>,
     refs: BTreeMap<String, Value>,
+    failed_refs: BTreeSet<String>,
 }
 impl Runtime {
     pub fn new() -> Self {
@@ -251,6 +252,7 @@ impl Runtime {
             &self.state,
             &self.queries,
             &self.refs,
+            &self.failed_refs,
             catalog,
         )
     }
@@ -294,6 +296,7 @@ impl Runtime {
             &self.state,
             &self.queries,
             &self.refs,
+            &self.failed_refs,
             catalog,
             &mut diagnostics,
         );
@@ -306,6 +309,7 @@ impl Runtime {
             &values,
             &self.queries,
             &self.refs,
+            &self.failed_refs,
             catalog,
             &mut queries,
             &mut diagnostics,
@@ -334,10 +338,19 @@ impl Runtime {
         self.queries.insert(name.into(), value);
     }
     pub fn set_ref_value(&mut self, id: &str, value: Value) {
+        self.failed_refs.remove(id);
         self.refs.insert(id.into(), value);
     }
     pub fn clear_query_result(&mut self, name: &str) {
         self.queries.remove(name);
+    }
+    /// A denied or failed resolution never leaves a placeholder behind (§§4.3,7.7):
+    /// dependent props evaluate to `Null` under the emitted `ValueNulled` code.
+    pub fn fail_ref(&mut self, id: &str) {
+        self.failed_refs.insert(id.into());
+    }
+    pub fn ref_failed(&self, id: &str) -> bool {
+        self.failed_refs.contains(id)
     }
     pub fn resolved_ref_count(&self) -> usize {
         self.refs.len()
@@ -480,6 +493,7 @@ pub fn evaluate_with_catalog(
         &StateStore::from_ir(ir),
         &BTreeMap::new(),
         &BTreeMap::new(),
+        &BTreeSet::new(),
         catalog,
     )
 }
@@ -499,6 +513,7 @@ pub fn evaluate_with_state(
         &BTreeMap::new(),
         &BTreeMap::new(),
         &BTreeSet::new(),
+        &BTreeSet::new(),
     )
 }
 
@@ -510,6 +525,7 @@ fn evaluate_full(
     state: &StateStore,
     query_results: &BTreeMap<String, Value>,
     ref_values: &BTreeMap<String, Value>,
+    failed_refs: &BTreeSet<String>,
     catalog: &BTreeSet<String>,
 ) -> Resolved {
     let mut diagnostics = Vec::new();
@@ -520,6 +536,7 @@ fn evaluate_full(
         state,
         query_results,
         ref_values,
+        failed_refs,
         catalog,
         &mut diagnostics,
     );
@@ -531,6 +548,7 @@ fn evaluate_full(
         values: &values,
         query_results,
         ref_values,
+        failed_refs,
         catalog,
         diagnostics,
         queries: BTreeMap::new(),
@@ -551,14 +569,8 @@ fn push_diagnostic(
 ) {
     let mut diagnostic = Diagnostic::new(code, stmt, None);
     diagnostic.path = path;
-    if !diagnostics.iter().any(|existing| {
-        existing.code == diagnostic.code
-            && existing.stmt == diagnostic.stmt
-            && existing.path == diagnostic.path
-            && existing.recovery == diagnostic.recovery
-    }) {
-        diagnostics.push(diagnostic);
-    }
+    // Independent occurrences stay independent; the caller decides scope.
+    diagnostics.push(diagnostic);
 }
 
 struct Context {
@@ -574,6 +586,7 @@ struct Evaluator<'a> {
     values: &'a BTreeMap<String, Value>,
     query_results: &'a BTreeMap<String, Value>,
     ref_values: &'a BTreeMap<String, Value>,
+    failed_refs: &'a BTreeSet<String>,
     ref_catalog: &'a BTreeSet<String>,
     queries: &'a mut BTreeMap<String, Value>,
     visiting_queries: BTreeSet<String>,
@@ -591,6 +604,7 @@ impl<'a> Evaluator<'a> {
         values: &'a BTreeMap<String, Value>,
         query_results: &'a BTreeMap<String, Value>,
         ref_values: &'a BTreeMap<String, Value>,
+        failed_refs: &'a BTreeSet<String>,
         ref_catalog: &'a BTreeSet<String>,
         queries: &'a mut BTreeMap<String, Value>,
         diagnostics: &'a mut Vec<Diagnostic>,
@@ -603,6 +617,7 @@ impl<'a> Evaluator<'a> {
             values,
             query_results,
             ref_values,
+            failed_refs,
             ref_catalog,
             queries,
             visiting_queries: BTreeSet::new(),
@@ -941,6 +956,9 @@ impl<'a> Evaluator<'a> {
                         self.fail(Code::RefUnknown, context)
                     } else if let Some(value) = self.ref_values.get(value) {
                         value.clone()
+                    } else if self.failed_refs.contains(value) {
+                        // Denied, failed, oversized or invalid delivery (§§4.3,7.7).
+                        Value::Null
                     } else {
                         // No host data before delivery (§7.7): keep the placeholder.
                         Value::Ref(value.clone())
@@ -1549,6 +1567,7 @@ fn evaluate_values(
     state: &StateStore,
     query_results: &BTreeMap<String, Value>,
     ref_values: &BTreeMap<String, Value>,
+    failed_refs: &BTreeSet<String>,
     catalog: &BTreeSet<String>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> BTreeMap<String, Value> {
@@ -1577,6 +1596,7 @@ fn evaluate_values(
             &seen,
             query_results,
             ref_values,
+            failed_refs,
             catalog,
             &mut queries,
             diagnostics,
@@ -1812,9 +1832,35 @@ pub fn contains_ref(value: &Value) -> bool {
     }
 }
 
+/// Remove bidi controls and zero-width characters from every string in a value
+/// that can reach a host request or a model event (§11).
+pub fn sanitize_value(value: Value) -> Value {
+    match value {
+        Value::Str(text) => Value::Str(PStr {
+            text: crate::patch::strip_invisibles(&text.text).into(),
+            prov: text.prov,
+        }),
+        Value::List(items) => Value::List(Arc::new(
+            items.iter().cloned().map(sanitize_value).collect(),
+        )),
+        Value::Map(entries) => Value::Map(Arc::new(
+            entries
+                .iter()
+                .map(|(key, value)| {
+                    (
+                        crate::patch::strip_invisibles(key),
+                        sanitize_value(value.clone()),
+                    )
+                })
+                .collect(),
+        )),
+        other => other,
+    }
+}
+
 /// Canonical data size used by `max_resolved_data_bytes` and `max_state_bytes`.
 pub fn value_bytes(value: &Value) -> usize {
-    serde_json::to_vec(value).map_or(usize::MAX, |bytes| bytes.len())
+    crate::canonical::encode(&value.ir_json()).len()
 }
 
 /// Resolved retained tree in the §12.2 canonical shape. `provenance` emits
@@ -1893,7 +1939,7 @@ fn value_json(value: &Value, provenance: bool) -> serde_json::Value {
     use serde_json::{Value as J, json};
     match value {
         Value::Str(text) if provenance => {
-            json!({"s": text.text.as_ref(), "prov": prov_name(text.prov)})
+            json!({"s": crate::patch::strip_invisibles(&text.text), "prov": prov_name(text.prov)})
         }
         Value::Str(text) => J::String(crate::patch::strip_invisibles(&text.text)),
         Value::List(items) => J::Array(items.iter().map(|v| value_json(v, provenance)).collect()),

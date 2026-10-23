@@ -1,0 +1,1 @@
+[{"args":{},"args_hash":1389868326933519382,"epoch":1,"id":1,"kind":"query","needs_approval":true,"origin":"program","stmt":"q","tool":"known"},{"epoch":1,"id":2,"kind":"open_url","node":"root/children:@go","origin":{"user_gesture":{"node":562564404265113317}},"stmt":"go","url":"https://allowed.example/x"}]

@@ -1,0 +1,8 @@
+{
+  "title": "Open and emit create host requests",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a77.8: open yields only an OpenUrl request; emit yields a request and a model event."
+}

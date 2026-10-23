@@ -1,0 +1,6 @@
+$kind="email"
+$name="nope"
+finder=Form([name_f,go],on_submit:say("Create"))
+name_f=Input("Name",bind:$name,kind:$kind)
+go=Button("Create",submit:true,on_click:say("Clicked"))
+root=Column([finder])

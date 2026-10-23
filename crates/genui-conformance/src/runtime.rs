@@ -20,9 +20,16 @@ enum Step {
     Deliver {
         request: u64,
         #[serde(default)]
+        epoch: Option<u32>,
+        #[serde(default)]
         result: Option<genui_core::value::Value>,
         #[serde(default)]
         error: Option<String>,
+    },
+    Reset,
+    Finish,
+    Push {
+        input: String,
     },
     Advance {
         ms: u64,
@@ -54,6 +61,7 @@ pub fn run_case(
         "want.fields.json",
         "options.json",
         "script.json",
+        "library.json",
     ];
     for entry in fs::read_dir(path).map_err(|e| e.to_string())? {
         let entry = entry.map_err(|e| e.to_string())?;
@@ -68,6 +76,36 @@ pub fn run_case(
             ));
         }
     }
+    let library = if path.join("library.json").exists() {
+        let extension: genui_core::r#lib::LibraryBuilder =
+            checked_json(&path.join("library.json"), &schemas.library_input)?;
+        let mut builder = library.extend();
+        builder.id = extension.id;
+        builder.version = extension.version;
+        for group in extension.groups {
+            builder = builder.group(group);
+        }
+        for (name, ty) in extension.types {
+            builder = builder.type_(&name, ty);
+        }
+        for component in extension.components {
+            builder = builder.component(component);
+        }
+        for function in extension.functions {
+            builder = builder.function(function);
+        }
+        for action in extension.actions {
+            builder = builder.action(action);
+        }
+        builder.formats.extend(extension.formats);
+        std::sync::Arc::new(
+            builder
+                .build()
+                .map_err(|errors| format!("library: {errors:?}"))?,
+        )
+    } else {
+        library
+    };
     let mut options: Options = if path.join("options.json").exists() {
         checked_json(&path.join("options.json"), &schemas.options)?
     } else {
@@ -93,12 +131,21 @@ pub fn run_case(
         validation: options.clone(),
         input: InputMode::Program,
     });
-    session.push(&input);
+    let mut replay = genui_core::patch::Replay::default();
     let mut requests = Vec::new();
     let mut events = Vec::new();
+    let update = session.push(&input);
+    apply_replay(&mut replay, &update, "push")?;
     requests.extend(
-        session
-            .finish()
+        update
+            .requests
+            .into_iter()
+            .filter_map(|request| genui_core::canonical::serialize(&request).ok()),
+    );
+    let update = session.finish();
+    apply_replay(&mut replay, &update, "finish")?;
+    requests.extend(
+        update
             .requests
             .into_iter()
             .filter_map(|request| genui_core::canonical::serialize(&request).ok()),
@@ -123,6 +170,7 @@ pub fn run_case(
                 }
                 Step::Deliver {
                     request,
+                    epoch,
                     result,
                     error,
                 } => {
@@ -133,8 +181,15 @@ pub fn run_case(
                         Some(other) => return Err(format!("unknown delivery error {other:?}")),
                         None => Ok(result.unwrap_or(genui_core::value::Value::Null)),
                     };
-                    session.deliver(RequestId(request), result)
+                    session.deliver_from(
+                        epoch.unwrap_or_else(|| session.epoch()),
+                        RequestId(request),
+                        result,
+                    )
                 }
+                Step::Reset => session.reset(),
+                Step::Finish => session.finish(),
+                Step::Push { input } => session.push(input.as_bytes()),
                 Step::Advance { ms } => session.advance_clock(ms),
                 Step::Edit { node, value } => {
                     let node = node_by_path(&session, &node)?;
@@ -145,6 +200,7 @@ pub fn run_case(
                     session.event(genui_core::session::UiEvent::Blur { node })
                 }
             };
+            apply_replay(&mut replay, &update, "script")?;
             requests.extend(
                 update
                     .requests
@@ -158,6 +214,13 @@ pub fn run_case(
                     .filter_map(|event| genui_core::canonical::serialize(&event).ok()),
             );
         }
+    }
+    if replay.tree != *session.tree() {
+        return Err(format!(
+            "scripted patch replay differs from the live tree: {:?} vs {:?}",
+            replay.tree,
+            session.tree()
+        ));
     }
     let actual = if category == "provenance" {
         genui_core::runtime::resolved_tree_json(
@@ -197,6 +260,10 @@ pub fn run_case(
                 "request mismatch\nexpected {want:?}\nactual {actual:?}"
             ));
         }
+    } else if !requests.is_empty() {
+        return Err(format!(
+            "unexpected host requests without want.requests.json: {requests:?}"
+        ));
     }
     if path.join("want.events.json").exists() {
         let want: Vec<Value> = checked_json(&path.join("want.events.json"), &schemas.events)?;
@@ -209,6 +276,10 @@ pub fn run_case(
                 "model-event mismatch\nexpected {want:?}\nactual {actual:?}"
             ));
         }
+    } else if !events.is_empty() {
+        return Err(format!(
+            "unexpected model events without want.events.json: {events:?}"
+        ));
     }
     if path.join("want.fields.json").exists() {
         let want: Vec<Value> = checked_json(&path.join("want.fields.json"), &schemas.fields)?;
@@ -248,6 +319,22 @@ pub fn run_case(
         chunkings: count,
         permutations: 0,
     })
+}
+
+fn apply_replay(
+    replay: &mut genui_core::patch::Replay,
+    update: &genui_core::session::Update,
+    label: &str,
+) -> Result<()> {
+    if let Some(batch) = &update.patches {
+        let report = replay.apply(batch);
+        if !report.errors.is_empty() || report.needs_snapshot || report.discarded {
+            return Err(format!(
+                "{label}: scripted replay rejected a batch: {report:?}"
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn node_by_path(session: &Session, path: &str) -> Result<genui_core::ir::NodeId> {

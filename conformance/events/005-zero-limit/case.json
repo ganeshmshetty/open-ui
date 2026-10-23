@@ -1,0 +1,11 @@
+{
+  "title": "Zero event budget reports limit.event",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a7\u00a74.3,7.8: max_event_bytes 0 still reports exactly one limit.event.",
+  "limits": {
+    "max_event_bytes": 0
+  }
+}

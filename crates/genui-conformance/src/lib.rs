@@ -82,6 +82,7 @@ struct Schemas {
     requests: jsonschema::Validator,
     events: jsonschema::Validator,
     fields: jsonschema::Validator,
+    library_input: jsonschema::Validator,
 }
 
 impl Schemas {
@@ -103,6 +104,7 @@ impl Schemas {
             requests: load(root, "requests")?,
             events: load(root, "events")?,
             fields: load(root, "fields")?,
+            library_input: load(root, "library")?,
         })
     }
 }

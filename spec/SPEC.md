@@ -786,7 +786,7 @@ Codes are stable once released. A code's severity and recovery are fixed, except
 | `state.type_write` | Warning | Ignored | |
 | `query.unknown_tool` | Error | KeptLastGood (default stays) | yes |
 | `query.too_many` | Error | StatementDropped | yes |
-| `query.denied` | Error | KeptLastGood | |
+| `query.denied` | Error | Defaulted | |
 | `query.failed` | Error | KeptLastGood | |
 | `ref.invalid` | Error | ValueNulled | yes |
 | `ref.unknown` | Error | ValueNulled | yes |
@@ -1244,6 +1244,14 @@ pub enum ReqKind {
 | `Ready`, `Failed` | `refresh` or arg change | `Refreshing` (same key) or a new entry (new key) | emit a new request; the old result stays visible |
 | any | delivery for an entry that is no longer current for its statement | unchanged | delivery dropped |
 
+A denial clears any previous result, so a refresh that is denied falls back to
+the query's declared `default`; a failure keeps the last good result or that
+default. Every `HostRequest` carries the epoch in which it was issued. Request
+ids restart at 1 after `reset()`, so a delivery is accepted only through
+`deliver_from(epoch, id, ...)` (or `deliver` for the current epoch) when the
+pending entry and the session agree on that epoch; an id from an older epoch is
+dropped even when its number is reused.
+
 **Policy.** The core never calls a tool and never decides policy. It flags `needs_approval = true` in two cases:
 
 - the descriptor has `auto_run = false`;
@@ -1291,7 +1299,7 @@ Images are never fetched from a URL by the renderer. The host fetches them and h
 - **Nesting.** A resolved value MUST NOT contain further refs.
 - **Caching.** Resolution is cached per `(message, RefId)`. The limits are in 7.1.
 
-Before delivery the ref id is validated against the catalog and the prop keeps a `Ref` placeholder; no data is invented. Delivery replaces it with the value tagged `Host`, capped by `max_resolved_data_bytes` and by `max_ref_resolutions` per message. A `Denied` or `Failed` delivery is `ref.unknown`, an oversized value or an exceeded resolution cap is `ref.too_large`, and a resolved value that still contains a ref is `ref.invalid`; all three use the §4.3 recovery.
+Before delivery the ref id is validated against the catalog and the prop keeps a `Ref` placeholder; no data is invented. Delivery replaces it with the value tagged `Host`, capped by `max_resolved_data_bytes` and by `max_ref_resolutions` per message. A `Denied` or `Failed` delivery is `ref.unknown`, an oversized value or an exceeded resolution cap is `ref.too_large`, and a resolved value that still contains a ref is `ref.invalid`; all three use the §4.3 recovery (`ValueNulled`), so the placeholder is replaced by `Null` and the §4.4 ladder continues from there.
 
 ### 7.8 UI events and events to the model
 
@@ -1312,7 +1320,7 @@ Events that leave the process become `ModelEvent`s once the host lets them throu
 
 - **`label`** is the visible label of the node the user activated, read from the IR. It is not taken from model-supplied event text. This lets the host and the model see what the user actually clicked.
 - **Size.** Events are capped at `max_event_bytes` (`limit.event`).
-- **Truncation.** An oversized event first drops its `ctx`, then trims `text` at a character boundary; `limit.event` is reported once. `say` and declared custom actions produce a model event beside their host request; `open` produces only an `OpenUrl` request and fails with `expr.tainted_url` when provenance or the host URL policy forbids it.
+- **Truncation.** An oversized event first drops its `ctx`, then trims `text` at a character boundary; `limit.event` is reported once. If the event is still oversized after the text is exhausted (for example an oversized label), the one diagnostic is still reported: `label` is the activated node's real label and is not rewritten. `say` and declared custom actions produce a model event beside their host request; `open` produces only an `OpenUrl` request and fails with `expr.tainted_url` when provenance or the host URL policy forbids it.
 - **Sending.** The host turns the event into a synthetic user turn (9.3) and MUST show it in the transcript exactly as sent. The core never sends anything itself.
 
 ### 7.9 Conversations: one session per message
@@ -1838,7 +1846,7 @@ A message can contain prose before the program, and prose that becomes `Segment:
 | Unauthorized tool use | Only registered tools. The core only emits requests, and the host decides. At most `max_queries` and `max_concurrent_requests`. |
 | Misleading actions | No mutations in phase 1. `say` events carry the activated node's real label and `source: ui_event`. The prompt tells the model that events are not instructions (S8). The host shows sent events in the transcript as sent. |
 | Phishing for secrets | No password or secret fields in phase 1. Prompt rule S10. Hosts MAY flag fields whose labels look like credentials. |
-| Spoofing with bidi or invisible characters | Bidi override and isolate characters (U+202A–U+202E, U+2066–U+2069) and zero-width characters (U+200B–U+200D, U+2060) are removed from every model-written text prop before patching. |
+| Spoofing with bidi or invisible characters | Bidi override and isolate characters (U+202A–U+202E, U+2066–U+2069) and zero-width characters (U+200B–U+200D, U+2060) are removed from every model-written text prop before patching, including `Mixed` strings and map keys, and from model-event text/labels and host-request text. |
 | UI redress | No raw colors, fonts or positioning. Programs render inside a message region the host controls. Overlays are limited to anchored kit popovers (10.11). |
 | Prompt injection through data | Tool and ref data never enter program text. Echoed data is wrapped as data in fenced blocks. |
 | Hallucinated data | Refs must be in the per-turn catalog. |
@@ -1862,7 +1870,8 @@ conformance/
     case.json                 title, tier, tags, limits overrides, notes
     input.ui                  whole program, or a full model reply with prose and fence
     stream.json               optional explicit chunking (array of strings)
-    script.json               interactive tier: events, deliveries, clock advances;
+    script.json               interactive tier: ordered ops activate/deliver/advance/edit/
+                              blur/reset/finish/push; deliveries may name an epoch;
                               patches core tier may use session commands push/finish/snapshot/reset
     checkpoints.json          streaming: exact explicit-stream node/prop/status checks
     want.tokens.json          ordered lexical tokens (category lex only)
@@ -1871,12 +1880,15 @@ conformance/
     want.ir.json              canonical IR (M2 concrete nodes; plans tested separately)
     options.json              optional static host context: tools, refs, capabilities, URL policy
     library.json              builder input in library fixtures; want.build.json gives exact errors
-                              tag extend adds these definitions to std via extend()
+                              tag extend adds these definitions to std via extend(); runtime
+                              fixtures may use it the same way for custom actions
     paths.json                allocator probe in focused ir fixtures; want.paths.json gives paths
     want.diag.json            expected diagnostics
     want.patches.json         exact batches (category patches only)
     want.resolved.json        evaluated tree (interactive tier)
-    want.requests.json        expected host requests and model events
+    want.requests.json        expected host requests
+    want.events.json          expected model events
+    want.fields.json          expected per-field {path,error,touched}
     want.prompt.txt           golden prompt (category prompt)
 ```
 
@@ -1931,7 +1943,7 @@ For every chunking it checks:
 | `patches` | Op order, coalescing, `move`, `append_text`, epochs, snapshots. |
 | `state` | Declarations, typing of empty and null defaults, bindings, origins, undeclared reads. |
 | `forms` | Scopes, field checks and their order, submit inside and outside forms, touched state. |
-| `queries` | The request table, dependencies, debounce (virtual clock), stale deliveries, denial, failure, caps. |
+| `queries` | The request table, dependencies, the 300 ms debounce (including queued queries and its 299/300/301 ms boundaries), stale and cross-epoch deliveries, denial reverting to the declared default, failure, caps. |
 | `actions` | Plans, step order, gating while streaming, stale handles. |
 | `refs` | Catalog, resolution, unknown and invalid ids, size limits. |
 | `provenance` | Tagging, mixing, URL acceptance per tag, tool-argument approval flags. |
@@ -1945,7 +1957,7 @@ For every chunking it checks:
 ### 12.5 Tiers
 
 - **Core:** syntax, IR, patches and evaluator. No host involved.
-- **Interactive:** core plus `script.json`. The script contains `{"event": {...}}`, `{"deliver": {"request": "...", "result": ...}}` and `{"advance_ms": n}`, and the fixture expects requests, model events and final state.
+- **Interactive:** core plus `script.json`. The script is an ordered array of tagged ops: `{"op":"activate","node":"...","prop":"..."}`, `{"op":"edit","node":"...","value":...}`, `{"op":"blur","node":"..."}`, `{"op":"deliver","request":N,"epoch":E,"result":...}` or `{"op":"deliver","request":N,"error":"denied"|"failed"|"too_large"}`, `{"op":"advance","ms":N}`, `{"op":"reset"}`, `{"op":"finish"}`, and `{"op":"push","input":"..."}`. `epoch` is optional and defaults to the current epoch. Runners apply every returned patch batch through replay and compare requests, model events, field status and the final state.
 - **GPUI smoke** (non-normative): a headless GPUI test that applies the replay of selected fixtures with no panic. Visual snapshots are deferred.
 
 ### 12.6 Process rules
@@ -2078,7 +2090,10 @@ impl Session {
 
     // UI and host
     pub fn event(&mut self, ev: UiEvent) -> Update;
+    pub fn epoch(&self) -> u32;
     pub fn deliver(&mut self, id: RequestId, res: Result<Value, HostError>) -> Update;
+    pub fn deliver_from(&mut self, epoch: u32, id: RequestId,
+                        res: Result<Value, HostError>) -> Update;  // rejects other epochs
     pub fn advance_clock(&mut self, now_ms: u64) -> Update;  // debounce timers
 
     // Runtime inspection

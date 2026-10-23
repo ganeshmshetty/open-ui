@@ -273,8 +273,22 @@ struct RefState {
 }
 #[derive(Clone, Debug)]
 enum PendingKind {
-    Query { name: String, args_hash: u64 },
-    Ref { id: String },
+    Query {
+        epoch: u32,
+        name: String,
+        args_hash: u64,
+    },
+    Ref {
+        epoch: u32,
+        id: String,
+    },
+}
+impl PendingKind {
+    fn epoch(&self) -> u32 {
+        match self {
+            Self::Query { epoch, .. } | Self::Ref { epoch, .. } => *epoch,
+        }
+    }
 }
 pub struct Session {
     work: crate::MaintenanceWork,
@@ -449,6 +463,12 @@ impl Session {
         self.rebuild(true);
         self.pump_queries(true);
         self.pump_refs();
+        if !self.queries.is_empty() {
+            // Requested/queued status is a synthetic prop; keep the static
+            // finish path local when the program has no queries (§7.5).
+            self.mark_tree_dirty();
+            self.evaluate();
+        }
         self.update(false, false)
     }
     pub fn reset(&mut self) -> Update {
@@ -540,7 +560,8 @@ impl Session {
                 if let Some(node) = self.live_ir().nodes.get(&node) {
                     self.touched.insert(node.path.0.clone());
                 }
-                self.field_status = self.fields.all(&self.runtime.state, &self.touched);
+                self.mark_tree_dirty();
+                self.evaluate();
                 self.update(false, false)
             }
         }
@@ -590,6 +611,7 @@ impl Session {
         if let Some(scope) = gate
             && !self.validate_scope(scope)
         {
+            self.mark_tree_dirty();
             self.evaluate();
             return self.update(false, false);
         }
@@ -604,10 +626,12 @@ impl Session {
         for (effect, effect_stmt) in effects {
             self.apply_effect(effect, node, &effect_stmt);
         }
-        self.tree_dirty = true;
+        self.mark_tree_dirty();
         self.evaluate();
         self.pump_queries(false);
         self.pump_refs();
+        self.mark_tree_dirty();
+        self.evaluate();
         self.update(false, false)
     }
     fn execute_plan(
@@ -635,21 +659,41 @@ impl Session {
             .map(|effect| (effect, stmt.clone()))
             .collect()
     }
-    /// Deliver one host result (§7.5). Unknown, stale and cross-epoch deliveries
-    /// are dropped without changing anything.
+    /// The current reset epoch (§6.3 G8). Request ids alone are not globally
+    /// unique: they restart after `reset()`, so deliveries also carry an epoch.
+    pub fn epoch(&self) -> u32 {
+        self.epoch
+    }
+    /// Deliver one host result for the current epoch (§7.5).
     pub fn deliver(
         &mut self,
+        id: RequestId,
+        result: Result<crate::value::Value, HostError>,
+    ) -> Update {
+        self.deliver_from(self.epoch, id, result)
+    }
+    /// Deliver one host result, rejecting an id from another epoch. Unknown,
+    /// stale and cross-epoch deliveries are dropped without changing anything.
+    pub fn deliver_from(
+        &mut self,
+        epoch: u32,
         id: RequestId,
         result: Result<crate::value::Value, HostError>,
     ) -> Update {
         if !self.finished {
             return self.empty_update();
         }
-        let Some(pending) = self.pending.remove(&id) else {
+        let Some(pending) = self.pending.get(&id).cloned() else {
             return self.empty_update();
         };
+        if pending.epoch() != epoch || epoch != self.epoch {
+            return self.empty_update();
+        }
+        self.pending.remove(&id);
         match pending {
-            PendingKind::Query { name, args_hash } => {
+            PendingKind::Query {
+                name, args_hash, ..
+            } => {
                 let current = self.queries.get(&name).is_some_and(|state| {
                     state.request == Some(id) && state.args_hash == Some(args_hash)
                 });
@@ -678,6 +722,9 @@ impl Session {
                     }
                     Err(HostError::Denied) => {
                         state.status = QueryStatus::Denied;
+                        // Refreshing after a good result must show the declared
+                        // default again, not the previous delivery (§7.5).
+                        self.runtime.clear_query_result(&name);
                         self.push_host_diagnostic(Code::QueryDenied, Some(name.clone()), None);
                     }
                     Err(HostError::Failed | HostError::TooLarge) => {
@@ -686,7 +733,7 @@ impl Session {
                     }
                 }
             }
-            PendingKind::Ref { id: reference } => {
+            PendingKind::Ref { id: reference, .. } => {
                 let current = self
                     .refs_state
                     .get(&reference)
@@ -703,6 +750,7 @@ impl Session {
                 match result {
                     Ok(value) if crate::runtime::contains_ref(&value) => {
                         state.status = QueryStatus::Failed;
+                        self.runtime.fail_ref(&reference);
                         self.push_host_diagnostic(Code::RefInvalid, Some(stmt), path);
                     }
                     Ok(value)
@@ -710,6 +758,7 @@ impl Session {
                             > self.options.validation.limits.max_resolved_data_bytes =>
                     {
                         state.status = QueryStatus::Failed;
+                        self.runtime.fail_ref(&reference);
                         self.push_host_diagnostic(Code::RefTooLarge, Some(stmt), path);
                     }
                     Ok(value) => {
@@ -718,6 +767,7 @@ impl Session {
                                 >= self.options.validation.limits.max_ref_resolutions
                         {
                             state.status = QueryStatus::Failed;
+                            self.runtime.fail_ref(&reference);
                             self.push_host_diagnostic(Code::RefTooLarge, Some(stmt), path);
                         } else {
                             state.status = QueryStatus::Ready;
@@ -729,27 +779,33 @@ impl Session {
                     }
                     Err(HostError::TooLarge) => {
                         state.status = QueryStatus::Failed;
+                        self.runtime.fail_ref(&reference);
                         self.push_host_diagnostic(Code::RefTooLarge, Some(stmt), path);
                     }
                     Err(HostError::Denied | HostError::Failed) => {
                         state.status = QueryStatus::Failed;
+                        self.runtime.fail_ref(&reference);
                         self.push_host_diagnostic(Code::RefUnknown, Some(stmt), path);
                     }
                 }
             }
         }
-        self.tree_dirty = true;
+        self.mark_tree_dirty();
         self.evaluate();
         self.pump_queries(false);
         self.pump_refs();
+        self.mark_tree_dirty();
+        self.evaluate();
         self.update(false, false)
     }
     /// Virtual clock for the 300 ms query debounce (§2.15,7.5).
     pub fn advance_clock(&mut self, now_ms: u64) -> Update {
-        self.clock_ms = self.clock_ms.max(now_ms);
         if !self.finished || self.rejected {
+            self.clock_ms = self.clock_ms.max(now_ms);
             return self.empty_update();
         }
+        // Schedule from the clock at which the dependency changed, not from the
+        // later call that first observes it. A revert cancels the timer.
         let names: Vec<_> = self.current.ir.queries.keys().cloned().collect();
         for name in names {
             let Some(query) = self.current.ir.queries.get(&name) else {
@@ -767,13 +823,20 @@ impl Session {
                 &name,
             );
             self.extend_host_diagnostics(diagnostics);
-            let hash = args_hash(&args);
+            let hash = args_hash(&crate::runtime::sanitize_value(args));
             let state = self.queries.entry(name.clone()).or_default();
-            if state.args_hash.is_some() && state.args_hash != Some(hash) {
-                let due = self.clock_ms.saturating_add(300);
-                self.debounce.entry(name).or_insert(due);
+            match state.args_hash {
+                Some(current) if current != hash => {
+                    let due = self.clock_ms.saturating_add(300);
+                    self.debounce.entry(name).or_insert(due);
+                }
+                Some(_) => {
+                    self.debounce.remove(&name);
+                }
+                None => {}
             }
         }
+        self.clock_ms = self.clock_ms.max(now_ms);
         let due: Vec<_> = self
             .debounce
             .iter()
@@ -785,6 +848,8 @@ impl Session {
             self.refreshed.insert(name);
         }
         self.pump_queries(false);
+        self.mark_tree_dirty();
+        self.evaluate();
         self.update(false, false)
     }
     pub fn query_status(&self, name: &str) -> QueryStatus {
@@ -808,6 +873,21 @@ impl Session {
         self.field_status = self.fields.all(&self.runtime.state, &self.touched);
         !failed
     }
+    fn resolved_arg(
+        &self,
+        node: &crate::ir::Node,
+        component: &crate::r#lib::ComponentDef,
+        name: &str,
+    ) -> Option<crate::ir::PropValue> {
+        let index = component.args.iter().position(|arg| arg.name == name)?;
+        let index = u16::try_from(index).ok()?;
+        let prop = crate::ir::PropId(index);
+        match node.props.get(&prop) {
+            Some(crate::ir::Prop::Static(value)) => Some(value.clone()),
+            Some(crate::ir::Prop::Dynamic(_)) => self.resolved.prop(node.id, prop).cloned(),
+            None => None,
+        }
+    }
     fn is_submit_button(&self, node: crate::ir::NodeId) -> bool {
         let Some(node) = self.live_ir().nodes.get(&node) else {
             return false;
@@ -818,20 +898,10 @@ impl Session {
         if component.name != "Button" {
             return false;
         }
-        component
-            .args
-            .iter()
-            .position(|arg| arg.name == "submit")
-            .and_then(|index| u16::try_from(index).ok())
-            .and_then(|index| node.props.get(&crate::ir::PropId(index)))
-            .is_some_and(|prop| {
-                matches!(
-                    prop,
-                    crate::ir::Prop::Static(crate::ir::PropValue::Value(
-                        crate::value::Value::Bool(true)
-                    ))
-                )
-            })
+        matches!(
+            self.resolved_arg(node, component, "submit"),
+            Some(crate::ir::PropValue::Value(crate::value::Value::Bool(true)))
+        )
     }
     fn form_submit_plan(&self, form: crate::ir::NodeId) -> Option<crate::ir::ActionPlan> {
         let node = self.live_ir().nodes.get(&form)?;
@@ -840,15 +910,8 @@ impl Session {
             .library
             .components()
             .get(node.kind.0 as usize)?;
-        let index = component
-            .args
-            .iter()
-            .position(|arg| arg.name == "on_submit")?;
-        let index = u16::try_from(index).ok()?;
-        match node.props.get(&crate::ir::PropId(index)) {
-            Some(crate::ir::Prop::Static(crate::ir::PropValue::Action(id))) => {
-                self.live_ir().actions.get(id).cloned()
-            }
+        match self.resolved_arg(node, component, "on_submit") {
+            Some(crate::ir::PropValue::Action(id)) => self.live_ir().actions.get(&id).cloned(),
             _ => None,
         }
     }
@@ -914,6 +977,8 @@ impl Session {
                     }
                 };
                 let label = self.label(node);
+                let text = crate::patch::strip_invisibles(&text.text).to_string();
+                let ctx = ctx.map(crate::runtime::sanitize_value);
                 let reference = self
                     .current
                     .ir
@@ -927,29 +992,25 @@ impl Session {
                     epoch: self.epoch,
                     origin: RequestOrigin::UserGesture { node },
                     kind: ReqKind::Say {
-                        text: text.text.to_string(),
+                        text: text.clone(),
                         ctx: ctx.clone().unwrap_or(crate::value::Value::Null),
                         label: label.clone(),
                         node: reference.clone(),
                         stmt: stmt.into(),
                     },
                 });
-                let event = self.model_event(
-                    "say",
-                    Some(text.text.to_string()),
-                    None,
-                    None,
-                    &label,
-                    ctx,
-                    &reference,
-                    stmt,
-                );
+                let event =
+                    self.model_event("say", Some(text), None, None, &label, ctx, &reference, stmt);
                 self.event_outbox.push(event);
             }
             Effect::Open { url } => {
                 let crate::value::Value::Str(url) = url else {
                     self.push_host_diagnostic(Code::ExprType, Some(stmt.into()), None);
                     return;
+                };
+                let url = crate::value::PStr {
+                    text: crate::patch::strip_invisibles(&url.text).into(),
+                    prov: url.prov,
                 };
                 if !self.url_allowed(&url) {
                     self.push_host_diagnostic(Code::TaintedUrl, Some(stmt.into()), None);
@@ -976,6 +1037,8 @@ impl Session {
             }
             Effect::Emit { name, params } => {
                 let label = self.label(node);
+                let name = crate::patch::strip_invisibles(&name);
+                let params = crate::runtime::sanitize_value(params);
                 let reference = self
                     .current
                     .ir
@@ -1026,29 +1089,27 @@ impl Session {
             v: 1,
             source: "ui_event".into(),
             kind: kind.into(),
-            text,
-            name,
-            params,
-            label: label.into(),
-            ctx,
+            text: text.map(|text| crate::patch::strip_invisibles(&text)),
+            name: name.map(|name| crate::patch::strip_invisibles(&name)),
+            params: params.map(crate::runtime::sanitize_value),
+            label: crate::patch::strip_invisibles(label),
+            ctx: ctx.map(crate::runtime::sanitize_value),
             node: node.into(),
             stmt: stmt.into(),
         };
         let limit = self.options.validation.limits.max_event_bytes;
         let mut truncated = false;
-        while crate::canonical::serialize(&event).is_ok_and(|json| json.len() > limit) {
-            if event.ctx.is_some() {
-                event.ctx = None;
-                truncated = true;
-                continue;
+        if event_len(&event) > limit {
+            truncated = true;
+            // §7.8: drop optional context first, then trim text linearly.
+            if event.ctx.take().is_some() && event_len(&event) > limit {
+                // still oversized: fall through to the text trim
             }
-            if let Some(text) = &mut event.text
-                && text.pop().is_some()
+            if event_len(&event) > limit
+                && let Some(text) = event.text.take()
             {
-                truncated = true;
-                continue;
+                event.text = fit_text(&event, &text, limit);
             }
-            break;
         }
         if truncated {
             self.push_host_diagnostic(Code::EventSize, Some(stmt.into()), None);
@@ -1057,9 +1118,11 @@ impl Session {
     }
     fn url_allowed(&self, url: &crate::value::PStr) -> bool {
         match url.prov {
-            crate::value::Provenance::Host | crate::value::Provenance::Tool => true,
+            crate::value::Provenance::Host => true,
             crate::value::Provenance::User | crate::value::Provenance::Mixed => false,
-            crate::value::Provenance::Model => {
+            // Model literals need the allowlist; Tool results are accepted only
+            // subject to the same host URL policy (§7.6).
+            crate::value::Provenance::Model | crate::value::Provenance::Tool => {
                 let text = url.text.as_ref();
                 let Some((scheme, rest)) = text.split_once("://") else {
                     return false;
@@ -1093,13 +1156,13 @@ impl Session {
         match node.props.get(&prop_id) {
             Some(crate::ir::Prop::Static(crate::ir::PropValue::Value(
                 crate::value::Value::Str(text),
-            ))) => text.text.to_string(),
+            ))) => crate::patch::strip_invisibles(&text.text),
             Some(crate::ir::Prop::Dynamic(_)) => self
                 .resolved
                 .prop(node.id, prop_id)
                 .and_then(|value| match value {
                     crate::ir::PropValue::Value(crate::value::Value::Str(text)) => {
-                        Some(text.text.to_string())
+                        Some(crate::patch::strip_invisibles(&text.text))
                     }
                     _ => None,
                 })
@@ -1128,9 +1191,22 @@ impl Session {
                 &name,
             );
             self.extend_host_diagnostics(diagnostics);
+            let args = crate::runtime::sanitize_value(args);
             let hash = args_hash(&args);
             let force = self.refreshed.remove(&name);
             let current = self.queries.get(&name).cloned().unwrap_or_default();
+            let changed = current.args_hash.is_some_and(|current| current != hash);
+            if changed {
+                if !force {
+                    // A dependency change waits for the 300 ms debounce, even
+                    // when the query is queued behind the concurrency cap.
+                    let due = self.clock_ms.saturating_add(300);
+                    self.debounce.entry(name.clone()).or_insert(due);
+                    continue;
+                }
+            } else {
+                self.debounce.remove(&name);
+            }
             if let Some(request) = current.request {
                 if force {
                     // A new key or a refresh supersedes the outstanding request;
@@ -1146,6 +1222,7 @@ impl Session {
             }
             let origin = current.origin.unwrap_or(RequestOrigin::Program);
             let Some(id) = self.enqueue(PendingKind::Query {
+                epoch: self.epoch,
                 name: name.clone(),
                 args_hash: hash,
             }) else {
@@ -1211,6 +1288,7 @@ impl Session {
                 continue;
             }
             let Some(id) = self.enqueue(PendingKind::Ref {
+                epoch: self.epoch,
                 id: reference.clone(),
             }) else {
                 continue;
@@ -1244,18 +1322,23 @@ impl Session {
     fn push_host_diagnostic(&mut self, code: Code, stmt: Option<String>, path: Option<String>) {
         let mut diagnostic = Diagnostic::new(code, stmt, None);
         diagnostic.path = path;
-        if !self.host_diagnostics.iter().any(|existing| {
-            existing.code == diagnostic.code
-                && existing.stmt == diagnostic.stmt
-                && existing.path == diagnostic.path
-                && existing.recovery == diagnostic.recovery
-        }) {
-            self.host_diagnostics.push(diagnostic);
-        }
+        // Each host event is an independent occurrence (§4.2).
+        self.host_diagnostics.push(diagnostic);
     }
     fn extend_host_diagnostics(&mut self, diagnostics: Vec<Diagnostic>) {
+        // Evaluation diagnostics describe the current evaluation, not a new
+        // event, so repeated evaluation must not accumulate duplicates.
         for diagnostic in diagnostics {
-            self.push_host_diagnostic(diagnostic.code, diagnostic.stmt, diagnostic.path);
+            let mut candidate = Diagnostic::new(diagnostic.code, diagnostic.stmt, None);
+            candidate.path = diagnostic.path;
+            if !self.host_diagnostics.iter().any(|existing| {
+                existing.code == candidate.code
+                    && existing.stmt == candidate.stmt
+                    && existing.path == candidate.path
+                    && existing.recovery == candidate.recovery
+            }) {
+                self.host_diagnostics.push(candidate);
+            }
         }
     }
     fn remove_query_errors(&mut self, name: &str) {
@@ -1309,6 +1392,15 @@ impl Session {
         } else {
             SessionPhase::Waiting
         }
+    }
+    /// Host results and request issuance change synthetic status/text props that
+    /// the static projection did not predict. Drop the partial maintenance caches
+    /// so the next diff observes them (§6.4).
+    fn mark_tree_dirty(&mut self) {
+        self.tree_dirty = true;
+        self.projection = None;
+        self.local_wire = None;
+        self.local_grafts = None;
     }
     fn empty_update(&self) -> Update {
         Update {
@@ -1843,7 +1935,8 @@ impl Session {
             self.local_grafts = None;
         }
         let live = self.resolved.ir().clone();
-        self.fields = crate::runtime::FieldRegistry::build(&live, &self.options.library);
+        self.fields =
+            crate::runtime::FieldRegistry::build(&live, &self.options.library, &self.resolved);
         self.field_status = self.fields.all(&self.runtime.state, &self.touched);
         self.resolve_field_props();
         self.resolve_status_props(&live);
@@ -2078,6 +2171,35 @@ impl Session {
         }
     }
 }
+fn event_len(event: &ModelEvent) -> usize {
+    crate::canonical::serialize(event).map_or(usize::MAX, |json| json.len())
+}
+
+/// Trim `text` once for the canonical event size (§7.8). The prefix is chosen
+/// in one pass over characters; no repeated whole-event serialization.
+fn fit_text(event: &ModelEvent, text: &str, limit: usize) -> Option<String> {
+    let base = event_len(event);
+    let budget = limit.checked_sub(base.saturating_add(8))?;
+    if budget < 2 {
+        return None;
+    }
+    let mut used = 2usize;
+    let mut output = String::new();
+    for ch in text.chars() {
+        let size = match ch {
+            '"' | '\\' | '\n' | '\r' | '\t' | '\u{0008}' | '\u{000c}' => 2,
+            ch if ch < '\u{0020}' => 6,
+            ch => ch.len_utf8(),
+        };
+        if used.saturating_add(size) > budget {
+            break;
+        }
+        used += size;
+        output.push(ch);
+    }
+    Some(output)
+}
+
 fn aggregate_status(a: QueryStatus, b: QueryStatus) -> QueryStatus {
     fn rank(status: QueryStatus) -> u8 {
         match status {
@@ -2658,6 +2780,13 @@ mod tests {
                         .doc("Control.")
                         .opt_none("on_click", T::action()),
                 )
+                .component(
+                    ComponentDef::new("Button", Role::Button)
+                        .group("G")
+                        .doc("Button.")
+                        .req("label", T::text())
+                        .opt_none("on_click", T::action()),
+                )
                 .build()
                 .unwrap(),
         )
@@ -2680,6 +2809,23 @@ mod tests {
         session.tree().canonical_tree()["props"]["text"]
             .as_str()
             .map(str::to_string)
+    }
+    fn text_at(session: &Session, path: &str) -> Option<String> {
+        fn walk(value: &serde_json::Value, path: &str) -> Option<String> {
+            if value["id"].as_str() == Some(path) {
+                return value["props"]["text"].as_str().map(str::to_string);
+            }
+            let children = value["children"].as_object()?;
+            for slot in children.values() {
+                for child in slot.as_array()? {
+                    if let Some(text) = walk(child, path) {
+                        return Some(text);
+                    }
+                }
+            }
+            None
+        }
+        walk(&session.tree().canonical_tree(), path)
     }
 
     #[test]
@@ -2738,6 +2884,136 @@ mod tests {
         let id = update.requests[0].id;
         session.deliver(id, Ok(crate::value::Value::from("Ramen")));
         assert_eq!(text(&session).as_deref(), Some("Ramen"));
+    }
+
+    #[test]
+    fn denied_refresh_reverts_to_the_declared_default() {
+        let mut session = session(
+            "$n=1\nquery q=tool(\"known\",{x:$n},default:\"d\")\nctl=Control(on_click:set($n,2))\nroot=Stack([Text(q),ctl])",
+            &["known"],
+            &[],
+        );
+        let update = session.finish();
+        let first = update.requests[0].id;
+        session.deliver(first, Ok(crate::value::Value::from("good")));
+        assert_eq!(
+            text_at(&session, "root/children:#0").as_deref(),
+            Some("good")
+        );
+        let path = crate::ir::NodePath("root/children:@ctl".into());
+        let handle = session.action_handle(&path, "on_click").unwrap();
+        let node = session
+            .live_ir()
+            .nodes
+            .values()
+            .find(|node| node.path == path)
+            .unwrap()
+            .id;
+        session.activate(node, &handle);
+        let update = session.advance_clock(300);
+        let second = update.requests[0].id;
+        session.deliver(second, Err(HostError::Denied));
+        assert_eq!(text_at(&session, "root/children:#0").as_deref(), Some("d"));
+        assert_eq!(session.query_status("q"), QueryStatus::Denied);
+    }
+
+    #[test]
+    fn cross_epoch_delivery_is_dropped_although_ids_restart() {
+        let source = "query q=tool(\"known\",{},default:\"d\")\nroot=Text(q)";
+        let mut session = session(source, &["known"], &[]);
+        let update = session.finish();
+        let first = update.requests[0].id;
+        assert_eq!(update.requests[0].epoch, 1);
+        session.reset();
+        session.push(source.as_bytes());
+        let update = session.finish();
+        let second = update.requests[0].id;
+        assert_eq!(second, first, "ids restart after reset");
+        assert_eq!(update.requests[0].epoch, 2);
+        let stale = session.deliver_from(1, second, Ok(crate::value::Value::from("old")));
+        assert!(stale.patches.is_none());
+        assert_eq!(text(&session).as_deref(), Some("d"));
+        session.deliver_from(2, second, Ok(crate::value::Value::from("new")));
+        assert_eq!(text(&session).as_deref(), Some("new"));
+    }
+
+    #[test]
+    fn oversized_events_report_once_even_without_text_room() {
+        for (label, limit) in [
+            (
+                "Export the complete quarterly report to the finance archive",
+                60,
+            ),
+            ("Go", 0),
+        ] {
+            let options = Options {
+                limits: crate::limits::Limits {
+                    max_event_bytes: limit,
+                    ..crate::limits::Limits::default()
+                },
+                ..Options::default()
+            };
+            let mut session = Session::new(SessionOptions {
+                library: library(),
+                validation: options,
+                input: InputMode::Program,
+            });
+            session.push(
+                format!("btn=Button(\"{label}\",on_click:say(\"Recommend\"))\nroot=Stack([btn])")
+                    .as_bytes(),
+            );
+            session.finish();
+            let path = crate::ir::NodePath("root/children:@btn".into());
+            let handle = session.action_handle(&path, "on_click").unwrap();
+            let node = session
+                .live_ir()
+                .nodes
+                .values()
+                .find(|node| node.path == path)
+                .unwrap()
+                .id;
+            let update = session.activate(node, &handle);
+            assert_eq!(update.model_events.len(), 1);
+            assert_eq!(
+                update
+                    .runtime_diagnostics
+                    .iter()
+                    .filter(|diagnostic| diagnostic.code == Code::EventSize)
+                    .count(),
+                1,
+                "label {label:?} at limit {limit}"
+            );
+        }
+    }
+
+    #[test]
+    fn repeated_independent_host_diagnostics_are_kept() {
+        let mut session = session(
+            "query q=tool(\"known\",{},default:\"d\")\nctl=Control(on_click:refresh(q))\nroot=Stack([Text(q),ctl])",
+            &["known"],
+            &[],
+        );
+        let update = session.finish();
+        session.deliver(update.requests[0].id, Err(HostError::Denied));
+        let path = crate::ir::NodePath("root/children:@ctl".into());
+        let handle = session.action_handle(&path, "on_click").unwrap();
+        let node = session
+            .live_ir()
+            .nodes
+            .values()
+            .find(|node| node.path == path)
+            .unwrap()
+            .id;
+        let update = session.activate(node, &handle);
+        session.deliver(update.requests[0].id, Err(HostError::Denied));
+        assert_eq!(
+            session
+                .runtime_diagnostics()
+                .iter()
+                .filter(|diagnostic| diagnostic.code == Code::QueryDenied)
+                .count(),
+            2
+        );
     }
 
     #[test]

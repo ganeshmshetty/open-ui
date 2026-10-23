@@ -583,3 +583,499 @@ pub(crate) fn validate_props(
         work,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        ir::NodeId,
+        ir::Role,
+        r#lib::{ActionDef, ComponentDef, GroupDef},
+    };
+
+    fn library() -> Library {
+        Library::builder("test", "0.1.0")
+            .group(GroupDef::new("G", 0, "`Leaf`, `Box`, `Control`."))
+            .component(
+                ComponentDef::new("Leaf", Role::Paragraph)
+                    .group("G")
+                    .doc("A leaf.")
+                    .req("text", T::text())
+                    .example("Leaf(\"ok\")"),
+            )
+            .component(
+                ComponentDef::new("Box", Role::Group)
+                    .group("G")
+                    .doc("A box.")
+                    .req("children", T::nodes())
+                    .example("Box([])"),
+            )
+            .component(
+                ComponentDef::new("Control", Role::Button)
+                    .group("G")
+                    .doc("A control.")
+                    .opt_none("on_click", T::action())
+                    .example("Control()"),
+            )
+            .action(ActionDef {
+                name: "notify".into(),
+                params: vec![T::text()],
+                doc: "Notify.".into(),
+            })
+            .build()
+            .unwrap()
+    }
+
+    fn options() -> Options {
+        let mut options = Options::default();
+        options.tools.insert("tickets.list".into());
+        options
+    }
+
+    fn program(text: &str) -> Program {
+        crate::syntax::parse_batch(text.as_bytes(), crate::limits::SyntaxLimits::default()).program
+    }
+
+    fn prepare(text: &str, lib: &Library, opt: &Options) -> (Validation, ValidationCache) {
+        let (validation, _, cache) =
+            Validator::new(&program(text), Vec::new(), lib, opt).run_measured();
+        (validation, cache)
+    }
+
+    fn statement(parsed: &Program, name: &str) -> Statement {
+        parsed
+            .statements
+            .iter()
+            .find(|s| s.name == name)
+            .cloned()
+            .unwrap_or_else(|| panic!("missing statement {name}"))
+    }
+
+    fn key(name: &str, kind: StatementKind) -> String {
+        if kind == StatementKind::State {
+            format!("${name}")
+        } else {
+            name.into()
+        }
+    }
+
+    fn invalidation(
+        parsed: &Program,
+        names: &[&str],
+    ) -> (BTreeSet<String>, BTreeMap<String, BTreeSet<String>>) {
+        let mut reverse: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+        for s in &parsed.statements {
+            let mut deps = BTreeSet::new();
+            crate::session::dependencies(&s.value, &mut deps);
+            for dep in deps {
+                reverse.entry(dep).or_default().insert(key(&s.name, s.kind));
+            }
+        }
+        let mut dirty = BTreeSet::new();
+        let mut pending: Vec<String> = names.iter().map(|n| n.to_string()).collect();
+        while let Some(name) = pending.pop() {
+            if dirty.insert(name.clone()) {
+                pending.extend(reverse.get(&name).into_iter().flatten().cloned());
+            }
+        }
+        (dirty, reverse)
+    }
+
+    fn apply(
+        base: &str,
+        next: &str,
+        changed: &[&str],
+        lib: &Library,
+        opt: &Options,
+        sealed: Option<&crate::SharedMap<String, StateDef>>,
+    ) -> Attempt {
+        let (validation, cache) = prepare(base, lib, opt);
+        let parsed = program(next);
+        let changes: Vec<_> = changed
+            .iter()
+            .map(|name| statement(&parsed, name))
+            .collect();
+        let (dirty, reverse) = invalidation(&parsed, changed);
+        validate_props(
+            &cache,
+            &validation,
+            &changes,
+            Invalidation {
+                dirty: &dirty,
+                reverse: &reverse,
+            },
+            sealed,
+            lib,
+            opt,
+        )
+    }
+
+    fn diag_keys(validation: &Validation) -> Vec<(Code, String)> {
+        let mut keys: Vec<_> = validation
+            .diagnostics
+            .iter()
+            .map(|d| (d.code, d.stmt.clone().unwrap_or_default()))
+            .collect();
+        keys.sort();
+        keys
+    }
+
+    fn assert_matches_batch(
+        attempt: Attempt,
+        next: &str,
+        lib: &Library,
+        opt: &Options,
+    ) -> ValidationCache {
+        let (checked, cache, _grafts) = match attempt.result {
+            Some(result) => result,
+            None => panic!("retained path rejected for\n{next}"),
+        };
+        let batch = validate(next.as_bytes(), lib, opt);
+        assert_eq!(
+            checked.ir.canonical_tree(lib),
+            batch.ir.canonical_tree(lib),
+            "retained IR differs from batch"
+        );
+        assert_eq!(diag_keys(&checked), diag_keys(&batch));
+        assert!(attempt.work.statements_checked >= 1);
+        cache
+    }
+
+    const BASE: &str = "$status = \"open\"\n\
+$count = 1\n\
+t = \"hello\"\n\
+n = 3\n\
+a = [say(\"hi\")]\n\
+u = \"orphan\"\n\
+query q0 = tool(\"tickets.list\", {status: $status}, default: [])\n\
+root = Box([Leaf(t), Control(on_click: a)])\n";
+
+    #[test]
+    fn scalar_value_edits_recheck_only_consumers() {
+        let lib = library();
+        let opt = options();
+        let next = BASE.replace("t = \"hello\"", "t = \"world\"");
+        let attempt = apply(BASE, &next, &["t"], &lib, &opt, None);
+        assert!(attempt.work.instances_examined > 0);
+        assert!(
+            attempt.work.statements_checked >= 2,
+            "the changed source and its consumer are both checked"
+        );
+        assert_matches_batch(attempt, &next, &lib, &opt);
+
+        let invalid_base = "t = 1\nroot = Leaf(t)\n";
+        let next = invalid_base.replace("t = 1", "t = \"fixed\"");
+        let attempt = apply(invalid_base, &next, &["t"], &lib, &opt, None);
+        assert!(
+            attempt.work.diagnostics_examined > 0,
+            "old value diagnostics are withdrawn"
+        );
+        assert_matches_batch(attempt, &next, &lib, &opt);
+
+        let next = BASE.replace("n = 3", "n = 4");
+        assert_matches_batch(
+            apply(BASE, &next, &["n"], &lib, &opt, None),
+            &next,
+            &lib,
+            &opt,
+        );
+    }
+
+    #[test]
+    fn dependency_changes_fall_back_to_batch() {
+        let lib = library();
+        let opt = options();
+        let next = BASE.replace("t = \"hello\"", "t = n");
+        assert!(
+            apply(BASE, &next, &["t"], &lib, &opt, None)
+                .result
+                .is_none()
+        );
+        let next = BASE.replace(
+            "root = Box([Leaf(t), Control(on_click: a)])",
+            "root = Box([Leaf(t), Control(on_click: a), Leaf(n)])",
+        );
+        assert!(
+            apply(BASE, &next, &["root"], &lib, &opt, None)
+                .result
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn node_and_action_edits_use_retained_instances() {
+        let lib = library();
+        let opt = options();
+        let node_base = "t = \"hello\"\nroot = Leaf(upper(t))\n";
+        let next = node_base.replace("upper(t)", "lower(t)");
+        assert_matches_batch(
+            apply(node_base, &next, &["root"], &lib, &opt, None),
+            &next,
+            &lib,
+            &opt,
+        );
+        let next = BASE.replace("a = [say(\"hi\")]", "a = [say(\"bye\")]");
+        assert_matches_batch(
+            apply(BASE, &next, &["a"], &lib, &opt, None),
+            &next,
+            &lib,
+            &opt,
+        );
+        let next = BASE.replace("a = [say(\"hi\")]", "a = [open(\"https://example.com\")]");
+        assert_matches_batch(
+            apply(BASE, &next, &["a"], &lib, &opt, None),
+            &next,
+            &lib,
+            &opt,
+        );
+        let next = BASE.replace("t = \"hello\"", "t = say(\"hi\")");
+        assert!(
+            apply(BASE, &next, &["t"], &lib, &opt, None)
+                .result
+                .is_none(),
+            "kind changes use the general path"
+        );
+    }
+
+    #[test]
+    fn new_state_declarations_reconcile_budget() {
+        let lib = library();
+        let opt = options();
+        let next = format!("{BASE}$new = 5\n");
+        let attempt = apply(BASE, &next, &["new"], &lib, &opt, None);
+        assert!(!attempt.result.as_ref().unwrap().1.state_limited);
+        assert!(attempt.work.diagnostics_examined >= 1);
+        assert_matches_batch(attempt, &next, &lib, &opt);
+
+        let next = format!("{BASE}$new = null\n");
+        assert!(
+            apply(BASE, &next, &["new"], &lib, &opt, None)
+                .result
+                .is_none()
+        );
+        let next = format!("{BASE}$new = []\n");
+        assert!(
+            apply(BASE, &next, &["new"], &lib, &opt, None)
+                .result
+                .is_none()
+        );
+        let next = BASE.replace("$count = 1", "$count = 2");
+        let attempt = apply(BASE, &next, &["count"], &lib, &opt, None);
+        assert!(attempt.result.is_none(), "existing state edits use batch");
+        assert!(attempt.work.statements_checked >= 1);
+    }
+
+    #[test]
+    fn state_budget_rejection_retains_the_reachable_states() {
+        let lib = library();
+        let mut opt = options();
+        opt.limits.max_state_bytes = 8;
+        let base = BASE.replace("$count = 1\n", "$count = 1\n");
+        let next = format!(
+            "{base}$z1 = \"012345678901234567890123456789\"\n$z2 = \"012345678901234567890123456789\"\n"
+        );
+        let attempt = apply(&base, &next, &["z1", "z2"], &lib, &opt, None);
+        assert!(attempt.work.diagnostics_examined >= 2);
+        let cache = assert_matches_batch(attempt, &next, &lib, &opt);
+        assert!(cache.state_limited);
+
+        let next = format!("{base}$z1 = 1\n");
+        let attempt = apply(&base, &next, &["z1"], &lib, &opt, None);
+        let cache = assert_matches_batch(attempt, &next, &lib, &opt);
+        assert!(!cache.state_limited);
+    }
+
+    #[test]
+    fn new_queries_reconcile_budget_and_existing_queries_fall_back() {
+        let lib = library();
+        let mut opt = options();
+        opt.limits.max_queries = 2;
+        let next =
+            format!("{BASE}query q1 = tool(\"tickets.list\", {{status: $status}}, default: [])\n");
+        assert_matches_batch(
+            apply(BASE, &next, &["q1"], &lib, &opt, None),
+            &next,
+            &lib,
+            &opt,
+        );
+        let next = BASE.replace("{status: $status}", "{status: $count}");
+        assert!(
+            apply(BASE, &next, &["q0"], &lib, &opt, None)
+                .result
+                .is_none()
+        );
+
+        opt.limits.max_queries = 1;
+        let next =
+            format!("{BASE}query q1 = tool(\"tickets.list\", {{status: $status}}, default: [])\n");
+        assert_matches_batch(
+            apply(BASE, &next, &["q1"], &lib, &opt, None),
+            &next,
+            &lib,
+            &opt,
+        );
+    }
+
+    #[test]
+    fn orphan_additions_and_edits_keep_one_diagnostic() {
+        let lib = library();
+        let opt = options();
+        let next = format!("{BASE}u2 = \"new\"\n");
+        assert_matches_batch(
+            apply(BASE, &next, &["u2"], &lib, &opt, None),
+            &next,
+            &lib,
+            &opt,
+        );
+        let next = BASE.replace("u = \"orphan\"", "u = \"changed\"");
+        let attempt = apply(BASE, &next, &["u"], &lib, &opt, None);
+        assert_matches_batch(attempt, &next, &lib, &opt);
+
+        let next = format!("{BASE}w = Leaf(\"new\")\n");
+        assert!(
+            apply(BASE, &next, &["w"], &lib, &opt, None)
+                .result
+                .is_none(),
+            "new unreachable nodes need the general path"
+        );
+    }
+
+    #[test]
+    fn bind_only_changes_do_not_run_query_maintenance() {
+        let lib = library();
+        let mut opt = options();
+        opt.limits.max_queries = 0;
+        let base = "$count = 1\nroot = Leaf(\"x\")\n";
+        let next = base.replace("$count = 1", "$n = 1");
+        // A scalar bind edit with no queries must not be mistaken for a query.
+        let next = next.replace("$n = 1", "$count = 1\nn = 2");
+        let attempt = apply(base, &next, &["n"], &lib, &opt, None);
+        assert_matches_batch(attempt, &next, &lib, &opt);
+    }
+
+    #[test]
+    fn ambiguous_states_use_sealed_types_or_the_general_path() {
+        let lib = library();
+        let opt = options();
+        let base = "$s = null\n$count = 1\nt = \"hello\"\nroot = Leaf(t)\n";
+        let (_, cache) = prepare(base, &lib, &opt);
+        assert!(cache.ambiguous_states);
+        let next = base.replace("t = \"hello\"", "t = \"world\"");
+        let parsed = program(&next);
+        let changes = vec![statement(&parsed, "t")];
+        let (dirty, reverse) = invalidation(&parsed, &["t"]);
+        let (validation, cache_ref) = prepare(base, &lib, &opt);
+        let sealed = validation.ir.states.clone();
+        let attempt = validate_props(
+            &cache_ref,
+            &validation,
+            &changes,
+            Invalidation {
+                dirty: &dirty,
+                reverse: &reverse,
+            },
+            Some(&sealed),
+            &lib,
+            &opt,
+        );
+        assert_matches_batch(attempt, &next, &lib, &opt);
+
+        let next = format!("{base}$new = 5\n");
+        let parsed = program(&next);
+        let changes = vec![statement(&parsed, "new")];
+        let (dirty, reverse) = invalidation(&parsed, &["new"]);
+        let (validation, cache_ref) = prepare(base, &lib, &opt);
+        let attempt = validate_props(
+            &cache_ref,
+            &validation,
+            &changes,
+            Invalidation {
+                dirty: &dirty,
+                reverse: &reverse,
+            },
+            None,
+            &lib,
+            &opt,
+        );
+        assert!(
+            attempt.result.is_none(),
+            "ambiguous states without sealed types leave inference to batch"
+        );
+    }
+
+    #[test]
+    fn rejected_queries_withdraw_old_diagnostics_and_charge_work() {
+        let lib = library();
+        let mut opt = options();
+        opt.limits.max_queries = 1;
+        let (validation, mut cache) = prepare(BASE, &lib, &opt);
+        let old = Diagnostic::new(Code::UnknownTool, Some("q1".into()), None);
+        cache
+            .query_diagnostics
+            .insert("q1".into(), vec![old.clone()]);
+        cache
+            .value_diagnostics
+            .insert("q1".into(), vec![old.clone()]);
+        cache
+            .orphan_diagnostics
+            .insert("q1".into(), vec![old.clone()]);
+        let next =
+            format!("{BASE}query q1 = tool(\"tickets.list\", {{status: $status}}, default: [])\n");
+        let parsed = program(&next);
+        let changes = vec![statement(&parsed, "q1")];
+        let (dirty, reverse) = invalidation(&parsed, &["q1"]);
+        let attempt = validate_props(
+            &cache,
+            &validation,
+            &changes,
+            Invalidation {
+                dirty: &dirty,
+                reverse: &reverse,
+            },
+            None,
+            &lib,
+            &opt,
+        );
+        let (checked, cache, _) = attempt.result.expect("rejected query is still local");
+        assert!(
+            !checked
+                .diagnostics
+                .iter()
+                .any(|d| d.code == Code::UnknownTool)
+        );
+        assert_eq!(
+            checked
+                .diagnostics
+                .iter()
+                .filter(|d| d.code == Code::TooManyQueries)
+                .count(),
+            1
+        );
+        assert!(attempt.work.diagnostics_examined >= 3);
+        assert!(!cache.value_diagnostics.contains_key("q1"));
+        assert!(!cache.orphan_diagnostics.contains_key("q1"));
+    }
+
+    #[test]
+    fn record_instance_replaces_old_reader_edges() {
+        let lib = library();
+        let opt = Options::default();
+        let mut v = Validator::new(&Program::default(), Vec::new(), &lib, &opt);
+        let id = NodeId(7);
+        let instance = |reads: &[&str]| InstanceCheck {
+            source: std::sync::Arc::new(Expr::null()),
+            ctx: Context::at("root", None),
+            path: NodePath::root(),
+            depth: 1,
+            bound: Default::default(),
+            reads: reads.iter().map(|s| s.to_string()).collect(),
+            diagnostics: Vec::new(),
+        };
+        v.record_instance(id, instance(&["t"]));
+        assert!(v.readers.get("t").is_some_and(|ids| ids.contains(&id)));
+        assert!(v.readers.get("@root").is_some_and(|ids| ids.contains(&id)));
+        v.record_instance(id, instance(&["n"]));
+        assert!(!v.readers.get("t").is_some_and(|ids| ids.contains(&id)));
+        assert!(v.readers.get("n").is_some_and(|ids| ids.contains(&id)));
+    }
+}

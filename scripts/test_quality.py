@@ -194,8 +194,8 @@ class MutationAggregationTests(unittest.TestCase):
                 mutation.aggregate(artifacts, review)
                 summary = json.loads((artifacts / "acceptance.json").read_text())
                 self.assertTrue(summary["acceptance"])
-                self.assertEqual(summary["generated"], 8)
-                self.assertEqual(summary["counts"], {"CaughtMutant": 8})
+                self.assertEqual(summary["generated"], mutation.SHARD_COUNT)
+                self.assertEqual(summary["counts"], {"CaughtMutant": mutation.SHARD_COUNT})
                 (root / "source.rs").write_text("changed")
                 with self.assertRaisesRegex(ValueError, "stale mutation source"):
                     mutation.aggregate(artifacts, review)

@@ -525,3 +525,82 @@ impl Validator<'_> {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::r#lib::{ComponentDef, GroupDef, Role};
+
+    fn library() -> Library {
+        Library::builder("source", "0.1.0")
+            .group(GroupDef::new("G", 0, "Source fixtures."))
+            .component(
+                ComponentDef::new("Leaf", Role::Paragraph)
+                    .group("G")
+                    .doc("A leaf.")
+                    .req("text", T::text())
+                    .example("Leaf(\"ok\")"),
+            )
+            .build()
+            .unwrap()
+    }
+    fn validator(source: &str) -> Validator<'static> {
+        let lib = Box::leak(Box::new(library()));
+        let options = Box::leak(Box::new(Options::default()));
+        let parsed = parse_batch(source.as_bytes(), options.limits.clone().syntax);
+        let mut v = Validator::new(&parsed.program, parsed.diagnostics, lib, options);
+        v.work.statements_checked = 0;
+        v
+    }
+    fn sources(names: &[&str]) -> BTreeSet<String> {
+        names.iter().map(|name| (*name).to_string()).collect()
+    }
+
+    #[test]
+    fn check_sources_counts_every_phase() {
+        let mut v = validator("a=b\nb=1\nc=a\n");
+        v.check_sources(&sources(&["a", "b", "c"]));
+        assert_eq!(v.work.statements_checked, 12);
+    }
+
+    #[test]
+    fn check_sources_ignores_dependencies_outside_the_dirty_set() {
+        let mut v = validator("a=b\nb=a\n");
+        v.check_sources(&sources(&["a"]));
+        assert_eq!(v.work.statements_checked, 4);
+        assert!(!v.ir.values.contains_key("b"));
+        assert!(v.diagnostics.is_empty());
+    }
+
+    #[test]
+    fn static_cycles_have_one_stable_alphabetic_owner() {
+        let mut v = validator("a=b\nb=a\n");
+        v.check_sources(&sources(&["a", "b"]));
+        assert_eq!(v.diagnostics.len(), 1);
+        assert_eq!(v.diagnostics[0].code, Code::Cycle);
+        assert_eq!(v.diagnostics[0].stmt.as_deref(), Some("a"));
+        assert!(v.cache.get("a").is_some_and(|c| !c.valid));
+        assert!(v.cache.get("b").is_some_and(|c| !c.valid));
+    }
+
+    #[test]
+    fn cyclic_action_owners_still_retain_an_action_source() {
+        let mut v = validator("a=b\nb=a\n");
+        v.kinds.insert("a".into(), Kind::Action);
+        v.kinds.insert("b".into(), Kind::Value);
+        v.check_sources(&sources(&["a", "b"]));
+        assert!(v.action_sources.contains_key("a"));
+        assert!(!v.action_sources.contains_key("b"));
+    }
+
+    #[test]
+    fn cyclic_value_owners_never_retain_an_action_source() {
+        let mut v = validator("a=b\nb=a\n");
+        v.kinds.insert("a".into(), Kind::Value);
+        v.kinds.insert("b".into(), Kind::Action);
+        v.check_sources(&sources(&["a", "b"]));
+        assert!(!v.action_sources.contains_key("a"));
+        assert!(v.action_sources.contains_key("b"));
+        assert_eq!(v.action_sources.len(), 1);
+    }
+}

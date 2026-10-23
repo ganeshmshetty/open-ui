@@ -617,6 +617,33 @@ mod tests {
                     .opt_none("on_click", T::action())
                     .example("Control()"),
             )
+            .component(
+                ComponentDef::new("PairBox", Role::Group)
+                    .group("G")
+                    .doc("At least two children.")
+                    .req("children", T::nodes())
+                    .min_items(2),
+            )
+            .component(
+                ComponentDef::new("TripleBox", Role::Group)
+                    .group("G")
+                    .doc("At least three children.")
+                    .req("children", T::nodes())
+                    .min_items(3),
+            )
+            .component(
+                ComponentDef::new("OtherLeaf", Role::Paragraph)
+                    .group("G")
+                    .doc("A different paragraph.")
+                    .req("text", T::text())
+                    .example("OtherLeaf(\"ok\")"),
+            )
+            .component(
+                ComponentDef::new("BindingSink", Role::Paragraph)
+                    .group("G")
+                    .doc("A binding sink.")
+                    .req("value", T::binding(T::text())),
+            )
             .action(ActionDef {
                 name: "notify".into(),
                 params: vec![T::text()],
@@ -848,16 +875,23 @@ root = Box([Leaf(t), Control(on_click: a)])\n";
         assert_matches_batch(attempt, &next, &lib, &opt);
 
         let next = format!("{BASE}$new = null\n");
-        assert!(
-            apply(BASE, &next, &["new"], &lib, &opt, None)
-                .result
-                .is_none()
+        let null = apply(BASE, &next, &["new"], &lib, &opt, None);
+        assert!(null.result.is_none());
+        assert_eq!(
+            (null.work.statements_checked, null.work.diagnostics_examined),
+            (1, 0),
+            "a null state is rejected before the budget reconciliation"
         );
         let next = format!("{BASE}$new = []\n");
-        assert!(
-            apply(BASE, &next, &["new"], &lib, &opt, None)
-                .result
-                .is_none()
+        let empty = apply(BASE, &next, &["new"], &lib, &opt, None);
+        assert!(empty.result.is_none());
+        assert_eq!(
+            (
+                empty.work.statements_checked,
+                empty.work.diagnostics_examined
+            ),
+            (1, 0),
+            "an empty state list is rejected before the budget reconciliation"
         );
         let next = BASE.replace("$count = 1", "$count = 2");
         let attempt = apply(BASE, &next, &["count"], &lib, &opt, None);
@@ -1054,6 +1088,510 @@ root = Box([Leaf(t), Control(on_click: a)])\n";
         assert!(attempt.work.diagnostics_examined >= 3);
         assert!(!cache.value_diagnostics.contains_key("q1"));
         assert!(!cache.orphan_diagnostics.contains_key("q1"));
+    }
+
+    #[test]
+    fn failed_charges_caller_and_validator_work() {
+        let lib = library();
+        let opt = options();
+        let mut v = Validator::new(&Program::default(), Vec::new(), &lib, &opt);
+        v.work.statements_checked = 3;
+        let mut work = crate::MaintenanceWork::default();
+        work.statements_checked = 2;
+        let attempt = failed(v, work);
+        assert!(attempt.result.is_none());
+        assert_eq!(
+            attempt.work.statements_checked, 5,
+            "failed adds the validator work to the caller work"
+        );
+    }
+
+    #[test]
+    fn empty_changes_and_unsealed_ambiguous_binds_fall_back() {
+        let lib = library();
+        let opt = options();
+        let attempt = apply(BASE, BASE, &[], &lib, &opt, None);
+        assert!(attempt.result.is_none(), "an empty change list needs batch");
+
+        let base = "$s = null\n$count = 1\nt = \"hello\"\nroot = Leaf(t)\n";
+        let next = base.replace("t = \"hello\"", "t = \"world\"");
+        assert!(
+            apply(base, &next, &["t"], &lib, &opt, None)
+                .result
+                .is_none(),
+            "an ambiguous state without sealed types needs batch"
+        );
+    }
+
+    #[test]
+    fn dirty_scalars_actions_and_unreachable_nodes_are_rechecked_or_rejected() {
+        let lib = library();
+        let opt = options();
+
+        let base = "t = \"hello\"\na = [say(t)]\nroot = Control(on_click: a)\n";
+        let next = base.replace("t = \"hello\"", "t = 1");
+        assert_matches_batch(
+            apply(base, &next, &["t"], &lib, &opt, None),
+            &next,
+            &lib,
+            &opt,
+        );
+
+        let base = "t = 1\nb = t + 1\nroot = Leaf(text(b))\n";
+        let next = base.replace("t = 1", "t = \"x\"");
+        assert_matches_batch(
+            apply(base, &next, &["t"], &lib, &opt, None),
+            &next,
+            &lib,
+            &opt,
+        );
+
+        let base = "t = \"x\"\norphan = Leaf(t)\nroot = Leaf(\"ok\")\n";
+        let next = base.replace("t = \"x\"", "t = \"y\"");
+        assert!(
+            apply(base, &next, &["t"], &lib, &opt, None)
+                .result
+                .is_none(),
+            "an unreachable dirty node needs the general path"
+        );
+    }
+
+    #[test]
+    fn changed_node_targets_use_the_changed_source_for_that_statement() {
+        let lib = library();
+        let opt = options();
+        let base = "a = \"one\"\nroot = Leaf(\"old\")\n";
+        let next = "a = \"two\"\nroot = Leaf(\"new\")\n";
+        let attempt = apply(base, next, &["a", "root"], &lib, &opt, None);
+        assert_matches_batch(attempt, next, &lib, &opt);
+    }
+
+    #[test]
+    fn changed_component_kind_and_sealed_bindings_are_handled() {
+        let lib = library();
+        let opt = options();
+        let base = "root = Leaf(\"x\")\n";
+        let next = "root = OtherLeaf(\"x\")\n";
+        assert!(
+            apply(base, next, &["root"], &lib, &opt, None)
+                .result
+                .is_none(),
+            "changing a component kind invalidates retained instances"
+        );
+
+        let base = "$s = null\n$count = 1\nt = \"hello\"\nroot = BindingSink($s)\n";
+        let next = base.replace("t = \"hello\"", "t = \"world\"");
+        let (validation, _) = prepare(base, &lib, &opt);
+        let sealed = validation.ir.states.clone();
+        assert_matches_batch(
+            apply(base, &next, &["t"], &lib, &opt, Some(&sealed)),
+            &next,
+            &lib,
+            &opt,
+        );
+    }
+
+    #[test]
+    fn rejected_query_work_counts_each_withdrawn_diagnostic_group() {
+        let lib = library();
+        let mut opt = options();
+        opt.limits.max_queries = 1;
+        let old = Diagnostic::new(Code::UnknownTool, Some("q1".into()), None);
+        let next =
+            format!("{BASE}query q1 = tool(\"tickets.list\", {{status: $status}}, default: [])\n");
+
+        for slot in ["query", "value", "orphan"] {
+            let (validation, mut cache) = prepare(BASE, &lib, &opt);
+            match slot {
+                "query" => {
+                    cache
+                        .query_diagnostics
+                        .insert("q1".into(), vec![old.clone()]);
+                }
+                "value" => {
+                    cache
+                        .value_diagnostics
+                        .insert("q1".into(), vec![old.clone()]);
+                }
+                _ => {
+                    cache
+                        .orphan_diagnostics
+                        .insert("q1".into(), vec![old.clone()]);
+                }
+            }
+            let parsed = program(&next);
+            let changes = vec![statement(&parsed, "q1")];
+            let (dirty, reverse) = invalidation(&parsed, &["q1"]);
+            let attempt = validate_props(
+                &cache,
+                &validation,
+                &changes,
+                Invalidation {
+                    dirty: &dirty,
+                    reverse: &reverse,
+                },
+                None,
+                &lib,
+                &opt,
+            );
+            assert!(attempt.result.is_some());
+            assert_eq!(
+                attempt.work.diagnostics_examined, 2,
+                "one withdrawn {slot} diagnostic plus the new TooManyQueries diagnostic"
+            );
+        }
+    }
+
+    #[test]
+    fn scalar_recheck_charges_every_withdrawn_value_diagnostic() {
+        let lib = library();
+        let opt = options();
+        let base = "t = 1\nb = t + 1\nroot = Leaf(\"ok\")\n";
+        let next = "t = 1\nb = t + \"x\"\nroot = Leaf(\"ok\")\n";
+        let (validation, mut cache) = prepare(base, &lib, &opt);
+        let old = Diagnostic::new(Code::ExprType, Some("b".into()), None);
+        cache
+            .value_diagnostics
+            .insert("b".into(), vec![old.clone(), old]);
+        let parsed = program(next);
+        let changes = vec![statement(&parsed, "b")];
+        let (dirty, reverse) = invalidation(&parsed, &["b"]);
+        let attempt = validate_props(
+            &cache,
+            &validation,
+            &changes,
+            Invalidation {
+                dirty: &dirty,
+                reverse: &reverse,
+            },
+            None,
+            &lib,
+            &opt,
+        );
+        assert!(attempt.result.is_some());
+        assert_eq!(
+            attempt.work.diagnostics_examined, 3,
+            "two old value diagnostics are withdrawn and one new diagnostic remains"
+        );
+    }
+
+    #[test]
+    fn child_edits_use_retained_slots_and_enforce_min_items() {
+        let lib = library();
+        let opt = options();
+        let base = "child = Leaf(\"a\")\nroot = PairBox([child, Leaf(\"b\")])\n";
+        let next = base.replace("Leaf(\"a\")", "Leaf(\"changed\")");
+        assert_matches_batch(
+            apply(base, &next, &["child"], &lib, &opt, None),
+            &next,
+            &lib,
+            &opt,
+        );
+    }
+
+    const STRUCTURAL_BASE: &str = "t = \"a\"\nchild = Leaf(t)\nroot = Box([child])\n";
+    const STRUCTURAL_NEXT: &str = "t = \"a\"\nchild = Leaf(t * 2)\nroot = Box([child])\n";
+
+    fn structural_attempt(
+        lib: &Library,
+        opt: &Options,
+        tweak: impl FnOnce(&mut ValidationCache),
+    ) -> Attempt {
+        let (validation, mut cache) = prepare(STRUCTURAL_BASE, lib, &options());
+        tweak(&mut cache);
+        let parsed = program(STRUCTURAL_NEXT);
+        let changes = vec![statement(&parsed, "child")];
+        let (dirty, reverse) = invalidation(&parsed, &["child"]);
+        validate_props(
+            &cache,
+            &validation,
+            &changes,
+            Invalidation {
+                dirty: &dirty,
+                reverse: &reverse,
+            },
+            None,
+            lib,
+            opt,
+        )
+    }
+
+    fn structural_item(cache: &mut ValidationCache) -> &mut SlotItem {
+        let key = cache.slots.keys().next().cloned().expect("one slot");
+        cache
+            .slots
+            .get_mut(&key)
+            .expect("slot")
+            .items
+            .get_mut(&0)
+            .expect("first item")
+    }
+
+    #[test]
+    fn structural_child_removal_updates_parent_slots() {
+        let lib = library();
+        let opt = options();
+        assert_matches_batch(
+            structural_attempt(&lib, &opt, |_| {}),
+            STRUCTURAL_NEXT,
+            &lib,
+            &opt,
+        );
+
+        let (base_validation, cache) = prepare(STRUCTURAL_BASE, &lib, &options());
+        let nodes = base_validation.ir.nodes.len();
+        let depth = {
+            let cache = cache;
+            cache
+                .instances
+                .values()
+                .find(|instance| instance.ctx.stmt == "child")
+                .expect("child instance")
+                .depth
+        };
+
+        let mut at_nodes = options();
+        at_nodes.limits.max_nodes = nodes;
+        assert!(
+            structural_attempt(&lib, &at_nodes, |_| {}).result.is_some(),
+            "the node limit is inclusive"
+        );
+        let mut below_nodes = options();
+        below_nodes.limits.max_nodes = nodes - 1;
+        assert!(
+            structural_attempt(&lib, &below_nodes, |_| {})
+                .result
+                .is_none(),
+            "exceeding the node limit falls back"
+        );
+        let mut above_nodes = options();
+        above_nodes.limits.max_nodes = nodes + 1;
+        assert!(
+            structural_attempt(&lib, &above_nodes, |_| {})
+                .result
+                .is_some(),
+            "one node below the limit is retained"
+        );
+
+        let mut at_depth = options();
+        at_depth.limits.max_ir_depth = depth;
+        assert!(
+            structural_attempt(&lib, &at_depth, |_| {}).result.is_some(),
+            "the depth limit is inclusive"
+        );
+        let mut below_depth = options();
+        below_depth.limits.max_ir_depth = depth - 1;
+        assert!(
+            structural_attempt(&lib, &below_depth, |_| {})
+                .result
+                .is_none(),
+            "exceeding the depth limit falls back"
+        );
+        let mut above_depth = options();
+        above_depth.limits.max_ir_depth = depth + 1;
+        assert!(
+            structural_attempt(&lib, &above_depth, |_| {})
+                .result
+                .is_some(),
+            "one level below the depth limit is retained"
+        );
+
+        let mut wide_nodes = options();
+        wide_nodes.limits.max_nodes = usize::MAX;
+        wide_nodes.limits.max_ir_depth = 0;
+        assert!(
+            structural_attempt(&lib, &wide_nodes, |_| {})
+                .result
+                .is_none(),
+            "a depth overflow is not masked by an unexceeded node budget"
+        );
+    }
+
+    #[test]
+    fn structural_child_removal_rejects_incompatible_slot_evidence() {
+        let lib = library();
+        let opt = options();
+
+        assert!(
+            structural_attempt(&lib, &opt, |cache| cache.allocation_limited = true)
+                .result
+                .is_none(),
+            "an allocation-limited cache cannot be reused"
+        );
+        assert!(
+            structural_attempt(&lib, &opt, |cache| {
+                structural_item(cache).path = NodePath("elsewhere".into());
+            })
+            .result
+            .is_none(),
+            "a moved slot item cannot be reused"
+        );
+        assert!(
+            structural_attempt(&lib, &opt, |cache| {
+                structural_item(cache).planned = true;
+            })
+            .result
+            .is_none(),
+            "a planned slot item cannot be reused"
+        );
+        assert!(
+            structural_attempt(&lib, &opt, |cache| {
+                let item = structural_item(cache);
+                let id = *item.output.get(0).expect("existing output");
+                item.output = crate::SharedVector::from_iter([id, id]);
+            })
+            .result
+            .is_none(),
+            "multiple outputs cannot be replaced in place"
+        );
+        assert!(
+            structural_attempt(&lib, &opt, |cache| {
+                structural_item(cache).output = crate::SharedVector::default();
+            })
+            .result
+            .is_some(),
+            "an empty output is filled in place"
+        );
+        assert!(
+            structural_attempt(&lib, &opt, |cache| {
+                structural_item(cache).output = crate::SharedVector::from_iter([NodeId(999)]);
+            })
+            .result
+            .is_none(),
+            "a different output id cannot be replaced in place"
+        );
+    }
+
+    #[test]
+    fn structural_child_removal_enforces_slot_min_items() {
+        let lib = library();
+        let opt = options();
+        let base =
+            "t = \"a\"\nchild = Leaf(t)\nroot = PairBox([child, Leaf(\"b\"), Leaf(\"c\")])\n";
+        let next =
+            "t = \"a\"\nchild = Leaf(t * 2)\nroot = PairBox([child, Leaf(\"b\"), Leaf(\"c\")])\n";
+        let run = |base: &str, next: &str| {
+            let (validation, cache) = prepare(base, &lib, &options());
+            let parsed = program(next);
+            let changes = vec![statement(&parsed, "child")];
+            let (dirty, reverse) = invalidation(&parsed, &["child"]);
+            validate_props(
+                &cache,
+                &validation,
+                &changes,
+                Invalidation {
+                    dirty: &dirty,
+                    reverse: &reverse,
+                },
+                None,
+                &lib,
+                &opt,
+            )
+        };
+        assert!(
+            run(base, next).result.is_some(),
+            "the pair retains exactly two children"
+        );
+
+        let base = base.replace("PairBox", "TripleBox");
+        let next = next.replace("PairBox", "TripleBox");
+        assert!(
+            run(&base, &next).result.is_none(),
+            "the triple requires a third child and falls back"
+        );
+    }
+
+    #[test]
+    fn action_root_changes_fall_back() {
+        let lib = library();
+        let opt = options();
+        let base = "root = say(\"hi\")\n";
+        let next = "root = say(\"bye\")\n";
+        assert!(
+            apply(base, next, &["root"], &lib, &opt, None)
+                .result
+                .is_none(),
+            "a root action is not a retained scalar source"
+        );
+    }
+
+    #[test]
+    fn new_bind_addition_extends_reachability_from_new_dependencies() {
+        let lib = library();
+        let opt = options();
+        let base = "y = \"orphan\"\nroot = Leaf(x)\n";
+        let next = "y = \"orphan\"\nx = y\nroot = Leaf(x)\n";
+        assert_matches_batch(
+            apply(base, next, &["x"], &lib, &opt, None),
+            next,
+            &lib,
+            &opt,
+        );
+    }
+
+    #[test]
+    fn new_bind_with_existing_change_extends_only_new_dependencies() {
+        let lib = library();
+        let opt = options();
+        let base = "y = \"orphan\"\nt = \"t\"\nk = t\nroot = Leaf(fmt(\"{}{}\", x, k))\n";
+        let next =
+            "y = \"orphan\"\nt = \"t\"\nk = t + \"\"\nx = y\nroot = Leaf(fmt(\"{}{}\", x, k))\n";
+        let attempt = apply(base, next, &["x", "k"], &lib, &opt, None);
+        assert_eq!(
+            attempt.work.statements_checked, 5,
+            "only the new statement's dependency walk is charged"
+        );
+        assert_matches_batch(attempt, next, &lib, &opt);
+    }
+
+    #[test]
+    fn unreachable_node_aliases_force_the_general_path() {
+        let lib = library();
+        let opt = options();
+        let base = "t = \"x\"\nn = Leaf(t)\norphan = n\nroot = Box([n])\n";
+        let next = base.replace("t = \"x\"", "t = \"y\"");
+        assert!(
+            apply(base, &next, &["t"], &lib, &opt, None)
+                .result
+                .is_none(),
+            "an unreachable alias node cannot be retained"
+        );
+    }
+
+    #[test]
+    fn accepted_null_state_candidates_fall_back() {
+        let lib = library();
+        let opt = options();
+        let (validation, mut cache) = prepare(BASE, &lib, &opt);
+        cache.state_candidates.insert(
+            "s".into(),
+            StateDef {
+                default: Value::Null,
+                ty: T::Any,
+            },
+        );
+        cache.state_budget.insert("s".into(), 1);
+        cache.state_budget.reconcile(0, &mut 0);
+        let next = format!("{BASE}$new = 5\n");
+        let parsed = program(&next);
+        let changes = vec![statement(&parsed, "new")];
+        let (dirty, reverse) = invalidation(&parsed, &["new"]);
+        let attempt = validate_props(
+            &cache,
+            &validation,
+            &changes,
+            Invalidation {
+                dirty: &dirty,
+                reverse: &reverse,
+            },
+            None,
+            &lib,
+            &opt,
+        );
+        assert!(
+            attempt.result.is_none(),
+            "a null candidate cannot be installed by a budget re-accept"
+        );
     }
 
     #[test]

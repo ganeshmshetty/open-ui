@@ -168,6 +168,17 @@ impl Tree {
             };
             props.insert(arg.name.clone(), value);
         }
+        if let Some(resolved) = resolved {
+            for (prop, name) in [
+                (crate::runtime::PROP_ERROR, "error"),
+                (crate::runtime::PROP_TOUCHED, "touched"),
+                (crate::runtime::PROP_STATUS, "status"),
+            ] {
+                if let Some(PropValue::Value(value)) = resolved.prop(id, prop) {
+                    props.insert(name.to_string(), wire_value(value));
+                }
+            }
+        }
         Some(NodeInit {
             id: n.path.0.clone(),
             kind: c.name.clone(),
@@ -470,7 +481,7 @@ impl Tree {
         library: &Library,
         resolved: &crate::runtime::Resolved,
     ) -> Self {
-        Self::from_ir_measured(ir, library, Some(resolved)).0
+        Self::from_ir_measured(resolved.ir_or(ir), library, Some(resolved)).0
     }
     pub(crate) fn from_ir_measured(
         ir: &Ir,

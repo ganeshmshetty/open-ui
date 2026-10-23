@@ -115,7 +115,13 @@ impl Oracle {
             &self.options.limits,
             &self.options.refs,
         );
-        if replay.tree != Tree::from_ir_resolved(&self.batch.ir, &self.library, &resolved) {
+        if without_synthetic(&replay.tree)
+            != without_synthetic(&Tree::from_ir_resolved(
+                &self.batch.ir,
+                &self.library,
+                &resolved,
+            ))
+        {
             return Err("final patch replay differs from evaluated batch tree".into());
         }
         let mut runtime: Vec<_> = session
@@ -146,6 +152,26 @@ impl Oracle {
         Ok(batches)
     }
 }
+/// Synthetic renderer props are session/query state, not part of the batch
+/// projection. Runtime fixtures assert them directly (§§7.3,7.5).
+fn without_synthetic(tree: &Tree) -> Tree {
+    let nodes = tree
+        .nodes
+        .iter()
+        .map(|(id, entry)| {
+            let mut entry = entry.clone();
+            for name in ["error", "touched", "status"] {
+                entry.node.props.remove(name);
+            }
+            (id.clone(), entry)
+        })
+        .collect();
+    Tree {
+        root: tree.root.clone(),
+        nodes,
+    }
+}
+
 pub fn check(
     input: &[u8],
     parts: &[&[u8]],

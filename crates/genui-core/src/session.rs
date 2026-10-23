@@ -293,6 +293,7 @@ pub struct Session {
     last_candidate: Option<Statement>,
     current_cache: Option<crate::validate::ValidationCache>,
     current: Validation,
+    before_static: Ir,
     tree: Tree,
     tracking: DirtyTracking,
     epoch: u32,
@@ -360,6 +361,7 @@ impl Session {
                 ir: Ir::default(),
                 diagnostics: Default::default(),
             },
+            before_static: Ir::default(),
             tree: Tree::default(),
             tracking: DirtyTracking::default(),
             epoch: 1,
@@ -471,6 +473,15 @@ impl Session {
     pub fn ir(&self) -> &Ir {
         &self.current.ir
     }
+    /// Runtime-projected IR: the validated tree with data plans instantiated.
+    /// Static validation, projection diffing and replay equality keep `ir()`.
+    pub fn live_ir(&self) -> &Ir {
+        if self.rejected {
+            &self.current.ir
+        } else {
+            self.resolved.ir_or(&self.current.ir)
+        }
+    }
     pub fn tree(&self) -> &Tree {
         &self.tree
     }
@@ -485,8 +496,7 @@ impl Session {
     /// Look up the current handle for a node's action prop by its wire name.
     pub fn action_handle(&self, path: &crate::ir::NodePath, prop: &str) -> Option<ActionHandle> {
         let node = self
-            .current
-            .ir
+            .live_ir()
             .nodes
             .values()
             .find(|node| node.path == *path)?;
@@ -527,7 +537,7 @@ impl Session {
                 self.update(false, false)
             }
             UiEvent::Blur { node } => {
-                if let Some(node) = self.current.ir.nodes.get(&node) {
+                if let Some(node) = self.live_ir().nodes.get(&node) {
                     self.touched.insert(node.path.0.clone());
                 }
                 self.field_status = self.fields.all(&self.runtime.state, &self.touched);
@@ -536,7 +546,7 @@ impl Session {
         }
     }
     fn edit(&mut self, node: crate::ir::NodeId, value: crate::value::Value) {
-        let Some(node) = self.current.ir.nodes.get(&node) else {
+        let Some(node) = self.live_ir().nodes.get(&node) else {
             return;
         };
         if node.status != crate::ir::NodeStatus::Sealed {
@@ -559,13 +569,13 @@ impl Session {
         if !self.finished || handle.epoch != self.epoch {
             return self.empty_update();
         }
-        let Some(plan) = self.current.ir.actions.get(&handle.plan).cloned() else {
+        let Some(plan) = self.live_ir().actions.get(&handle.plan).cloned() else {
             return self.empty_update();
         };
         if plan.origin != node {
             return self.empty_update();
         }
-        if !self.current.ir.nodes.contains_key(&node) {
+        if !self.live_ir().nodes.contains_key(&node) {
             return self.empty_update();
         }
         self.action_diagnostics.clear();
@@ -604,8 +614,9 @@ impl Session {
         &mut self,
         plan: &crate::ir::ActionPlan,
     ) -> Vec<(crate::runtime::Effect, String)> {
+        let live = self.live_ir().clone();
         let execution = self.runtime.execute_action(
-            &self.current.ir,
+            &live,
             &self.options.library,
             &self.options.validation.limits,
             &self.options.validation.refs,
@@ -798,7 +809,7 @@ impl Session {
         !failed
     }
     fn is_submit_button(&self, node: crate::ir::NodeId) -> bool {
-        let Some(node) = self.current.ir.nodes.get(&node) else {
+        let Some(node) = self.live_ir().nodes.get(&node) else {
             return false;
         };
         let Some(component) = self.options.library.components().get(node.kind.0 as usize) else {
@@ -823,7 +834,7 @@ impl Session {
             })
     }
     fn form_submit_plan(&self, form: crate::ir::NodeId) -> Option<crate::ir::ActionPlan> {
-        let node = self.current.ir.nodes.get(&form)?;
+        let node = self.live_ir().nodes.get(&form)?;
         let component = self
             .options
             .library
@@ -836,13 +847,13 @@ impl Session {
         let index = u16::try_from(index).ok()?;
         match node.props.get(&crate::ir::PropId(index)) {
             Some(crate::ir::Prop::Static(crate::ir::PropValue::Action(id))) => {
-                self.current.ir.actions.get(id).cloned()
+                self.live_ir().actions.get(id).cloned()
             }
             _ => None,
         }
     }
     fn nearest_form(&self, mut node: crate::ir::NodeId) -> Option<crate::ir::NodeId> {
-        let parents = parents(&self.current.ir);
+        let parents = parents(self.live_ir());
         while let Some(parent) = parents.get(&node).copied() {
             let is_form = self
                 .current
@@ -1066,7 +1077,7 @@ impl Session {
         }
     }
     fn label(&self, node: crate::ir::NodeId) -> String {
-        let Some(node) = self.current.ir.nodes.get(&node) else {
+        let Some(node) = self.live_ir().nodes.get(&node) else {
             return String::new();
         };
         let Some(component) = self.options.library.components().get(node.kind.0 as usize) else {
@@ -1174,7 +1185,7 @@ impl Session {
             let crate::ir::PropValue::Value(crate::value::Value::Ref(reference)) = value else {
                 continue;
             };
-            let Some(node) = self.current.ir.nodes.get(&node_id) else {
+            let Some(node) = self.live_ir().nodes.get(&node_id) else {
                 continue;
             };
             attached.push((node.path.0.clone(), reference.clone(), node.origin.clone()));
@@ -1312,6 +1323,7 @@ impl Session {
     }
     fn rebuild(&mut self, finish: bool) {
         let previous_ir = self.current.ir.clone();
+        self.before_static = previous_ir.clone();
         let previous_cache = self.current_cache.clone();
         let new_seals = self.parser.seals().len() != self.sealed_count;
         let changes: Vec<_> = self.parser.seals()[self.sealed_count..]
@@ -1808,14 +1820,33 @@ impl Session {
             return;
         }
         self.runtime.state.sync(&self.current.ir.states);
-        self.resolved = self.runtime.evaluate(
+        let next = self.runtime.evaluate(
             &self.current.ir,
             &self.options.library,
             &self.options.validation.limits,
             &self.options.validation.refs,
         );
-        self.fields = crate::runtime::FieldRegistry::build(&self.current.ir, &self.options.library);
+        let a = runtime_projection_present(&self.before_static, self.resolved.ir());
+        let b = runtime_projection_changed(
+            &self.before_static,
+            &self.current.ir,
+            self.resolved.ir(),
+            next.ir(),
+        );
+        let structure_changed = a || b;
+        self.resolved = next;
+        if structure_changed {
+            // Runtime plans changed the tree independently of validation.
+            self.tree_dirty = true;
+            self.projection = None;
+            self.local_wire = None;
+            self.local_grafts = None;
+        }
+        let live = self.resolved.ir().clone();
+        self.fields = crate::runtime::FieldRegistry::build(&live, &self.options.library);
         self.field_status = self.fields.all(&self.runtime.state, &self.touched);
+        self.resolve_field_props();
+        self.resolve_status_props(&live);
         let mut diagnostics = self.resolved.diagnostics().to_vec();
         diagnostics.extend(self.action_diagnostics.iter().cloned());
         diagnostics.extend(self.host_diagnostics.iter().cloned());
@@ -1829,6 +1860,79 @@ impl Session {
         });
         self.runtime_diagnostics = diagnostics;
     }
+    /// Mirror §7.3 field status into synthetic resolved props so the renderer
+    /// never decides validity itself.
+    fn resolve_field_props(&mut self) {
+        let statuses = self.field_status.clone();
+        for (path, status) in statuses {
+            let Some(node_id) = self
+                .resolved
+                .ir()
+                .nodes
+                .values()
+                .find(|node| node.path.0 == path)
+                .map(|node| node.id)
+            else {
+                continue;
+            };
+            let error = status.error.map_or(crate::value::Value::Null, |error| {
+                crate::value::Value::from(match error {
+                    crate::runtime::FieldError::Required => "required",
+                    crate::runtime::FieldError::Format => "format",
+                    crate::runtime::FieldError::TooShort => "too_short",
+                    crate::runtime::FieldError::TooLong => "too_long",
+                    crate::runtime::FieldError::TooSmall => "too_small",
+                    crate::runtime::FieldError::TooLarge => "too_large",
+                })
+            });
+            self.resolved
+                .set(node_id, crate::runtime::PROP_ERROR, PropValue::Value(error));
+            self.resolved.set(
+                node_id,
+                crate::runtime::PROP_TOUCHED,
+                PropValue::Value(crate::value::Value::Bool(status.touched)),
+            );
+        }
+    }
+
+    /// Attach the aggregated query status to nodes whose props read a query
+    /// (§7.5). It is a resolved prop and never visible to expressions.
+    fn resolve_status_props(&mut self, ir: &Ir) {
+        if self.queries.is_empty() {
+            return;
+        }
+        for node in ir.nodes.values() {
+            let mut queries = BTreeSet::new();
+            for prop in node.props.values() {
+                if let Prop::Dynamic(expression) = prop
+                    && let Some(expression) = ir.expressions.get(expression)
+                {
+                    let mut deps = BTreeSet::new();
+                    dependencies(expression, &mut deps);
+                    queries.extend(
+                        deps.into_iter()
+                            .filter(|name| self.current.ir.queries.contains_key(name)),
+                    );
+                }
+            }
+            if queries.is_empty() {
+                continue;
+            }
+            let status = queries.iter().fold(QueryStatus::Idle, |worst, name| {
+                let status = self
+                    .queries
+                    .get(name)
+                    .map_or(QueryStatus::Idle, |query| query.status);
+                aggregate_status(worst, status)
+            });
+            self.resolved.set(
+                node.id,
+                crate::runtime::PROP_STATUS,
+                PropValue::Value(crate::value::Value::from(status_name(status))),
+            );
+        }
+    }
+
     fn update(&mut self, emit_empty: bool, snapshot: bool) -> Update {
         let local = if snapshot {
             None
@@ -1841,12 +1945,10 @@ impl Session {
             self.local_grafts.take()
         };
         let projection = self.projection.take();
+        let live = self.live_ir().clone();
         let ops = if snapshot || !self.started {
-            let (tree, work) = Tree::from_ir_measured(
-                &self.current.ir,
-                &self.options.library,
-                Some(&self.resolved),
-            );
+            let (tree, work) =
+                Tree::from_ir_measured(&live, &self.options.library, Some(&self.resolved));
             self.work += work;
             let ops = tree.snapshot_ops();
             self.tree = tree;
@@ -1854,7 +1956,7 @@ impl Session {
             ops
         } else if let Some(projection) = projection {
             let (ops, work) = self.tree.maintain(
-                &self.current.ir,
+                &live,
                 &self.options.library,
                 Some(&self.resolved),
                 &projection,
@@ -1865,7 +1967,7 @@ impl Session {
         } else if let Some(mut grafts) = grafts {
             grafts.sort_by_key(|graft| graft.order.clone());
             let (mut ops, work) = self.tree.insert_grafts(
-                &self.current.ir,
+                &live,
                 &self.options.library,
                 Some(&self.resolved),
                 &grafts,
@@ -1879,7 +1981,7 @@ impl Session {
                         .cloned()
                 });
                 let (changes, work) = self.tree.update_props(
-                    &self.current.ir,
+                    &live,
                     &self.options.library,
                     Some(&self.resolved),
                     &ids,
@@ -1896,21 +1998,15 @@ impl Session {
                     .and_then(|cache| cache.node_order(id))
                     .cloned()
             });
-            let (ops, work) = self.tree.update_props(
-                &self.current.ir,
-                &self.options.library,
-                Some(&self.resolved),
-                &ids,
-            );
+            let (ops, work) =
+                self.tree
+                    .update_props(&live, &self.options.library, Some(&self.resolved), &ids);
             self.work += work;
             self.tree_dirty = false;
             ops
         } else if self.tree_dirty || snapshot || !self.started {
-            let (next, work) = Tree::from_ir_measured(
-                &self.current.ir,
-                &self.options.library,
-                Some(&self.resolved),
-            );
+            let (next, work) =
+                Tree::from_ir_measured(&live, &self.options.library, Some(&self.resolved));
             self.work += work;
             let ops = if snapshot || !self.started {
                 next.snapshot_ops()
@@ -1982,6 +2078,67 @@ impl Session {
         }
     }
 }
+fn aggregate_status(a: QueryStatus, b: QueryStatus) -> QueryStatus {
+    fn rank(status: QueryStatus) -> u8 {
+        match status {
+            QueryStatus::Idle => 0,
+            QueryStatus::Ready => 1,
+            QueryStatus::Requested | QueryStatus::Refreshing => 2,
+            QueryStatus::Denied => 3,
+            QueryStatus::Failed => 4,
+        }
+    }
+    if rank(b) > rank(a) { b } else { a }
+}
+fn status_name(status: QueryStatus) -> &'static str {
+    match status {
+        QueryStatus::Idle => "idle",
+        QueryStatus::Requested => "requested",
+        QueryStatus::Ready => "ready",
+        QueryStatus::Denied => "denied",
+        QueryStatus::Failed => "failed",
+        QueryStatus::Refreshing => "refreshing",
+    }
+}
+
+/// True when a projection contains instantiated nodes or an unexpanded plan, so
+/// incremental static projection cannot describe the wire tree on its own.
+fn runtime_projection_present(static_ir: &Ir, expanded: &Ir) -> bool {
+    static_ir.root_plan.is_some()
+        || static_ir
+            .nodes
+            .values()
+            .any(|node| node.slots.iter().any(|slot| !slot.plans.is_empty()))
+        || expanded
+            .nodes
+            .values()
+            .any(|node| !static_ir.nodes.contains_key(&node.id))
+        || static_ir
+            .nodes
+            .keys()
+            .any(|id| !expanded.nodes.contains_key(id))
+}
+
+fn runtime_projection_changed(
+    before_static: &Ir,
+    current_static: &Ir,
+    previous: &Ir,
+    next: &Ir,
+) -> bool {
+    if runtime_projection_present(before_static, previous)
+        || runtime_projection_present(current_static, next)
+    {
+        return previous.root != next.root
+            || previous.nodes.len() != next.nodes.len()
+            || previous
+                .nodes
+                .iter()
+                .zip(next.nodes.iter())
+                .any(|((a, before), (b, after))| a != b || before != after);
+    }
+    false
+}
+
 fn parents(ir: &Ir) -> BTreeMap<crate::ir::NodeId, crate::ir::NodeId> {
     let mut parents = BTreeMap::new();
     for node in ir.nodes.values() {

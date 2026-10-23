@@ -85,6 +85,9 @@ pub struct Node {
     pub slots: Vec<IrSlot>,
     pub status: NodeStatus,
     pub origin: String,
+    /// Source element index within the parent slot. It restores the canonical
+    /// interleaving of concrete children and data-dependent plans (§§2.10,5.5).
+    pub index: usize,
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct IrSlot {
@@ -98,12 +101,16 @@ pub struct SlotPlan {
     pub base: NodePath,
     pub expression: ExprId,
     pub accepts: Vec<String>,
+    /// Source element index within the parent slot for canonical allocation.
+    pub index: usize,
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct ActionPlan {
     pub steps: Vec<Step>,
     pub origin: NodeId,
     pub submit_scope: Option<NodeId>,
+    /// Lambda bindings captured by a plan instantiated inside `each` (§2.7).
+    pub locals: crate::SharedMap<String, Value>,
 }
 #[derive(Clone, Debug, PartialEq)]
 pub enum Step {

@@ -5,7 +5,15 @@
 //! identity, host delivery and model-event construction so no host effect can be
 //! produced by validation or streaming.
 mod fields;
+mod instantiate;
 pub use fields::{Field, FieldError, FieldRegistry, FieldStatus};
+
+/// Synthetic resolved props. They are not library arguments and never visible
+/// to expressions; the wire projection names them `error`, `touched` and
+/// `status` (§§7.3,7.5).
+pub const PROP_ERROR: PropId = PropId(u16::MAX);
+pub const PROP_TOUCHED: PropId = PropId(u16::MAX - 1);
+pub const PROP_STATUS: PropId = PropId(u16::MAX - 2);
 
 use crate::{
     diag::{Code, Diagnostic},
@@ -177,6 +185,9 @@ fn value_size(value: &Value) -> usize {
 pub struct Resolved {
     props: crate::SharedMap<NodeId, crate::SharedMap<PropId, PropValue>>,
     diagnostics: Vec<Diagnostic>,
+    /// The runtime projection: the validated IR with data-dependent plans
+    /// instantiated and runtime drops applied (§§2.10,5.5). Static IR stays intact.
+    ir: Ir,
 }
 impl Resolved {
     pub fn prop(&self, node: NodeId, prop: PropId) -> Option<&PropValue> {
@@ -184,6 +195,18 @@ impl Resolved {
     }
     pub fn diagnostics(&self) -> &[Diagnostic] {
         &self.diagnostics
+    }
+    /// Expanded tree used by the wire projection and runtime lookups.
+    pub fn ir(&self) -> &Ir {
+        &self.ir
+    }
+    /// Expanded tree when one exists, else the static fallback.
+    pub fn ir_or<'a>(&'a self, fallback: &'a Ir) -> &'a Ir {
+        if self.ir.root.is_some() || !self.ir.nodes.is_empty() || self.ir.root_plan.is_none() {
+            &self.ir
+        } else {
+            fallback
+        }
     }
     pub fn is_empty(&self) -> bool {
         self.props.is_empty()
@@ -242,6 +265,27 @@ impl Runtime {
         expression: &Expr,
         stmt: &str,
     ) -> (Value, Vec<Diagnostic>) {
+        self.evaluate_expression_with_locals(
+            ir,
+            library,
+            limits,
+            catalog,
+            expression,
+            stmt,
+            &BTreeMap::new(),
+        )
+    }
+    #[allow(clippy::too_many_arguments)]
+    pub fn evaluate_expression_with_locals(
+        &self,
+        ir: &Ir,
+        library: &Library,
+        limits: &Limits,
+        catalog: &BTreeSet<String>,
+        expression: &Expr,
+        stmt: &str,
+        locals: &BTreeMap<String, Value>,
+    ) -> (Value, Vec<Diagnostic>) {
         let mut diagnostics = Vec::new();
         let values = evaluate_values(
             ir,
@@ -268,7 +312,7 @@ impl Runtime {
         );
         let value = evaluator.eval(
             expression,
-            &BTreeMap::new(),
+            locals,
             &Context {
                 stmt: stmt.into(),
                 path: None,
@@ -316,13 +360,18 @@ impl Runtime {
                 ir.expressions
                     .get(expression)
                     .map_or((Value::Null, Vec::new()), |expression| {
-                        runtime.evaluate_expression(
+                        runtime.evaluate_expression_with_locals(
                             ir,
                             library,
                             limits,
                             catalog,
                             expression,
                             &plan_owner(ir, plan),
+                            &plan
+                                .locals
+                                .iter()
+                                .map(|(k, v)| (k.clone(), v.clone()))
+                                .collect(),
                         )
                     })
             };
@@ -474,69 +523,18 @@ fn evaluate_full(
         catalog,
         &mut diagnostics,
     );
-    let mut queries = BTreeMap::new();
-    let mut resolved = Resolved::default();
-    let mut nodes: Vec<_> = ir.nodes.values().collect();
-    nodes.sort_by(|a, b| a.path.0.cmp(&b.path.0));
-    for node in nodes {
-        let Some(component) = library.components().get(node.kind.0 as usize) else {
-            continue;
-        };
-        for (prop_id, prop) in &node.props {
-            let Prop::Dynamic(expression) = prop else {
-                continue;
-            };
-            let Some(expression) = ir.expressions.get(expression) else {
-                continue;
-            };
-            let Some(arg) = component.args.get(prop_id.0 as usize) else {
-                continue;
-            };
-            let context = Context {
-                stmt: node.origin.clone(),
-                path: Some(node.path.0.clone()),
-            };
-            let mut prop_diagnostics = Vec::new();
-            let mut evaluator = Evaluator::new(
-                ir,
-                library,
-                limits,
-                state,
-                &values,
-                query_results,
-                ref_values,
-                catalog,
-                &mut queries,
-                &mut prop_diagnostics,
-            );
-            let mut value = evaluator.eval(expression, &BTreeMap::new(), &context);
-            let failed = evaluator.failed;
-            drop(evaluator);
-            if !failed
-                && value != Value::Null
-                && !matches!(value, Value::Ref(_))
-                && !library.accepts(&arg.ty, &value)
-            {
-                push_diagnostic(
-                    &mut prop_diagnostics,
-                    Code::ExprType,
-                    Some(node.origin.clone()),
-                    Some(node.path.0.clone()),
-                );
-                value = Value::Null;
-            }
-            if failed {
-                value = Value::Null;
-            }
-            diagnostics.extend(prop_diagnostics);
-            resolved.set(node.id, *prop_id, PropValue::Value(value));
-        }
-    }
-    if !resolved.is_empty() || !diagnostics.is_empty() {
-        // Keep deterministic multiset ordering independent of node iteration.
-        sort_diagnostics(&mut diagnostics);
-        resolved.diagnostics = diagnostics;
-    }
+    let (_, resolved) = instantiate::Builder::build(instantiate::Inputs {
+        ir,
+        library,
+        limits,
+        state,
+        values: &values,
+        query_results,
+        ref_values,
+        catalog,
+        diagnostics,
+        queries: BTreeMap::new(),
+    });
     resolved
 }
 

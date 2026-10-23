@@ -195,6 +195,7 @@ mod tests {
             slots: Vec::new(),
             status: NodeStatus::Sealed,
             origin: "root".into(),
+            index: 0,
         }
     }
     #[test]

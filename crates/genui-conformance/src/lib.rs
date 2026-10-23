@@ -174,6 +174,7 @@ pub fn run_suite(root: &Path) -> Result<SuiteReport> {
                     | "patches"
                     | "numbers"
                     | "expr"
+                    | "iteration"
                     | "state"
                     | "actions"
                     | "queries"
@@ -197,6 +198,7 @@ pub fn run_suite(root: &Path) -> Result<SuiteReport> {
                 category_name,
                 "numbers"
                     | "expr"
+                    | "iteration"
                     | "state"
                     | "actions"
                     | "queries"

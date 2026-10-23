@@ -113,7 +113,7 @@ pub fn run_case(
                         .action_handle(&path, &prop)
                         .ok_or_else(|| format!("no action handle for {path:?}.{prop}"))?;
                     let id = session
-                        .ir()
+                        .live_ir()
                         .nodes
                         .values()
                         .find(|node| node.path == path)
@@ -160,7 +160,12 @@ pub fn run_case(
         }
     }
     let actual = if category == "provenance" {
-        genui_core::runtime::resolved_tree_json(session.ir(), &library, session.resolved(), true)
+        genui_core::runtime::resolved_tree_json(
+            session.resolved().ir_or(session.ir()),
+            &library,
+            session.resolved(),
+            true,
+        )
     } else {
         session.tree().canonical_tree()
     };
@@ -247,7 +252,7 @@ pub fn run_case(
 
 fn node_by_path(session: &Session, path: &str) -> Result<genui_core::ir::NodeId> {
     session
-        .ir()
+        .live_ir()
         .nodes
         .values()
         .find(|node| node.path.0 == path)

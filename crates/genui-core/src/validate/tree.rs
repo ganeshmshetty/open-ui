@@ -85,10 +85,12 @@ impl Validator<'_> {
                     });
                 }
                 let expression = self.ir.intern(e);
+                let index = ctx.order.last().map_or(0, |entry| entry.1);
                 self.pending_plans.push_back(SlotPlan {
                     base: path,
                     expression,
                     accepts: ctx.accepts.clone(),
+                    index,
                 });
                 return Default::default();
             }
@@ -618,6 +620,7 @@ impl Validator<'_> {
             slots,
             status: NodeStatus::Sealed,
             origin: ctx.stmt.clone(),
+            index: ctx.order.last().map_or(0, |entry| entry.1),
         };
         if def
             .requires
@@ -810,6 +813,7 @@ impl Validator<'_> {
                         steps,
                         origin,
                         submit_scope,
+                        locals: Default::default(),
                     },
                 );
                 return Some(Prop::Static(PropValue::Action(id)));
@@ -1102,10 +1106,12 @@ impl Validator<'_> {
         let scope = self.begin_owner(format!("{}|$plan", path.0), order);
         let expression = self.ir.intern(e);
         self.ir.end_owner(scope);
+        let index = ctx.order.last().map_or(0, |entry| entry.1);
         self.pending_plans.push_back(SlotPlan {
             base: path,
             expression,
             accepts: ctx.accepts.clone(),
+            index,
         });
     }
     fn check_template(

@@ -662,6 +662,35 @@ mod tests {
         assert!(!seen.contains(&4));
     }
 
+    fn insertion_heights(keys: impl IntoIterator<Item = usize>) -> Vec<usize> {
+        let mut index = ResourceIndex::<usize, (), ()>::default();
+        let mut heights = Vec::new();
+        for key in keys {
+            index.insert(key, ());
+            heights.push(index.root.as_ref().unwrap().height);
+        }
+        heights
+    }
+
+    #[test]
+    fn insertion_heights_match_avl_rotations_at_every_prefix() {
+        assert_eq!(
+            insertion_heights(1..=16),
+            vec![1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 5],
+            "ascending inserts rotate at the canonical heights"
+        );
+        assert_eq!(
+            insertion_heights((1..=16).rev()),
+            vec![1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 5],
+            "descending inserts rotate symmetrically"
+        );
+        assert_eq!(
+            insertion_heights([1, 16, 2, 15, 3, 14, 4, 13, 5, 12, 6, 11, 7, 10, 8, 9]),
+            vec![1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5],
+            "zigzag inserts choose the double rotation at each prefix"
+        );
+    }
+
     #[test]
     fn adversarial_insertion_orders_keep_logarithmic_height() {
         let mut ascending = ResourceIndex::<usize, (), ()>::default();

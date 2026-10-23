@@ -10,7 +10,7 @@ A milestone is complete only after its acceptance checks pass and CI is green.
 | M1 — Batch syntax | Complete | 124 fixtures / 28,225 chunkings; 23 tests including 2,048 generated round trips; four clean 600-second fuzz campaigns; Linux/macOS CI green. |
 | M2 — Library, validation, IR and limits | Complete, including tree and quality gates | 295 fixtures / 66,772 chunkings / 400 permutations; 66 Rust + 10 gate tests; 8 CLI fixtures; 24 exemplars; renewed parser/validator ASan 601s each; 609 mutations audited; Linux/macOS/quality and mutation CI green. |
 | M3 — Streaming and patches | Complete (mutation advisory) | CI green; fresh 601 s fuzz; 100k property; fixtures/replay. Mutation survivors recorded as backlog per the 2026-10-24 gate change. |
-| M4 — Runtime | In progress on milestone/m4 (slice 3) | Slice 1 evaluator/state/actions; slice 2 queries, refs, events, forms and provenance; slice 3 data-dependent nodes, runtime drop/min_items/budget recovery and synthetic status/field props: 12 iteration fixtures, 416 fixtures / 99,887 chunkings. |
+| M4 — Runtime | In progress on milestone/m4 (slice 4 review fixes) | Slice 1 evaluator/state/actions; slice 2 queries, refs, events, forms and provenance; slice 3 data-dependent nodes and recovery; slice 4 independent-review blockers (denial default, epochs, event caps, dynamic fields, ref failure). |
 | M5 — Prompt, feedback and messages | Not started | Golden output and cross-platform determinism. |
 | M6 — GPUI skeleton | Not started | Live streaming demo and recorded performance. |
 | M7 — Inputs and forms | Not started | Stable editing, keyboard form demo and accessibility. |
@@ -1304,3 +1304,40 @@ policy for tool arguments, form-scope rendering semantics at M6, and fuzz/mutati
 acceptance for this changed runtime source. Full-form scopes inside `each` have
 not been exercised; action plans capture locals but a form submit plan's
 `submit_scope` is still the static node identity.
+
+## M4 slice 4 — independent-review fixes (2026-10-23)
+
+Fixtures were added before each fix and observed failing first: boundary debounce
+`queries/007–009`, `010-denied-refresh-default`, `011-reset-cross-epoch`,
+`012-debounce-queued`, `events/002-open-emit`, `004-label-only-limit`,
+`005-zero-limit`, `refs/005-denied`, `006-failed`, dynamic form cases
+`forms/006–010`, and Tool URL policy `provenance/007–008`.
+
+Fixed:
+
+- **B1.** `query.denied` now uses `Defaulted`; a denied refresh clears the last
+  result and shows the declared default. `query.failed` still keeps last good.
+  Existing `queries/002` golden updated with the recovery contract change.
+- **B2.** Pending requests carry their epoch. `deliver_from` drops reused ids from
+  an older epoch. Script ops `reset`, `finish` and `push` support the regression.
+- **B3.** Event sizing measures every event and reports exactly one `limit.event`
+  for label-only, param-only and zero-byte limits. Text trimming is one pass, not
+  repeated canonical serialization.
+- **B4.** Field registry and submit/form props read evaluated values, so dynamic
+  `required`, `kind`, `min_len`, `max_len`, `min`/`max`, `bind`, `submit` and
+  `on_submit` work. Failed submit/blur now emits the touched synthetic prop.
+- **B5.** Ref denial/failure/size/invalid replace the placeholder with `Null`
+  (`ValueNulled`); required nodes then drop under `schema.missing_required`.
+
+Also fixed: canonical §6.5 `value_bytes`; one sanitizer covers `Mixed` strings,
+map keys, event text/label and request text; Tool-provenance URLs pass the host
+`UrlPolicy`; debounce starts at the dependency change, cancels on revert, and
+applies to queued queries; repeated independent host diagnostics are kept;
+runtime fixtures reject unexpected requests/events when want files are absent and
+replay every scripted patch batch (G6). Specs updated in §§4.3,7.5,7.7–7.8,11,
+12.1,12.4–12.5,13 and CHANGELOG.
+
+Gates for this slice are recorded in the final review report; M3's I7 review
+blocker and acceptance state are unchanged. Remaining M4 work is unchanged:
+`ToolDescriptor`-driven auto-run/argument shapes, full form scopes inside `each`,
+and fuzz/mutation acceptance for the changed runtime source.

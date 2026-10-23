@@ -127,3 +127,25 @@ implementation work; the owner requirement and acceptance conditions are unchang
 - Synthetic field/query props (`error`, `touched`, `status`) are emitted by the
   wire projection and ignored by the stream/batch tree comparison because they
   are session state, not batch projection.
+
+## M4 review fixes — defaults adopted
+
+- **Denied refresh.** §7.5 says "default stays", while the §4.3 recovery column
+  said `KeptLastGood`. The recovery column was the contradiction; it is now
+  `Defaulted`, and a denied refresh clears the previous result. `query.failed`
+  keeps `KeptLastGood`, so a failed refresh may keep the last good value.
+- **Cross-epoch delivery.** Request ids restart at 1 after `reset()`, so the id
+  alone cannot identify a delivery. Pending entries now carry their epoch and
+  `Session::deliver_from(epoch, id, ...)` rejects an id whose epoch differs from
+  both the pending entry and the current session. `deliver(id, ...)` remains the
+  current-epoch convenience for hosts that have just received the request.
+- **Ref failure.** §4.3 fixes `ref.unknown`/`ref.too_large`/`ref.invalid` to
+  `ValueNulled`; the old placeholder retention contradicted that. A failed
+  delivery now evaluates the ref to `Null`, and a required non-nullable node then
+  follows the §4.4 ladder (possibly `schema.missing_required` and `NodeDropped`).
+- **Runtime library extensions.** Runtime fixtures may supply `library.json` to
+  extend std with a custom action. This is used only to exercise `emit` without
+  adding a standard action to the public std library.
+- **Debounce base.** The 300 ms timer starts from the virtual clock at the
+  dependency change (the clock before the observing `advance_clock`), cancels
+  when arguments revert, and applies to queued queries.

@@ -629,7 +629,12 @@ fn placeholders(s: &str) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ir::Role, r#lib::ActionDef, syntax::ast::NullOrigin, value::Value};
+    use crate::{
+        ir::Role,
+        r#lib::{ActionDef, FunctionDef},
+        syntax::ast::NullOrigin,
+        value::Value,
+    };
 
     fn library() -> Library {
         Library::builder("test", "0.1.0")
@@ -659,6 +664,13 @@ mod tests {
                 name: "notify".into(),
                 params: vec![T::text()],
                 doc: "Notify.".into(),
+            })
+            .function(FunctionDef {
+                name: "pick_two".into(),
+                params: vec![T::int(), T::text()],
+                result: T::text(),
+                fuel: 8,
+                implementation: None,
             })
             .build()
             .unwrap()
@@ -1068,6 +1080,291 @@ mod tests {
             .filter(|d| d.code == Code::UnknownFn)
             .count();
         assert_eq!(unknown, 1);
+    }
+
+    #[test]
+    fn calls_that_name_slots_or_actions_are_not_values() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+        state(
+            &mut v,
+            "l",
+            T::list(T::int()),
+            Value::List(Default::default()),
+        );
+
+        for source in [
+            "Leaf(\"x\")",
+            "Widget()",
+            "each($l)",
+            "say(\"hi\")",
+            "notify(\"x\")",
+        ] {
+            let before = v.diagnostics.len();
+            let checked = v.check_value(&expr(source), &Context::at("x", None));
+            assert!(!checked.valid, "{source} is a slot, not a value");
+            assert_eq!(
+                codes(&v)[before..],
+                [Code::SlotKind],
+                "{source} reports exactly one slot-kind diagnostic"
+            );
+        }
+    }
+
+    #[test]
+    fn library_functions_check_arity_names_and_argument_types() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+
+        assert!(
+            v.check_value(&expr("pick_two(1,\"x\")"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("pick_two(1)"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("pick_two(1,\"x\",2)"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("pick_two(key: 1,\"x\")"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("pick_two(missing,\"x\")"), &Context::at("x", None))
+                .valid,
+            "an unresolved argument makes the call invalid"
+        );
+        assert!(
+            !v.check_value(&expr("pick_two(1,2)"), &Context::at("x", None))
+                .valid,
+            "literal argument type mismatches are rejected"
+        );
+        assert!(
+            !v.check_value(&expr("pick_two(1,missing)"), &Context::at("x", None))
+                .valid
+        );
+    }
+
+    #[test]
+    fn builtin_arity_and_sort_named_arguments_are_exact() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+        state(
+            &mut v,
+            "l",
+            T::list(T::int()),
+            Value::List(Default::default()),
+        );
+        state(&mut v, "flag", T::bool(), Value::from(true));
+
+        assert!(
+            v.check_value(&expr("if($flag,1,2)"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("if($flag,1)"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("if(1,2,3)"), &Context::at("x", None))
+                .valid,
+            "if requires a boolean condition"
+        );
+        assert!(
+            !v.check_value(&expr("len(1)"), &Context::at("x", None))
+                .valid,
+            "len requires a list, text or map"
+        );
+        assert!(
+            v.check_value(&expr("coalesce(1,2)"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("coalesce(1)"), &Context::at("x", None))
+                .valid
+        );
+
+        assert!(
+            v.check_value(&expr("sort_by($l,|x| x)"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            v.check_value(
+                &expr("sort_by($l,|x| x,desc: true)"),
+                &Context::at("x", None)
+            )
+            .valid
+        );
+        assert!(
+            !v.check_value(
+                &expr("sort_by($l,|x| x,key: true)"),
+                &Context::at("x", None)
+            )
+            .valid,
+            "sort_by only accepts the desc named argument"
+        );
+        assert!(
+            !v.check_value(&expr("sort_by($l,|x| x,desc: 1)"), &Context::at("x", None))
+                .valid,
+            "named arguments must be boolean"
+        );
+        assert!(
+            !v.check_value(&expr("len($l,desc: true)"), &Context::at("x", None))
+                .valid,
+            "only sort_by accepts named arguments"
+        );
+        assert!(
+            !v.check_value(
+                &expr("sort_by($l,|x| x,desc: missing)"),
+                &Context::at("x", None)
+            )
+            .valid
+        );
+    }
+
+    #[test]
+    fn builtin_argument_types_and_lambda_placement_are_checked() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+        state(
+            &mut v,
+            "l",
+            T::list(T::int()),
+            Value::List(Default::default()),
+        );
+        state(&mut v, "t", T::text(), Value::from("a"));
+        state(&mut v, "u", T::url(), Value::from("https://example.com"));
+        state(&mut v, "n", T::int(), Value::from(1));
+
+        let url_sum = v.check_value(&expr("$t + $u"), &Context::at("x", None));
+        assert!(url_sum.valid);
+        assert_eq!(url_sum.ty, T::Number, "only text plus text stays text");
+
+        assert!(
+            !v.check_value(&expr("first(1)"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("last(1)"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("min(1)"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("round(\"x\")"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("fixed(\"x\",1)"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("contains(1,\"x\")"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("join(1,\",\")"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("fmt(1)"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("sum($l,1)"), &Context::at("x", None))
+                .valid,
+            "a numeric second sum argument must be textual"
+        );
+        assert!(
+            !v.check_value(&expr("join([1],\",\")"), &Context::at("x", None))
+                .valid,
+            "join rejects non-string literal elements"
+        );
+
+        assert!(
+            !v.check_value(&expr("filter($l,|x| x + 1)"), &Context::at("x", None))
+                .valid,
+            "filter needs a boolean predicate"
+        );
+        assert!(
+            v.check_value(&expr("filter($l,|x| true)"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("map($l,|x,y| x)"), &Context::at("x", None))
+                .valid,
+            "lambdas take exactly one parameter"
+        );
+        assert!(
+            !v.check_value(&expr("map(|x| x,$l)"), &Context::at("x", None))
+                .valid,
+            "the lambda must be the second positional argument"
+        );
+        assert!(
+            !v.check_value(&expr("map($l,|x| missing)"), &Context::at("x", None))
+                .valid,
+            "an invalid lambda body invalidates the call"
+        );
+    }
+
+    #[test]
+    fn builtin_results_have_exact_types() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+        state(
+            &mut v,
+            "l",
+            T::list(T::int()),
+            Value::List(Default::default()),
+        );
+
+        let cases = [
+            ("contains(\"a\",\"b\")", T::Bool),
+            ("len($l)", T::Int),
+            ("len(\"abc\")", T::Int),
+            ("fmt(\"{}\",1)", T::Text),
+            ("text(1)", T::Text),
+            ("upper(\"a\")", T::Text),
+            ("lower(\"A\")", T::Text),
+            ("join($l,\",\")", T::Text),
+            ("fixed(1,2)", T::Text),
+            ("map($l,|x| x + 1)", T::list(T::Number)),
+            ("filter($l,|x| true)", T::list(T::int())),
+            ("sort_by($l,|x| x)", T::list(T::int())),
+            ("sum($l)", T::Number),
+            ("round(1)", T::Number),
+        ];
+        for (source, expected) in cases {
+            let checked = v.check_value(&expr(source), &Context::at("x", None));
+            assert!(checked.valid, "{source} is valid");
+            assert_eq!(checked.ty, expected, "{source} returns {expected:?}");
+        }
+    }
+
+    #[test]
+    fn action_lists_and_unknown_component_names_are_slot_kinds() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+
+        assert!(v.check_action(&expr("[say(\"ok\")]"), &Context::at("x", None)));
+        let before = v.diagnostics.len();
+        assert!(!v.check_action(&expr("Widget()"), &Context::at("x", None)));
+        assert_eq!(codes(&v)[before..], [Code::SlotKind]);
+
+        let before = v.diagnostics.len();
+        assert!(!v.check_action(&expr("restore(1)"), &Context::at("x", None)));
+        assert_eq!(codes(&v)[before..], [Code::ExprType]);
     }
 
     #[test]

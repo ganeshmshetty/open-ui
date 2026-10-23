@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-SHARD_COUNT = 8
+SHARD_COUNT = 16
 
 
 def review_outcomes(outcomes, generated, hashes, review):
@@ -52,7 +52,7 @@ def inventory_errors(groups, expected):
 def aggregate(directory, review_path, inventory_path=None):
     folders = sorted(p for p in directory.iterdir() if p.is_dir())
     if len(folders) != SHARD_COUNT:
-        raise ValueError("expected exactly eight mutation shards")
+        raise ValueError("expected exactly sixteen mutation shards")
     review = json.loads(review_path.read_text())
     groups, results, manifests, raw_hashes = [], [], [], {}
     errors = []

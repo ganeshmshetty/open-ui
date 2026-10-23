@@ -262,6 +262,91 @@ mod tests {
         raw.remove_raw(&d);
         assert!(raw.is_empty());
     }
+    fn fatal(provisional: bool) -> Diagnostic {
+        let mut d = Diagnostic::new(Code::NoRoot, None, None);
+        d.provisional = provisional;
+        d
+    }
+    #[test]
+    fn equality_compares_the_effective_diagnostic_multiset() {
+        let one: Diagnostics = vec![Diagnostic::new(Code::Orphan, Some("a".into()), None)].into();
+        let two: Diagnostics = vec![Diagnostic::new(Code::Orphan, Some("b".into()), None)].into();
+        assert_ne!(one, two);
+        assert_ne!(one, Diagnostics::default());
+        assert_eq!(one, one.clone());
+    }
+    #[test]
+    fn committed_fatal_uses_the_forced_flag_severity_and_exclusions() {
+        let mut committed = fatal(false);
+        committed.severity = Severity::Fatal;
+        let mut provisional = fatal(true);
+        provisional.severity = Severity::Fatal;
+        let info = Diagnostic::new(Code::Orphan, None, None);
+
+        let only_provisional: Diagnostics = vec![provisional.clone()].into();
+        assert!(!only_provisional.has_committed_fatal());
+        let mut forced_committed = only_provisional.clone();
+        forced_committed.force_provisional(false);
+        assert!(
+            forced_committed.has_committed_fatal(),
+            "forced=false treats every fatal entry as committed"
+        );
+        let mut forced_provisional = only_provisional.clone();
+        forced_provisional.force_provisional(true);
+        assert!(!forced_provisional.has_committed_fatal());
+
+        let committed_only: Diagnostics = vec![committed.clone()].into();
+        assert!(committed_only.has_committed_fatal());
+        assert!(
+            !committed_only.excluding(Code::NoRoot).has_committed_fatal(),
+            "an excluded fatal code is invisible"
+        );
+        assert!(
+            !committed_only
+                .excluding(Code::NoRoot)
+                .contains_code(Code::NoRoot)
+        );
+
+        let mut info_only: Diagnostics = vec![info].into();
+        info_only.force_provisional(false);
+        assert!(
+            !info_only.has_committed_fatal(),
+            "a non-fatal entry never counts as committed fatal"
+        );
+    }
+    #[test]
+    fn remove_raw_restores_length_fatal_and_committed_counts() {
+        let committed = fatal(false);
+        let provisional = fatal(true);
+        let mut ds: Diagnostics = vec![committed.clone(), provisional.clone()].into();
+        assert_eq!(ds.len(), 2);
+        assert!(ds.has_committed_fatal());
+        ds.remove_raw(&committed);
+        assert_eq!(ds.len(), 1);
+        assert!(
+            !ds.has_committed_fatal(),
+            "only the provisional fatal remains"
+        );
+        ds.remove_raw(&provisional);
+        assert!(ds.is_empty());
+        ds.remove_raw(&provisional);
+        assert!(ds.is_empty(), "a second withdrawal is a no-op");
+    }
+    #[test]
+    fn removing_a_fatal_entry_updates_its_fatal_total() {
+        let mut committed = fatal(false);
+        committed.severity = Severity::Fatal;
+        let mut retained_non_fatal = fatal(false);
+        retained_non_fatal.severity = Severity::Error;
+        let mut ds: Diagnostics = vec![committed.clone(), retained_non_fatal].into();
+        ds.remove_raw(&committed);
+        assert_eq!(ds.len(), 1);
+        ds.force_provisional(false);
+        assert!(
+            !ds.has_committed_fatal(),
+            "the remaining entry is not fatal"
+        );
+    }
     #[test]
     fn forcing_a_flag_merges_raw_entries_with_different_flags() {
         let d = Diagnostic::new(Code::Orphan, Some("a".into()), None);

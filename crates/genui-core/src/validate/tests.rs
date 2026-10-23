@@ -667,3 +667,34 @@ fn state_and_query_accounting_never_underflows_from_zero() {
         "query accounting must grow from zero"
     );
 }
+
+#[test]
+fn retained_subtree_removal_charges_allocation_and_keeps_semantic_node() {
+    let lib = library();
+    let options = Options::default();
+    let mut validator = Validator::new(&Program::default(), Vec::new(), &lib, &options);
+    let id = NodeId(42);
+    let node = Node {
+        id,
+        path: NodePath("root".into()),
+        kind: ComponentId(0),
+        role: Role::Group,
+        props: Default::default(),
+        slots: Vec::new(),
+        status: NodeStatus::Sealed,
+        origin: "root".into(),
+    };
+    let mut machine = tasks::Machine::default();
+    machine.graph.insert(node, 3);
+    validator.tasks = Some(machine);
+    validator.allocated = 5;
+    validator.remove_subtree(id);
+    assert_eq!(validator.allocated, 2);
+    assert!(
+        validator
+            .tasks
+            .as_ref()
+            .is_some_and(|machine| machine.graph.nodes.contains_key(&id)),
+        "semantic node remains retained after its projection is hidden"
+    );
+}

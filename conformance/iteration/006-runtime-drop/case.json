@@ -1,0 +1,1 @@
+{"title":"Required runtime prop drops one child","tier":"core","tags":["runtime","iteration"],"notes":"SPEC §§2.7,2.10–2.11,4.4,5.5,12.3: A required non-nullable runtime prop stays Null: that child is dropped, siblings remain.","limits":{}}

@@ -1,1 +1,1 @@
-{"children":{},"id":"root","kind":"Text","props":{"bold":false,"mono":false,"size":"md","text":"done","tone":"neutral"},"role":"paragraph","status":"sealed"}
+{"children":{},"id":"root","kind":"Text","props":{"bold":false,"mono":false,"size":"md","status":"ready","text":"done","tone":"neutral"},"role":"paragraph","status":"sealed"}

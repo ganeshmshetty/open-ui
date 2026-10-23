@@ -1,0 +1,3 @@
+item=Text(upper(r.name))
+rows=[{name:"a"},{name:"b"}]
+root=Column(each(rows, |r| item))

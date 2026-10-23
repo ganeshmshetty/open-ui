@@ -1,0 +1,1 @@
+root=Column([each([{v:1},{name:"b",v:2},{name:"c",v:3}], |r| Stat(r.name, r.v)), Text("tail")])

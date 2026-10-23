@@ -1,0 +1,1 @@
+{"title":"Empty plan trips min_items and drops the parent","tier":"core","tags":["runtime","iteration"],"notes":"SPEC §§2.7,2.10–2.11,4.4,5.5,12.3: An empty each expands to zero children, so Tabs is dropped by min_items.","limits":{}}

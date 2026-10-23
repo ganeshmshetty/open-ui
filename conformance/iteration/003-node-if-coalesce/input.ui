@@ -1,0 +1,1 @@
+root=Column([if(false, Text("no"), Text("yes")), coalesce(null, Text("first"), Text("second"))])

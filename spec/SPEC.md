@@ -393,8 +393,12 @@ Unreachable node statements are checked locally for syntax/schema errors, withou
 instantiation: their references do not allocate nodes or report path cycles.
 
 In batch static validation, data-dependent `each`, `if` and `coalesce` retain
-checked node plans. Their instances consume budgets and report path cycles only when M4 instantiates them,
-using this same canonical walk; M2 does not evaluate their collections or conditions.
+checked node plans. Their instances consume budgets, allocate keyed paths and
+report path cycles only when M4 instantiates them, using this same canonical walk;
+M2 does not evaluate their collections or conditions. Runtime instantiation walks
+concrete children and plans together by their source index. A dropped subtree
+releases its allocation before the next sibling, and a `min_items` failure drops
+its parent exactly as during static validation (§4.4).
 
 ### 2.11 Components, arguments and slots
 
@@ -808,7 +812,7 @@ Recovery is applied bottom-up. Each step stops the cascade, so a parent sees a c
 
 1. **Token.** Skip a byte, insert a missing comma, ignore a stray closer.
 2. **Value.** An expression that errors becomes `Null`.
-3. **Argument.** A bad optional argument is omitted. A bad required argument takes its library default, if one exists.
+3. **Argument.** A bad optional argument is omitted. A bad required argument takes its library default, if one exists. At runtime a required non-nullable argument whose evaluated value is `Null` reports `schema.missing_required` when no default exists; a failed expression keeps its own diagnostic.
 4. **Node.** If a required argument is still missing, or is `Null` without an explicitly nullable type, the node is dropped.
 5. **Slot.** A dropped child is removed from its parent's slot, and the parent renders with the remaining children. If a slot is now below its `min_items`, the parent is dropped (step 4 applies to it).
 6. **Statement.** A statement that cannot be parsed or classified is dropped. Its name stays claimed if its left side was parsed (2.3).
@@ -976,9 +980,12 @@ recovered-null metadata; hash collisions compare the full identity. Inserting an
 earlier expression MUST NOT renumber retained props. Expression owners release
 obsolete references when rechecked, so growing a tail does not retain its old
 expression bodies. Node slots separately retain
-`SlotPlan { base, expression, accepts }` for data-dependent node expressions;
-empty concrete children do not imply an empty plan. Plans preserve source bases,
-lambda scopes and accepted component types without manufacturing instances.
+`SlotPlan { base, expression, accepts, index }` for data-dependent node
+expressions; empty concrete children do not imply an empty plan. `index` is the
+source element position in the parent slot, so concrete children and plans keep
+their canonical interleaving. Nodes also retain that source index. Plans preserve
+source bases, lambda scopes and accepted component types without manufacturing
+instances.
 The IR also retains the canonical node-statement template table used by named
 references inside these plans; no definition is lost when a template is deferred.
 Static action-plan references use the source-owner string
@@ -1178,14 +1185,17 @@ pub enum StateOrigin { Default, User, Action }
 Each field registers `(form scope, state key, kind, required, min_len, max_len, min, max)` with the runtime.
 
 - `validate(scope)` evaluates every field in the scope with the 2.14 rules. It produces `FieldStatus { error: Option<FieldErrorCode>, touched }`.
-- The renderer reads field status through resolved props (`error`, `touched`) and never decides validity itself.
+- The renderer reads field status through resolved props (`error`, `touched`) and never decides validity itself. These are synthetic resolved props, not library arguments, and are never visible to expressions.
 - A field becomes touched on blur or on a failed submit.
 - `FieldErrorCode` is one of `required`, `format`, `too_short`, `too_long`, `too_small` or `too_large`. The renderer turns it into localized text.
 
 ### 7.4 Action plans
 
 ```rust
-pub struct ActionPlan { pub steps: Vec<Step>, pub origin: NodeId, pub submit_scope: Option<FormScope> }
+pub struct ActionPlan {
+    pub steps: Vec<Step>, pub origin: NodeId, pub submit_scope: Option<FormScope>,
+    pub locals: Map<Name, Value>,   // captured lambda environment when instantiated in each
+}
 pub enum Step {
     Set(StateKey, ExprId), Restore(Vec<StateKey>), Refresh(StmtId),
     Say { text: ExprId, ctx: Option<ExprId> }, Open(ExprId), Emit { name: Name, params: Option<ExprId> },
@@ -1243,7 +1253,7 @@ The host decides, typically asking the user for each distinct args hash, and the
 
 **Issuance and delivery.** `finish()` requests every accepted query in query-name order, up to `max_concurrent_requests`; the remainder stay queued and are requested as deliveries free capacity. A dependency change does not request immediately: `advance_clock(now_ms)` starts a 300 ms debounce, then requests the new `(stmt, args_hash)`. A delivery is accepted only while that request is current for its statement and args hash; stale ids and ids from another epoch are dropped. A delivered result is tagged `Tool`, capped by `max_resolved_data_bytes`, and a `TooLarge` result is `query.failed`. When no tool descriptor is supplied the core assumes `auto_run = false`, so queries request host approval.
 
-**Status display.** Request status reaches renderers as a `Status` resolved prop on the data-bearing nodes that read the query (a loading dim, an error notice). It is never visible to expressions. Until that projection exists, the session exposes `query_status(name)`.
+**Status display.** Request status reaches renderers as a synthetic `status` resolved prop on the data-bearing nodes whose props read the query (a loading dim, an error notice). It is one of `idle`, `requested`, `refreshing`, `ready`, `denied` or `failed`, aggregated worst-first when a node reads several queries. It is never visible to expressions. The session also exposes `query_status(name)`.
 
 **Results** are untrusted data. They are capped by `max_resolved_data_bytes`, tagged with `Tool` provenance, and never parsed as program text.
 

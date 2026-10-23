@@ -1,0 +1,1 @@
+{"title":"Dropped child rolls its allocation back","tier":"core","tags":["runtime","iteration"],"notes":"SPEC §§2.7,2.10–2.11,4.4,5.5,12.3: A dropped child releases budget so later siblings fit before the slot suffix is omitted.","limits":{"max_nodes":3}}

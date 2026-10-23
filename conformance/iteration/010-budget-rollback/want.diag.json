@@ -1,0 +1,1 @@
+[{"code":"schema.missing_required","stmt":"root","path":"root/children:e0#0","recovery":"NodeDropped"},{"code":"limit.nodes","stmt":"root","path":"root/children:#1","recovery":"ChildOmitted"}]

@@ -1,0 +1,1 @@
+{"title":"Keyed removal keeps surviving element paths","tier":"core","tags":["runtime","iteration"],"notes":"SPEC §§2.7,2.10–2.11,4.4,5.5,12.3: An action shrinks the list; the surviving keyed element keeps its path and the other is removed.","limits":{}}

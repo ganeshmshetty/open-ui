@@ -7,6 +7,28 @@
   shard is avoided by halving each job's mutant count; the inventory, per-mutant
   timeout and review rules are unchanged.
 
+## 2026-10-23 — M4 data-dependent nodes and runtime recovery (§§2.10–2.11,4.4,5.5,7.3–7.4,7.5,12.3)
+
+- Instantiate retained `each`, node-producing `if` and `coalesce` plans at runtime
+  in canonical order. `SlotPlan` and `Node` now retain their source element index
+  so concrete children and plans keep their original interleaving; runtime
+  instances consume `max_nodes`/`max_ir_depth` and a dropped subtree releases its
+  allocation before the next sibling.
+- Apply the §4.4 ladder to runtime props: an argument with a default takes it,
+  an optional argument is omitted, and a required non-nullable argument that
+  stays `Null` drops the smallest node. A required `Null` with no default reports
+  `schema.missing_required`; an expression failure keeps its own diagnostic.
+  Slot `min_items` therefore drops the parent after plan expansion.
+- Action plans instantiated inside `each` capture their lambda environment and
+  use the concrete element path as their identity.
+- Resolved trees now carry synthetic `error`/`touched` props for fields and an
+  aggregated `status` prop for query-reading nodes. They are not library
+  arguments and never reach expressions.
+- Add the `iteration` conformance category (11 cases) covering keys, duplicates,
+  bad keys, nested templates, conditional production, drops, budgets and action
+  locals. Existing runtime goldens whose required prop now drops the node were
+  updated with this contract change, not to conceal a failure.
+
 ## 2026-10-23 — Mutation campaign sharding (§12.8)
 
 - Split the complete mutation campaign over sixteen disjoint CI shards instead of

@@ -1,0 +1,1 @@
+{"title":"Lambda index keys","tier":"core","tags":["runtime","iteration"],"notes":"SPEC §§2.7,2.10–2.11,4.4,5.5,12.3: each over a runtime list with 1- and 2-parameter lambdas; index keys are implicit.","limits":{}}

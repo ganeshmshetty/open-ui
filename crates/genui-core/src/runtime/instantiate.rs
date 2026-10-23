@@ -524,8 +524,19 @@ impl<'a> Builder<'a> {
             }
             let key_value = match &key {
                 None => None,
-                Some(Expr::Lambda { body, .. }) => {
-                    let (value, diagnostics, failed) = self.eval(body, &element, stmt, &path);
+                Some(Expr::Lambda {
+                    params: key_params,
+                    body,
+                }) => {
+                    let mut key_locals = locals.clone();
+                    key_locals.insert(key_params[0].clone(), item.clone());
+                    if let Some(second) = key_params.get(1) {
+                        key_locals.insert(
+                            second.clone(),
+                            Value::Int(i64::try_from(element_index).unwrap_or(i64::MAX)),
+                        );
+                    }
+                    let (value, diagnostics, failed) = self.eval(body, &key_locals, stmt, &path);
                     self.input.diagnostics.extend(diagnostics);
                     if failed {
                         continue;

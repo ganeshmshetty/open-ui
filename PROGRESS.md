@@ -10,7 +10,7 @@ A milestone is complete only after its acceptance checks pass and CI is green.
 | M1 — Batch syntax | Complete | 124 fixtures / 28,225 chunkings; 23 tests including 2,048 generated round trips; four clean 600-second fuzz campaigns; Linux/macOS CI green. |
 | M2 — Library, validation, IR and limits | Complete, including tree and quality gates | 295 fixtures / 66,772 chunkings / 400 permutations; 66 Rust + 10 gate tests; 8 CLI fixtures; 24 exemplars; renewed parser/validator ASan 601s each; 609 mutations audited; Linux/macOS/quality and mutation CI green. |
 | M3 — Streaming and patches | Complete (mutation advisory) | CI green; fresh 601 s fuzz; 100k property; fixtures/replay. Mutation survivors recorded as backlog per the 2026-10-24 gate change. |
-| M4 — Runtime | In progress on milestone/m4 (slice 3) | Slice 1 evaluator/state/actions; slice 2 queries, refs, events, forms and provenance; slice 3 data-dependent nodes, runtime drop/min_items/budget recovery and synthetic status/field props: 11 iteration fixtures, 415 fixtures / 99,581 chunkings. |
+| M4 — Runtime | In progress on milestone/m4 (slice 3) | Slice 1 evaluator/state/actions; slice 2 queries, refs, events, forms and provenance; slice 3 data-dependent nodes, runtime drop/min_items/budget recovery and synthetic status/field props: 12 iteration fixtures, 416 fixtures / 99,887 chunkings. |
 | M5 — Prompt, feedback and messages | Not started | Golden output and cross-platform determinism. |
 | M6 — GPUI skeleton | Not started | Live streaming demo and recorded performance. |
 | M7 — Inputs and forms | Not started | Stable editing, keyboard form demo and accessibility. |
@@ -1248,12 +1248,12 @@ unchanged by this slice.
 
 ## M4 slice 3 — data-dependent nodes and runtime recovery (2026-10-23)
 
-Fixtures first: the new `iteration` category has 11 cases (`001`–`011`) covering
+Fixtures first: the new `iteration` category has 12 cases (`001`–`012`) covering
 lambda/index keys, field keys and canonical interleaving, node-producing
 `if`/`coalesce`, nested `each` through a statement template, duplicate and bad
 keys, runtime child drop, `min_items` parent drop, node-budget exhaustion,
-budget rollback after a drop, keyed removal through an action, and action plans
-that capture element locals. Each case runs every §12.3 chunking with exact
+budget rollback after a drop, keyed removal through an action, action plans
+that capture element locals, and key lambdas that bind item and index. Each case runs every §12.3 chunking with exact
 `want.resolved.json` and `want.diag.json`; `009` also has an activation script
 and `011` an interactive script.
 
@@ -1295,7 +1295,7 @@ Spec changes are in §2.10–2.11, §4.4, §5.5, §7.3–7.5 and CHANGELOG. Gate
 `cargo fmt --all -- --check`; workspace Clippy `-D warnings`; `cargo test
 --workspace --locked` and with `--features serde_json/preserve_order` (90 core,
 47 conformance, 5 std, plus CLI/quality and doc targets); `genui-cli fixtures`
-415 fixtures / 99,581 chunkings / 430 permutations; `spec-check` 3 programs,
+416 fixtures / 99,887 chunkings / 430 permutations; `spec-check` 3 programs,
 4 fragments and 24 exemplars. No fuzz or mutation campaign was run for this
 slice; M3's I7 review blocker and acceptance state are unchanged.
 

@@ -316,7 +316,7 @@ All builtins are pure, total and fuel-metered. Their names are reserved in the c
 
 Semantics:
 
-- **`each`** is the only construct that yields lists of nodes. `key:` is a lambda or a field-path string (`key: "id"`), and keys MUST be strings or integers (`schema.bad_key`). Without `key:`, elements are keyed by index. `each` is capped by `each_max_items` (`limit.list_len`, truncated).
+- **`each`** is the only construct that yields lists of nodes. `key:` is a lambda or a field-path string (`key: "id"`), and keys MUST be strings or integers (`schema.bad_key`). A key lambda binds its own parameters (item and zero-based index) independently of the body lambda. Without `key:`, elements are keyed by index. `each` is capped by `each_max_items` (`limit.list_len`, truncated).
 - **`sort_by`** is stable. Keys must all be numbers or all strings (`expr.type` otherwise). Fuel is charged as `n·ceil(log2 n)`.
 - **Lambdas** bind their parameters, which shadow statement names, including a
   same-named node statement. Parameters are data values, not nodes. Free names in

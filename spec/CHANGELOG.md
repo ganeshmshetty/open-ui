@@ -24,7 +24,9 @@
 - Resolved trees now carry synthetic `error`/`touched` props for fields and an
   aggregated `status` prop for query-reading nodes. They are not library
   arguments and never reach expressions.
-- Add the `iteration` conformance category (11 cases) covering keys, duplicates,
+- Clarify that an `each` key lambda binds its own parameters (item and index)
+  independently of the body lambda.
+- Add the `iteration` conformance category (12 cases) covering keys, duplicates,
   bad keys, nested templates, conditional production, drops, budgets and action
   locals. Existing runtime goldens whose required prop now drops the node were
   updated with this contract change, not to conceal a failure.

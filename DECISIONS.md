@@ -66,3 +66,22 @@ Implementation checkpoint: the shared resource-profile/range kernel is now in
 production for state/query allocation, with stop, rollback and deferred-dirty-suffix
 tests. General node tasks/visible projection and dirty source inference remain
 implementation work; the owner requirement and acceptance conditions are unchanged.
+
+## M4 runtime slice boundary
+
+- Implement value evaluation, fuel, state reads, typed state writes and an explicit
+  epoch-bound `activate` entry now. Queries resolve to their declared default and
+  `ref()` stays a `Ref` placeholder; host dispatch, delivery, events and
+  `limit.event` stay in the next runtime slice.
+- Wire action props keep the source-owner key and the epoch binding lives in
+  `Session::action_handle`. This lets events be authorized without changing every
+  action golden; the events slice can decide whether a handle string must also
+  carry the epoch on the wire. SPEC §6.5 still requires epoch-bound handles.
+- A host-effect step in an activated plan is returned as deferred rather than
+  partially dispatched. State steps (`set`/`restore`) run in order. This keeps the
+  plan atomic at the current host boundary.
+- Runtime expression errors yield `null` with one diagnostic. Runtime node-dropping
+  for a required non-nullable prop, slot `min_items` and form/field recovery remain
+  future M4 work; the current slice only replaces values and reports diagnostics.
+- `each` and node-producing `if`/`coalesce` stay checked plans until node
+  instantiation is implemented; calling `each` in a value position is `expr.type`.

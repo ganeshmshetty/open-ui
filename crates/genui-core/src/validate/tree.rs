@@ -1503,3 +1503,108 @@ impl Validator<'_> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::r#lib::{ComponentDef, GroupDef, Role};
+
+    fn library() -> Library {
+        Library::builder("tree", "0.1.0")
+            .group(GroupDef::new("G", 0, "Retained slot fixtures."))
+            .component(
+                ComponentDef::new("Leaf", Role::Paragraph)
+                    .group("G")
+                    .doc("A leaf.")
+                    .req("text", T::text())
+                    .example("Leaf(\"x\")"),
+            )
+            .component(
+                ComponentDef::new("Frame", Role::Group)
+                    .group("G")
+                    .doc("A frame with an optional header.")
+                    .req("children", T::nodes())
+                    .opt_none("header", T::nodes())
+                    .example("Frame([])"),
+            )
+            .build()
+            .unwrap()
+    }
+
+    fn call(source: &str) -> (Expr, Vec<Argument>) {
+        let parsed = parse_batch(source.as_bytes(), crate::limits::SyntaxLimits::default());
+        let statement = parsed
+            .program
+            .statements
+            .into_iter()
+            .next()
+            .expect("one statement");
+        let Expr::Call { args, .. } = statement.value.clone() else {
+            panic!("expected a component call");
+        };
+        (statement.value, args)
+    }
+
+    fn retained_validator<'a>(
+        lib: &'a Library,
+        options: &'a Options,
+        path: &NodePath,
+        old: Expr,
+        old_args: &[Argument],
+    ) -> (Validator<'a>, crate::ir::NodeId) {
+        let mut validator = Validator::new(&Program::default(), Vec::new(), lib, options);
+        let id = validator.ids.allocate(path);
+        let mut bound = crate::SharedMap::default();
+        bound.insert(0, old_args[0].value.clone());
+        validator.instances.insert(
+            id,
+            InstanceCheck {
+                source: std::sync::Arc::new(old),
+                ctx: Context::at("root", Some(path.clone())),
+                path: path.clone(),
+                depth: 1,
+                bound,
+                reads: BTreeSet::new(),
+                diagnostics: Vec::new(),
+            },
+        );
+        validator.retained_slots = Some(Vec::new());
+        (validator, id)
+    }
+
+    #[test]
+    fn changed_retained_slot_bounds_reject_reuse() {
+        let lib = library();
+        let options = Options::default();
+        let path = NodePath("root".into());
+        let (old, old_args) = call("root=Frame([Leaf(\"a\")])");
+        let (new, new_args) = call("root=Frame([Leaf(\"b\")])");
+        let (mut validator, _) = retained_validator(&lib, &options, &path, old, &old_args);
+        let (kind, def) = lib.component("Frame").expect("Frame");
+        let ctx = Context::at("root", Some(path.clone()));
+        assert!(
+            validator
+                .component(&new, (kind, def), &new_args, &ctx, path, 1)
+                .is_none(),
+            "a changed slot expression must not reuse retained children"
+        );
+    }
+
+    #[test]
+    fn unchanged_and_absent_retained_slot_bounds_keep_the_instance() {
+        let lib = library();
+        let options = Options::default();
+        let path = NodePath("root".into());
+        let (old, old_args) = call("root=Frame([Leaf(\"a\")])");
+        let (new, new_args) = call("root=Frame([Leaf(\"a\")])");
+        let (mut validator, _) = retained_validator(&lib, &options, &path, old, &old_args);
+        let (kind, def) = lib.component("Frame").expect("Frame");
+        let ctx = Context::at("root", Some(path.clone()));
+        assert!(
+            validator
+                .component(&new, (kind, def), &new_args, &ctx, path, 1)
+                .is_some(),
+            "equal present and absent slot bounds must preserve the instance"
+        );
+    }
+}

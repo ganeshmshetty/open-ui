@@ -578,6 +578,27 @@ mod tests {
     }
 
     #[test]
+    fn repaired_number_suffix_sign_span_starts_after_the_name() {
+        let result = lex(b"1e+");
+        let index = result
+            .tokens
+            .iter()
+            .position(|token| token.kind == K::Plus)
+            .expect("repaired sign token");
+        assert_eq!(
+            result.spans[index],
+            Span {
+                start: 2,
+                end: 3,
+                column: 3,
+                line: 1
+            },
+            "{:?}",
+            result.spans
+        );
+    }
+
+    #[test]
     fn provisional_numbers_keep_the_configured_numeric_limit() {
         let mut lexer = Lexer::with_numeric_limit(3);
         lexer.push(b"1234");

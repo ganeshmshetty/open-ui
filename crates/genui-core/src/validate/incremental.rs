@@ -1096,8 +1096,10 @@ root = Box([Leaf(t), Control(on_click: a)])\n";
         let opt = options();
         let mut v = Validator::new(&Program::default(), Vec::new(), &lib, &opt);
         v.work.statements_checked = 3;
-        let mut work = crate::MaintenanceWork::default();
-        work.statements_checked = 2;
+        let work = crate::MaintenanceWork {
+            statements_checked: 2,
+            ..Default::default()
+        };
         let attempt = failed(v, work);
         assert!(attempt.result.is_none());
         assert_eq!(

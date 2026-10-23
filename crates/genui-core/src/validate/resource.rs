@@ -523,6 +523,173 @@ mod tests {
     }
 
     #[test]
+    fn unit_and_input_aggregates_compare_by_value_and_identity() {
+        assert!(<() as Aggregate>::same(&(), &()));
+        let shared = Arc::new(1usize);
+        let same = Inputs {
+            left: Some(shared.clone()),
+            item: None,
+            right: None,
+        };
+        let also = Inputs {
+            left: Some(shared.clone()),
+            item: None,
+            right: None,
+        };
+        assert!(same.same(&also));
+        let different = Inputs {
+            left: Some(Arc::new(1usize)),
+            item: None,
+            right: None,
+        };
+        assert!(!same.same(&different));
+        let missing = Inputs::<usize> {
+            left: None,
+            item: None,
+            right: None,
+        };
+        assert!(missing.same(&missing));
+        assert!(!same.same(&missing));
+        assert!(!missing.same(&same));
+    }
+
+    #[test]
+    fn reconcile_charges_one_visit_per_node() {
+        let mut index = ResourceIndex::default();
+        for key in [5usize, 2, 8, 1, 3] {
+            index.insert(key, 1usize);
+        }
+        let mut work = 0;
+        let profile = index.reconcile(10, &mut work, |_, weight, available| {
+            Profile::new(
+                *weight,
+                *weight,
+                None,
+                false,
+                usize::from(*weight > available),
+            )
+        });
+        assert_eq!(profile.used, 5);
+        assert_eq!(work, 5);
+        let mut cached = 0;
+        index.reconcile(10, &mut cached, |_, _, _| panic!("summary must be reused"));
+        assert_eq!(cached, 1, "only the root summary is inspected");
+    }
+
+    #[derive(Clone, Debug, Default, PartialEq)]
+    struct Sum(usize);
+    impl Aggregate for Sum {
+        fn same(&self, other: &Self) -> bool {
+            self.0 == other.0
+        }
+        fn append(&mut self, other: &Self) {
+            self.0 += other.0;
+        }
+    }
+
+    #[test]
+    fn visits_honour_effects_materialization_and_ranges() {
+        let mut index = ResourceIndex::<usize, usize, Sum>::default();
+        for key in 0..7usize {
+            index.insert(key, key);
+        }
+        index.reconcile_with(100, &mut 0, |key, _, _| {
+            let mut profile = Profile::new(0, 0, None, false, 0);
+            match *key {
+                0 | 2 | 4 => {
+                    profile.used = 1;
+                    profile.lower = 1;
+                }
+                1 | 5 => {
+                    profile.effects = 1;
+                }
+                _ => {}
+            }
+            (profile, Sum(*key + 10))
+        });
+
+        let mut materialized = Vec::new();
+        index.visit_materialized(None, None, |key, _, result| {
+            materialized.push((*key, result.0));
+        });
+        assert_eq!(
+            materialized,
+            vec![(0, 10), (1, 11), (2, 12), (4, 14), (5, 15)]
+        );
+
+        let mut effects = Vec::new();
+        index.visit_effects(None, None, |key, _, result| {
+            effects.push((*key, result.0));
+        });
+        assert_eq!(effects, vec![(1, 11), (5, 15)]);
+
+        let mut ranged = Vec::new();
+        index.visit_materialized(Some(&0), Some(&4), |key, _, _| ranged.push(*key));
+        assert_eq!(ranged, vec![1, 2, 4]);
+
+        let mut strict = Vec::new();
+        index.visit_materialized(Some(&2), Some(&4), |key, _, _| strict.push(*key));
+        assert_eq!(strict, vec![4], "after is exclusive");
+
+        let mut inclusive = Vec::new();
+        index.visit_materialized(Some(&0), Some(&2), |key, _, _| inclusive.push(*key));
+        assert_eq!(inclusive, vec![1, 2], "until is inclusive");
+
+        let mut all_effects = Vec::new();
+        index.visit_effects(None, None, |key, _, _| all_effects.push(*key));
+        assert_eq!(all_effects, vec![1, 5]);
+    }
+
+    #[test]
+    fn visit_stops_after_a_stopped_task_and_its_left_subtree() {
+        let mut index = ResourceIndex::<usize, usize, Sum>::default();
+        for key in 0..5usize {
+            index.insert(key, key);
+        }
+        index.reconcile_with(100, &mut 0, |key, _, _| {
+            let mut profile = Profile::new(1, 1, None, false, 0);
+            if *key == 1 {
+                profile.used = 0;
+                profile.stopped = true;
+            }
+            (profile, Sum(*key))
+        });
+        assert_eq!(index.stopping_key(), Some(&1));
+        let mut seen = Vec::new();
+        index.visit_materialized(None, None, |key, _, _| seen.push(*key));
+        assert!(!seen.contains(&2));
+        assert!(!seen.contains(&3));
+        assert!(!seen.contains(&4));
+    }
+
+    #[test]
+    fn adversarial_insertion_orders_keep_logarithmic_height() {
+        let mut ascending = ResourceIndex::<usize, (), ()>::default();
+        for key in 0..1000usize {
+            ascending.insert(key, ());
+        }
+        assert!(ascending.root.as_ref().unwrap().height <= 20);
+        let mut descending = ResourceIndex::<usize, (), ()>::default();
+        for key in (0..1000usize).rev() {
+            descending.insert(key, ());
+        }
+        assert!(descending.root.as_ref().unwrap().height <= 20);
+        let mut zigzag = ResourceIndex::<usize, (), ()>::default();
+        let mut low = 0usize;
+        let mut high = 999usize;
+        for i in 0..1000usize {
+            let key = if i % 2 == 0 { low } else { high };
+            if i % 2 == 0 {
+                low += 1
+            } else {
+                high -= 1
+            }
+            zigzag.insert(key, ());
+        }
+        assert!(zigzag.root.as_ref().unwrap().height <= 20);
+    }
+
+    #[test]
     fn nested_ranges_match_fresh_canonical_execution_across_frontier_moves() {
         let mut index = ResourceIndex::default();
         let mut weights = BTreeMap::new();

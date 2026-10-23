@@ -338,3 +338,299 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod structural_tests {
+    use super::*;
+    use crate::{
+        ir::Role,
+        r#lib::{ComponentDef, GroupDef},
+    };
+
+    fn library() -> Library {
+        Library::builder("test", "0.1.0")
+            .group(GroupDef::new("G", 0, "`Leaf` and `Box`."))
+            .component(
+                ComponentDef::new("Leaf", Role::Paragraph)
+                    .group("G")
+                    .doc("A leaf.")
+                    .req("text", T::text())
+                    .example("Leaf(\"ok\")"),
+            )
+            .component(
+                ComponentDef::new("Box", Role::Group)
+                    .group("G")
+                    .doc("A box.")
+                    .req("children", T::nodes())
+                    .example("Box([])"),
+            )
+            .build()
+            .unwrap()
+    }
+
+    fn parse(text: &str) -> Program {
+        crate::syntax::parse_batch(text.as_bytes(), crate::limits::SyntaxLimits::default()).program
+    }
+
+    fn base(lib: &Library, opt: &Options) -> (Validation, ValidationCache) {
+        let program = parse("root=Box([])");
+        let (validation, _, cache) = Validator::new(&program, Vec::new(), lib, opt).run_measured();
+        (validation, cache)
+    }
+
+    fn waiting(
+        lib: &Library,
+        opt: &Options,
+    ) -> (Validation, ValidationCache, SlotKey, crate::ir::NodeId) {
+        let (validation, mut cache) = base(lib, opt);
+        let root = validation.ir.root.expect("root box");
+        let key = SlotKey {
+            parent: root,
+            name: "children".into(),
+        };
+        let arg = lib
+            .component("Box")
+            .and_then(|(_, def)| def.args.iter().find(|a| a.name == "children").cloned())
+            .expect("children arg");
+        let path = NodePath("root/children:0".into());
+        let mut item = SlotItem {
+            source: std::sync::Arc::new(Expr::Name { name: "w".into() }),
+            ctx: Context::at("root", Some(NodePath::root())),
+            path: path.clone(),
+            output: Default::default(),
+            diagnostics: Vec::new(),
+            reads: ["w".to_string()].into_iter().collect(),
+            planned: false,
+        };
+        item.ctx.order.push(("children".into(), 0, 0));
+        cache.slots.insert(
+            key.clone(),
+            SlotCheck {
+                parent_path: NodePath::root(),
+                arg,
+                depth: 2,
+                place: "children".into(),
+                items: [((0, item))].into_iter().collect(),
+                counts: PrefixCounts::new(&[0]),
+            },
+        );
+        cache
+            .slot_readers
+            .insert("w".into(), [((key.clone(), 0))].into_iter().collect());
+        cache.kinds.insert("w".into(), Kind::Node);
+        (validation, cache, key, root)
+    }
+
+    fn change(text: &str) -> Statement {
+        parse(text).statements.into_iter().next().unwrap()
+    }
+
+    fn run(
+        lib: &Library,
+        opt: &Options,
+        cache: &ValidationCache,
+        base: &Validation,
+        changes: &[Statement],
+        dirty: &BTreeSet<String>,
+        sealed: Option<&crate::SharedMap<String, StateDef>>,
+    ) -> StructuralAttempt {
+        resolve_waiting(cache, base, changes, dirty, sealed, lib, opt)
+    }
+
+    #[test]
+    fn record_slot_tracks_and_replaces_item_readers() {
+        let lib = library();
+        let opt = Options::default();
+        let (validation, mut cache, key, _) = waiting(&lib, &opt);
+        let mut v = Validator::new(&Program::default(), Vec::new(), &lib, &opt);
+        v.ir = validation.ir.clone();
+        v.record_slot(key.clone(), cache.slots.get(&key).unwrap().clone());
+        assert!(
+            v.slot_readers
+                .get("w")
+                .is_some_and(|s| s.contains(&(key.clone(), 0)))
+        );
+        assert!(v.slots.contains_key(&key));
+
+        let mut old = cache.slots.get(&key).unwrap().clone();
+        old.items.clear();
+        v.record_slot(key.clone(), old);
+        assert!(
+            !v.slot_readers
+                .get("w")
+                .is_some_and(|s| s.contains(&(key.clone(), 0)))
+        );
+    }
+
+    #[test]
+    fn resolves_a_waiting_node_into_its_retained_position() {
+        let lib = library();
+        let opt = Options::default();
+        let (base, cache, key, root) = waiting(&lib, &opt);
+        let changes = [change("w=Leaf(\"x\")")];
+        let dirty = ["w".to_string()].into_iter().collect();
+        let attempt = run(&lib, &opt, &cache, &base, &changes, &dirty, None);
+        assert!(
+            attempt.result.is_some(),
+            "waiting reference resolves locally"
+        );
+        assert!(attempt.work.statements_checked > 0);
+        let (validation, next, grafts) = attempt.result.unwrap();
+        assert_eq!(grafts.len(), 1);
+        assert_eq!(grafts[0].parent, "root");
+        assert_eq!(grafts[0].slot, "children");
+        assert_eq!(grafts[0].index, 0);
+        assert_eq!(grafts[0].children.len(), 1);
+        let parent = validation.ir.nodes.get(&root).unwrap();
+        let slot = parent.slots.iter().find(|s| s.name == key.name).unwrap();
+        assert_eq!(
+            slot.children.iter().copied().collect::<Vec<_>>(),
+            grafts[0].children.iter().copied().collect::<Vec<_>>()
+        );
+        let item = next.slots.get(&key).unwrap().items.get(&0).unwrap();
+        assert_eq!(item.output.len(), 1);
+        assert_eq!(next.slots.get(&key).unwrap().counts.prefix(0), 0);
+        assert_eq!(next.slots.get(&key).unwrap().counts.prefix(1), 1);
+    }
+
+    #[test]
+    fn resolve_waiting_bails_on_general_or_unsafe_changes() {
+        let lib = library();
+        let opt = Options::default();
+        let (base, cache, _, _) = waiting(&lib, &opt);
+        let dirty = ["w".to_string()].into_iter().collect();
+        assert!(
+            run(&lib, &opt, &cache, &base, &[], &dirty, None)
+                .result
+                .is_none(),
+            "empty changes are not a local slot resolution"
+        );
+        assert!(
+            run(&lib, &opt, &cache, &base, &[change("$s=1")], &dirty, None)
+                .result
+                .is_none(),
+            "non-bind statements are not local slot resolutions"
+        );
+        let mut non_node = change("w=1");
+        non_node.name = "w".into();
+        assert!(
+            run(&lib, &opt, &cache, &base, &[non_node], &dirty, None)
+                .result
+                .is_none()
+        );
+        let mut depending = change("w=Leaf(t)");
+        depending.name = "w".into();
+        assert!(
+            run(&lib, &opt, &cache, &base, &[depending], &dirty, None)
+                .result
+                .is_none(),
+            "a value dependency needs the general path"
+        );
+        let mut state_dep = change("w=Leaf($s)");
+        state_dep.name = "w".into();
+        let mut sealed = base.ir.states.clone();
+        sealed.insert(
+            "s".into(),
+            StateDef {
+                default: Value::from("x"),
+                ty: T::text(),
+            },
+        );
+        assert!(
+            run(
+                &lib,
+                &opt,
+                &cache,
+                &base,
+                &[state_dep],
+                &dirty,
+                Some(&sealed)
+            )
+            .result
+            .is_some(),
+            "state dependencies do not need the general path"
+        );
+    }
+
+    #[test]
+    fn resolve_waiting_honours_readers_allocation_and_ambiguous_state_flags() {
+        let lib = library();
+        let opt = Options::default();
+        let changes = [change("w=Leaf(\"x\")")];
+        let dirty = ["w".to_string()].into_iter().collect();
+
+        let (base, mut cache, _, _) = waiting(&lib, &opt);
+        cache.readers.insert("w".into(), Default::default());
+        assert!(
+            run(&lib, &opt, &cache, &base, &changes, &dirty, None)
+                .result
+                .is_some(),
+            "an empty reader set does not block a waiting slot"
+        );
+
+        let (base, mut cache, _, _) = waiting(&lib, &opt);
+        cache.allocation_limited = true;
+        assert!(
+            run(&lib, &opt, &cache, &base, &changes, &dirty, None)
+                .result
+                .is_none(),
+            "allocation-limited caches use the general path"
+        );
+
+        let (base, mut cache, _, _) = waiting(&lib, &opt);
+        cache.ambiguous_states = true;
+        let sealed = base.ir.states.clone();
+        assert!(
+            run(&lib, &opt, &cache, &base, &changes, &dirty, Some(&sealed))
+                .result
+                .is_some(),
+            "sealed state types allow local slot resolution"
+        );
+
+        let (base, mut cache, _, _) = waiting(&lib, &opt);
+        cache
+            .readers
+            .insert("w".into(), [(crate::ir::NodeId(42))].into_iter().collect());
+        assert!(
+            run(&lib, &opt, &cache, &base, &changes, &dirty, None)
+                .result
+                .is_none(),
+            "instances that read the waiting name need the general path"
+        );
+    }
+
+    #[test]
+    fn resolve_waiting_rejects_planned_or_occupied_positions() {
+        let lib = library();
+        let opt = Options::default();
+        let dirty = ["w".to_string()].into_iter().collect();
+        let changes = [change("w=Leaf(\"x\")")];
+        for mutate in ["planned", "output", "missing-parent"] {
+            let (base, mut cache, key, _) = waiting(&lib, &opt);
+            let mut check = cache.slots.get(&key).unwrap().clone();
+            let mut item = check.items.get(&0).unwrap().clone();
+            match mutate {
+                "planned" => item.planned = true,
+                "output" => item.output = [crate::ir::NodeId(9999)].into_iter().collect(),
+                _ => {
+                    let mut damaged = cache.clone();
+                    damaged.slots.clear();
+                    assert!(
+                        run(&lib, &opt, &damaged, &base, &changes, &dirty, None)
+                            .result
+                            .is_none()
+                    );
+                    continue;
+                }
+            }
+            check.items.insert(0, item);
+            cache.slots.insert(key.clone(), check);
+            assert!(
+                run(&lib, &opt, &cache, &base, &changes, &dirty, None)
+                    .result
+                    .is_none(),
+                "{mutate} position is not resolvable"
+            );
+        }
+    }
+}

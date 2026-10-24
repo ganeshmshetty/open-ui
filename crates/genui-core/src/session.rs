@@ -1474,9 +1474,10 @@ impl Session {
                     if !text.is_empty() && !text.ends_with('\n') {
                         text.push('\n');
                     }
-                    text.push_str(&crate::fallback::render(
-                        &self.current.ir,
+                    text.push_str(&crate::fallback::render_resolved(
+                        self.live_ir(),
                         &self.options.library,
+                        Some(&self.resolved),
                     ));
                 }
                 StoredSegment::Program { .. } => {}
@@ -3015,7 +3016,8 @@ mod tests {
                     ComponentDef::new("Text", Role::Paragraph)
                         .group("G")
                         .doc("Text.")
-                        .req("text", T::text()),
+                        .req("text", T::text())
+                        .to_text("{text}"),
                 )
                 .component(
                     ComponentDef::new("Stack", Role::Group)
@@ -3265,6 +3267,14 @@ mod tests {
                 .count(),
             2
         );
+    }
+
+    #[test]
+    fn fallback_uses_evaluated_dynamic_props() {
+        let mut session = session("$n=7\nroot=Text(text($n))", &[], &[]);
+        session.finish();
+        assert_eq!(session.fallback_text(), "7");
+        assert_eq!(session.stored_message().fallback_text, "7");
     }
 
     #[test]

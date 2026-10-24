@@ -6,17 +6,32 @@ use crate::{
 };
 use std::collections::BTreeSet;
 
-/// Render one message's IR without evaluation. Dynamic props contribute empty text;
-/// M4 supplies their evaluated values through the same templates.
+/// Render one message's IR without evaluation. Dynamic props contribute empty text.
 pub fn render(ir: &Ir, library: &Library) -> String {
+    render_resolved(ir, library, None)
+}
+
+/// Render with M4 evaluated props, so dynamic text and runtime-instantiated
+/// children appear in the fallback (§§4.7,7.9).
+pub fn render_resolved(
+    ir: &Ir,
+    library: &Library,
+    resolved: Option<&crate::runtime::Resolved>,
+) -> String {
     let Some(root) = ir.root else {
         return String::new();
     };
     let mut seen = BTreeSet::new();
-    node_text(ir, library, root, &mut seen)
+    node_text(ir, library, resolved, root, &mut seen)
 }
 
-fn node_text(ir: &Ir, library: &Library, id: NodeId, seen: &mut BTreeSet<NodeId>) -> String {
+fn node_text(
+    ir: &Ir,
+    library: &Library,
+    resolved: Option<&crate::runtime::Resolved>,
+    id: NodeId,
+    seen: &mut BTreeSet<NodeId>,
+) -> String {
     if !seen.insert(id) {
         return String::new();
     }
@@ -30,7 +45,7 @@ fn node_text(ir: &Ir, library: &Library, id: NodeId, seen: &mut BTreeSet<NodeId>
                 .map(|def| (node, def))
         })
         .map_or_else(String::new, |(node, def)| {
-            template(ir, library, node, def, seen)
+            template(ir, library, resolved, node, def, seen)
         });
     seen.remove(&id);
     text
@@ -39,6 +54,7 @@ fn node_text(ir: &Ir, library: &Library, id: NodeId, seen: &mut BTreeSet<NodeId>
 fn template(
     ir: &Ir,
     library: &Library,
+    resolved: Option<&crate::runtime::Resolved>,
     node: &Node,
     def: &ComponentDef,
     seen: &mut BTreeSet<NodeId>,
@@ -51,9 +67,10 @@ fn template(
         let value = match node.props.get(&PropId(index as u16)) {
             Some(Prop::Static(PropValue::Value(value))) => display(value),
             Some(Prop::Static(PropValue::Token { value, .. })) => display(value),
-            Some(Prop::Static(PropValue::Binding(_))) | Some(Prop::Dynamic(_)) | None => {
-                String::new()
-            }
+            Some(Prop::Dynamic(_)) => resolved
+                .and_then(|resolved| resolved.prop(node.id, PropId(index as u16)))
+                .map_or_else(String::new, display_prop),
+            Some(Prop::Static(PropValue::Binding(_))) | None => String::new(),
             Some(Prop::Static(PropValue::Action(_))) => String::new(),
         };
         text = text.replace(&format!("{{{}}}", arg.name), &value);
@@ -67,12 +84,19 @@ fn template(
         let children = slot
             .children
             .iter()
-            .map(|child| node_text(ir, library, *child, seen))
+            .map(|child| node_text(ir, library, resolved, *child, seen))
             .collect::<Vec<_>>()
             .join(separator);
         text = text.replace(&format!("{{{}}}", slot.name), &children);
     }
     text.replace("{value}", "").replace("{values}", "")
+}
+
+fn display_prop(value: &PropValue) -> String {
+    match value {
+        PropValue::Value(value) | PropValue::Token { value, .. } => display(value),
+        PropValue::Binding(_) | PropValue::Action(_) => String::new(),
+    }
 }
 
 fn display(value: &Value) -> String {

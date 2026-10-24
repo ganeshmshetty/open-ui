@@ -3473,10 +3473,7 @@ mod tests {
 
         let blur = session.event(UiEvent::Blur { node: field });
         assert!(blur.patches.is_some());
-        assert_eq!(
-            session.field_status()["root/children:@form/children:@field"].touched,
-            true
-        );
+        assert!(session.field_status()["root/children:@form/children:@field"].touched);
     }
 
     #[test]

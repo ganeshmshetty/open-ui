@@ -1368,6 +1368,73 @@ mod tests {
     }
 
     #[test]
+    fn emit_payload_is_checked_against_the_named_action_parameter() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+
+        let before = v.diagnostics.len();
+        assert!(
+            !v.check_action(&expr("emit(\"notify\",1)"), &Context::at("x", None)),
+            "a literal that the event parameter cannot accept is an expr.type"
+        );
+        assert_eq!(
+            codes(&v)[before..],
+            [Code::ExprType],
+            "the emit payload check reports exactly once"
+        );
+
+        let before = v.diagnostics.len();
+        assert!(v.check_action(&expr("emit(\"notify\",\"x\")"), &Context::at("x", None)));
+        assert_eq!(
+            codes(&v)[before..],
+            Vec::<Code>::new(),
+            "an accepted emit payload stays clean"
+        );
+    }
+
+    #[test]
+    fn say_accepts_unknown_payloads_and_rejects_known_non_maps() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+        state(
+            &mut v,
+            "m",
+            T::map(T::Any),
+            Value::Map(std::sync::Arc::new(vec![])),
+        );
+
+        let before = v.diagnostics.len();
+        assert!(
+            v.check_action(&expr("say(\"hi\", $m.a)"), &Context::at("x", None)),
+            "an unknown member type is a legal say payload"
+        );
+        assert_eq!(
+            codes(&v)[before..],
+            Vec::<Code>::new(),
+            "only known non-map payloads are rejected"
+        );
+    }
+
+    #[test]
+    fn open_rejects_urls_that_fail_validation() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+
+        let before = v.diagnostics.len();
+        assert!(
+            !v.check_action(
+                &expr("open(\"javascript:alert(1)\")"),
+                &Context::at("x", None)
+            ),
+            "a URL outside the allowed scheme is tainted"
+        );
+        assert_eq!(codes(&v)[before..], [Code::TaintedUrl]);
+    }
+
+    #[test]
     fn fmt_placeholder_counting_handles_braces() {
         let lib = library();
         let opt = options();

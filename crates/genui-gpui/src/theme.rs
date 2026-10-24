@@ -701,6 +701,25 @@ impl UiTheme {
         px(20.)
     }
 
+    /// An ordered list needs room for its widest number. The DESIGN gutter is
+    /// 16 px; a 10,000-item list widens it so four digits stay legible.
+    pub fn list_number_gutter(&self, total_items: usize) -> Pixels {
+        let digits = total_items.max(1).to_string().len() as f32;
+        px((digits * 8.0 + 4.0).max(self.list_gutter_width().as_f32()))
+    }
+
+    /// Above 100 items the List switches to the virtualized kit list. Its rows
+    /// share one measured height, so a list row gets the medium control height
+    /// (32 px) plus the 8 px item gap.
+    pub fn list_row_height(&self) -> Pixels {
+        px(32.)
+    }
+
+    /// A virtualized list caps its viewport like a table (DESIGN §6.10).
+    pub fn list_viewport_height(&self) -> Pixels {
+        px(480.)
+    }
+
     /// Table anatomy (DESIGN §§5, 6.10, 7).
     pub fn table_row_height(&self) -> Pixels {
         px(32.)

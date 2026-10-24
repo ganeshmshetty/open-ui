@@ -1795,7 +1795,7 @@ These names were checked on docs.rs for `gpui-component 0.8.0` and `gpui-pre 0.3
 | `Checkbox`, `CheckboxGroup` | `checkbox::Checkbox` (one per option for the group) | |
 | `RadioGroup` | `radio::RadioGroup`, `radio::Radio` | |
 | `Switch` | `switch::Switch` | Not `button::Toggle`, which is a toggle button. |
-| `List` | `v_flex` of children with the DESIGN marker gutter | Phase 1 does not virtualize List; the node/list limits bound it. Only Table has the 50k scroll contract. |
+| `List` | A `v_flex` of children at or below 100 items; above 100, `list::List` over `ListState<GenuiListDelegate>` | The kit virtual list builds only visible item entities (leaf `NodeView`s on demand) and preserves the DESIGN marker gutter, ordered numbering, 8 px item gap, loading skeleton and empty behavior. Kit list rows share one measured height; heterogeneous tall children should stay below 100. A 10,000-item stress created 77 entities total and built at most 22 rows in one frame. |
 | `Table` | `table::DataTable` over `Entity<TableState<GenuiTableDelegate>>` | The kit supplies the sticky header, row virtualization, selection, sorting and resizable columns. Cells use §6.12 formatting. Rows are parsed once and the duplicate wire prop is dropped. |
 | `Stat` | `v_flex` of a caption label, a tabular value, and a custom tone `Tag` for the delta | Layout and number formats per DESIGN.md §6.12 and §7. |
 | `Facts` | `div().grid()` with two columns per fact (label, value) | Label `muted_foreground`, value `foreground`. |
@@ -1850,6 +1850,13 @@ These targets are reported, not gating, in phase 1.
 - one construction frame: 323 ms, of which row parsing was 111 ms and applying the snapshot was 136 ms; the "construction cost independent of rows above 100" target is **missed** for data parsing and reported, not waived;
 - process RSS after the run: 772 MB with a 54 MB baseline. This includes the core's retained ref value, the renderer's parsed rows and GPUI/Metal surfaces; the 40 MB target does not apply to 50k rows but the number is reported rather than hidden;
 - scrolling to a distant row including a headless capture took under 200 ms; capture time is excluded from app work.
+
+**M8 10,000-item List measurement** (`list-stress --rows 10000`):
+
+- above 100 children the kit virtual list is used; 77 item entities were created in total and at most 22 rows were built in one frame;
+- frame app work p50 0.91 ms, p99 2.34 ms; snapshot apply 35 ms; construction 775 ms;
+- process RSS 198 MB with a 54 MB baseline;
+- ordered numbering widens the 16 px gutter only when the widest number needs it (four digits for 10,000 items).
 
 ### 10.7 Interaction with the host
 
@@ -2116,6 +2123,7 @@ Conformance fixtures prove the core. These checks prove the whole system works a
 | Gallery app and screenshot loop (backend: gpui-kit's test-support `Window::render_to_image`; M6 uses `HeadlessAppContext` so captures are deterministic and offscreen, and also supports a normal window; capture timing is excluded from performance numbers) | M6 | A demo binary renders every `examples/*.ui` and a per-component state sheet (all states from DESIGN.md §7) in light and dark. `--screenshot <dir>` writes one PNG per example and mode. At the end of M6, M7 and M8, the screenshot set is reviewed against DESIGN.md; each finding is fixed or logged in PROGRESS.md with a reason. Screenshots are not golden-compared in phase 1. M8 also has `--self-test-panic`. |
 | `sample-host` (scripted model mode) / Real-model loop | M8 | The sample host streams model output into `UiView` and answers requests through a host policy. In M8 the reply is a recorded scripted transcript (`eval/transcripts/*.json`): prompt, chunks with scripted timing, events, host decisions. `sample-host --headless --screenshot DIR --record FILE` captures 25/50/75/100% plus a frozen and restored frame; `--restore` and `--regenerate` prove state/tree equality and patch determinism. No live model was available, so a real-model run remains the owner's step; scripted files are never labelled model evidence. |
 | `table-stress --rows 50000` | M8 | Ref-backed table through `Session` and `UiView`; reports the visible range at several offsets, steady and construction frame numbers and RSS against §10.6. |
+| `list-stress --rows 10000` | M8 | Ref-backed `each` List through `Session` and `UiView`; reports created item entities, rows built per frame, scroll offsets, frame work and RSS. Proves the >100 virtual path. |
 
 `tree` uses genui-std and the default host policy (no tool/ref catalog). It reads
 raw DSL bytes, prints all static props in sorted-name compact IR JSON, traverses

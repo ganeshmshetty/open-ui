@@ -63,6 +63,8 @@ cargo run -p genui-gpui --features screenshot --bin sample-host -- \
   --freeze-at 3 --restore --regenerate
 cargo run -p genui-gpui --features screenshot --bin table-stress -- \
   --rows 50000 --metrics /tmp/table-stress.json --screenshot /tmp/table-stress
+cargo run -p genui-gpui --features screenshot --bin list-stress -- \
+  --rows 10000 --metrics /tmp/list-stress.json --screenshot /tmp/list-stress
 ```
 
 The transcripts are deterministic `scripted-fixture` conversations, not

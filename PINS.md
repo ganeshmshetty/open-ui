@@ -56,3 +56,10 @@ The pins are unchanged. New surfaces checked against the pinned sources:
 | gpui-pre 0.3.9 `on_mouse_move` | The event position is window-relative. Chart hover stores the canvas paint bounds in a `Cell<Bounds<Pixels>>` and subtracts the origin; there is no local-coordinate variant in the fluent listener. |
 | gpui-component 0.8.0 `TextTooltip`/tooltip | `.tooltip(builder)` is on `StatefulInteractiveElement`; the builder receives `&mut App` (not a `Context`), so the tooltip entity is created with `AppContext::new`. A cell needs an `id` before attaching a tooltip. |
 | `genui-core` M8 additions | `Session::preload_ref`, `state_snapshot`, `freeze`, `node_id_at`, `action_handle_at`, `activate_at`, `edit_at`, `blur_at` are core APIs and are covered by core tests; the renderer uses only the path-addressed methods. |
+
+## M8 List virtualization — 2026-10-24
+
+| Surface | API / difference recorded |
+| --- | --- |
+| gpui-component 0.8.0 `list::List` / `ListState` | `ListState::new(delegate, window, cx)` creates a search `InputState` and subscription even when `searchable(false)`. `List::new(&state)` is `RenderOnce`; the viewport cap is read from the element's `max_size.height` (`.max_h`), not the parent wrapper. `ListState::selectable(false)` disables row selection. `scroll_to_item(IndexPath, ScrollStrategy::Top, window, cx)` is public; `IndexPath` is re-exported at `gpui_kit::component::IndexPath`. |
+| gpui-component 0.8.0 `ListDelegate` | The list is a `v_virtual_list`; `render_item` is called only for visible rows. Every item is measured once and the same size is used for the rest (`MeasuredEntrySize`), so phase-1 List rows are assumed uniform. `ListItem` is the ready-made `Selectable + IntoElement` row; `.p(space(0))` and `.pb(gap)` override its default padding. There is no public visible-range getter, so the stress counts `render_item` calls per frame and created item entities. |

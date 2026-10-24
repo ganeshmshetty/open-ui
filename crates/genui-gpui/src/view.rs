@@ -40,6 +40,7 @@ type TableEntity = Entity<gpui_kit::component::table::TableState<GenuiTableDeleg
 type TableMap = Rc<RefCell<BTreeMap<String, TableEntity>>>;
 type TableModelCache = Rc<RefCell<BTreeMap<String, (u64, u64, u64, TableModel)>>>;
 type TabsMap = Rc<RefCell<BTreeMap<String, Entity<TabsView>>>>;
+type ListMap = Rc<RefCell<BTreeMap<String, Entity<crate::data::ListView>>>>;
 
 pub struct UiView {
     theme: UiTheme,
@@ -50,6 +51,7 @@ pub struct UiView {
     tables: TableMap,
     table_models: TableModelCache,
     tabs: TabsMap,
+    lists: ListMap,
     image_cache: Rc<RefCell<ImageCache>>,
     panics: Rc<RefCell<PanicTracker>>,
     fades: Rc<RefCell<BTreeMap<String, u64>>>,
@@ -77,6 +79,7 @@ impl UiView {
             tables: Rc::new(RefCell::new(BTreeMap::new())),
             table_models: Rc::new(RefCell::new(BTreeMap::new())),
             tabs: Rc::new(RefCell::new(BTreeMap::new())),
+            lists: Rc::new(RefCell::new(BTreeMap::new())),
             image_cache: Rc::new(RefCell::new(ImageCache::default())),
             panics: Rc::new(RefCell::new(PanicTracker::default())),
             fades: Rc::new(RefCell::new(BTreeMap::new())),
@@ -226,6 +229,37 @@ impl UiView {
         Some((range.start, range.end))
     }
 
+    /// Scroll a virtualized List to a row (SPEC §10.3).
+    pub fn scroll_list(
+        &mut self,
+        id: &str,
+        row: usize,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let Some(entity) = self.lists.borrow().get(id).cloned() else {
+            return false;
+        };
+        entity.update(cx, |list, cx| list.scroll_to_row(row, window, cx));
+        true
+    }
+
+    /// Rows whose `NodeView` entities have been created on demand.
+    pub fn list_created_rows(&self, id: &str, cx: &gpui_kit::App) -> Option<usize> {
+        self.lists
+            .borrow()
+            .get(id)
+            .map(|list| list.read(cx).created.get())
+    }
+
+    /// Rows built in the most recent List frame.
+    pub fn list_frame_rows(&self, id: &str, cx: &gpui_kit::App) -> Option<usize> {
+        self.lists
+            .borrow()
+            .get(id)
+            .map(|list| list.read(cx).frame_rendered.get())
+    }
+
     /// True once a sequence gap or bad op asked the host for a snapshot.
     pub fn take_needs_snapshot(&mut self) -> bool {
         std::mem::take(&mut self.needs_snapshot)
@@ -333,6 +367,7 @@ impl UiView {
                     self.tables.borrow_mut().clear();
                     self.table_models.borrow_mut().clear();
                     self.tabs.borrow_mut().clear();
+                    self.lists.borrow_mut().clear();
                     self.widths.clear();
                     self.fades.borrow_mut().clear();
                     self.panics.borrow_mut().clear();
@@ -410,6 +445,7 @@ impl UiView {
                 tables: self.tables.clone(),
                 table_models: self.table_models.clone(),
                 tabs: self.tabs.clone(),
+                lists: self.lists.clone(),
                 image_cache: self.image_cache.clone(),
                 panics: self.panics.clone(),
                 fades: self.fades.clone(),
@@ -418,6 +454,7 @@ impl UiView {
                 metrics: self.metrics.clone(),
                 view: self.self_view.clone(),
                 inject_panic: self.panic_injection,
+                fade: true,
             });
             containers.insert(id.to_string(), view);
             return;
@@ -469,6 +506,7 @@ impl UiView {
         let mut tables = self.tables.borrow_mut();
         let mut table_models = self.table_models.borrow_mut();
         let mut tabs = self.tabs.borrow_mut();
+        let mut lists = self.lists.borrow_mut();
         for id in ids {
             containers.remove(&id);
             charts.remove(&id);
@@ -476,6 +514,7 @@ impl UiView {
             tables.remove(&id);
             table_models.remove(&id);
             tabs.remove(&id);
+            lists.remove(&id);
         }
     }
 
@@ -609,6 +648,32 @@ pub struct NodeView {
     pub tables: TableMap,
     pub table_models: TableModelCache,
     pub tabs: TabsMap,
+    pub lists: ListMap,
+    pub image_cache: Rc<RefCell<ImageCache>>,
+    pub panics: Rc<RefCell<PanicTracker>>,
+    pub fades: Rc<RefCell<BTreeMap<String, u64>>>,
+    pub widths: Widths,
+    pub overrides: Rc<StateOverrides>,
+    pub metrics: Rc<RefCell<Metrics>>,
+    pub view: Option<WeakEntity<UiView>>,
+    pub inject_panic: bool,
+    pub fade: bool,
+}
+
+/// Creates leaf `NodeView` entities on demand for the virtualized List. Only
+/// visible rows are built, and the entity is cached so a later update notifies
+/// just that row (SPEC §10.1/§10.3).
+#[derive(Clone)]
+pub(crate) struct NodeFactory {
+    pub theme: UiTheme,
+    pub tree: Rc<RefCell<RetainedTree>>,
+    pub containers: Rc<RefCell<BTreeMap<String, Entity<NodeView>>>>,
+    pub charts: Rc<RefCell<BTreeMap<String, Entity<ChartView>>>>,
+    pub images: Rc<RefCell<BTreeMap<String, Entity<ImageView>>>>,
+    pub tables: TableMap,
+    pub table_models: TableModelCache,
+    pub tabs: TabsMap,
+    pub lists: ListMap,
     pub image_cache: Rc<RefCell<ImageCache>>,
     pub panics: Rc<RefCell<PanicTracker>>,
     pub fades: Rc<RefCell<BTreeMap<String, u64>>>,
@@ -619,12 +684,68 @@ pub struct NodeView {
     pub inject_panic: bool,
 }
 
+impl NodeFactory {
+    pub(crate) fn entity<C: AppContext>(&self, id: &str, cx: &mut C) -> Option<Entity<NodeView>> {
+        if let Some(entity) = self.containers.borrow().get(id).cloned() {
+            return Some(entity);
+        }
+        self.tree.borrow().get(id)?;
+        let view = cx.new(|_| NodeView {
+            id: id.to_string(),
+            theme: self.theme.clone(),
+            tree: self.tree.clone(),
+            containers: self.containers.clone(),
+            charts: self.charts.clone(),
+            images: self.images.clone(),
+            tables: self.tables.clone(),
+            table_models: self.table_models.clone(),
+            tabs: self.tabs.clone(),
+            lists: self.lists.clone(),
+            image_cache: self.image_cache.clone(),
+            panics: self.panics.clone(),
+            fades: self.fades.clone(),
+            widths: self.widths.clone(),
+            overrides: self.overrides.clone(),
+            metrics: self.metrics.clone(),
+            view: self.view.clone(),
+            inject_panic: self.inject_panic,
+            fade: false,
+        });
+        self.containers
+            .borrow_mut()
+            .insert(id.to_string(), view.clone());
+        Some(view)
+    }
+}
+
 impl NodeView {
     fn meta(&self, id: &str) -> Option<(String, genui_core::ir::NodeStatus, u64)> {
         self.tree
             .borrow()
             .get(id)
             .map(|entry| (entry.kind.clone(), entry.status, entry.rev))
+    }
+
+    fn factory(&self) -> NodeFactory {
+        NodeFactory {
+            theme: self.theme.clone(),
+            tree: self.tree.clone(),
+            containers: self.containers.clone(),
+            charts: self.charts.clone(),
+            images: self.images.clone(),
+            tables: self.tables.clone(),
+            table_models: self.table_models.clone(),
+            tabs: self.tabs.clone(),
+            lists: self.lists.clone(),
+            image_cache: self.image_cache.clone(),
+            panics: self.panics.clone(),
+            fades: self.fades.clone(),
+            widths: self.widths.clone(),
+            overrides: self.overrides.clone(),
+            metrics: self.metrics.clone(),
+            view: self.view.clone(),
+            inject_panic: self.inject_panic,
+        }
     }
 
     fn state(&self, entry: &NodeEntry) -> VisualState {
@@ -831,6 +952,9 @@ impl NodeView {
                     "Tab" => data::tab_panel(&self.theme, props, state, elements),
                     _ => components::deferred(&self.theme, &entry.kind),
                 }
+            }
+            "List" if crate::data::should_virtualize(entry.primary_children().len()) => {
+                self.virtual_list_element(entry, window, cx)
             }
             "List" => {
                 let width = self.widths.get(&entry.id, self.theme.message_max_width());
@@ -1062,6 +1186,44 @@ impl NodeView {
         element
     }
 
+    fn virtual_list_element(
+        &self,
+        entry: &NodeEntry,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let existing = self.lists.borrow().get(&entry.id).cloned();
+        let entity = match existing {
+            Some(entity) => {
+                entity.update(cx, |list, cx| {
+                    if list.last_rev != entry.rev {
+                        list.last_rev = entry.rev;
+                        cx.notify();
+                    }
+                });
+                entity
+            }
+            None => {
+                let entity = cx.new(|cx| {
+                    crate::data::ListView::new(
+                        entry.id.clone(),
+                        self.tree.clone(),
+                        self.theme.clone(),
+                        self.widths.clone(),
+                        self.factory(),
+                        window,
+                        cx,
+                    )
+                });
+                self.lists
+                    .borrow_mut()
+                    .insert(entry.id.clone(), entity.clone());
+                entity
+            }
+        };
+        AnyView::from(entity).into_any_element()
+    }
+
     fn tabs_element(&self, id: &str, cx: &mut Context<Self>) -> AnyElement {
         let Some(rev) = self.tree.borrow().get(id).map(|entry| entry.rev) else {
             return div().into_any_element();
@@ -1141,8 +1303,10 @@ impl Render for NodeView {
         };
         let generation = self.fades.borrow().get(&self.id).copied();
         let element = match generation {
-            Some(generation) => crate::motion::fade_in(&theme, &self.id, generation, element),
-            None => element,
+            Some(generation) if self.fade => {
+                crate::motion::fade_in(&theme, &self.id, generation, element)
+            }
+            _ => element,
         };
         self.metrics.borrow_mut().node_render_ns += started.elapsed().as_nanos() as u64;
         div().w_full().child(element).into_any_element()

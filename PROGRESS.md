@@ -1521,10 +1521,11 @@ PR or tag was made. Full report: `docs/milestones/M8.md`.
 
 ### Built
 
-- `List`, kit-`DataTable` `Table` (sticky header, virtualization, selection,
-  sorting, resizable columns, empty/loading/error), renderer-built `Tabs`/`Tab`
-  with keyboard switching, host image loader, chart hover tooltips, insert
-  fades/skeleton pulse/reduced motion.
+- `List` (plain column at or below 100 children; kit virtual list above 100 with
+  on-demand leaf entities), kit-`DataTable` `Table` (sticky header,
+  virtualization, selection, sorting, resizable columns, empty/loading/error),
+  renderer-built `Tabs`/`Tab` with keyboard switching, host image loader, chart
+  hover tooltips, insert fades/skeleton pulse/reduced motion.
 - Per-builder `catch_unwind`, one `render.panic` per node revision, 3-panic
   quarantine and props-change recovery; `gallery --self-test-panic`.
 - Path-addressed `RendererEvent` bridge (`activate_at`/`edit_at`/`blur_at`) for
@@ -1553,12 +1554,15 @@ PR or tag was made. Full report: `docs/milestones/M8.md`.
 | Gallery | 50 PNGs, reviewed; 0 Warning+ diagnostics |
 | Sample host | restore state+tree equal, regenerate identical |
 | Table stress | 50k rows, 12 visible at every offset, steady p99 0.05 ms |
+| List stress | 10k children, 77 created entities, max 22 rows/frame, p99 2.34 ms |
 
 ### Performance and memory (reported misses)
 
 - 50k table: one 323 ms construction frame (111 ms parse + 136 ms snapshot apply)
   and 772 MB process RSS (54 MB baseline). The "construction independent of rows"
   target is missed for parsing; the memory number is reported rather than waived.
+- 10k List: 77 created item entities total, max 22 rows/frame, p99 2.34 ms,
+  775 ms construction, 198 MB RSS.
 - Steady table frames: p50 0.04 ms, p99 0.05 ms (inside 8 ms).
 - M6's 2,000-node stream p99 11.6 ms and 40 MB memory misses are unchanged.
 
@@ -1569,7 +1573,8 @@ PR or tag was made. Full report: `docs/milestones/M8.md`.
   transcripts are scripted and must not be presented as model evidence.
 - v0.1 tag and license/name decision belong to the owner/integrator; no LICENSE
   file was added.
-- List is not virtualized; GPUI paint-phase panics and host image decode remain
+- List uses one measured row height above 100; heterogeneous tall children
+  should stay below 100. GPUI paint-phase panics and host image decode remain
   residual risks. Mutation/fuzz campaigns were not run for this slice.
 - Rebase onto main's new core fixes (nested refs, state snapshots, fallback
   evaluation, inert links, data status visuals) before integration.

@@ -13,11 +13,21 @@ use crate::{
     tree::RetainedTree,
 };
 use gpui_kit::{
-    AnyElement, AnyView, Context, Entity, FocusHandle, FontWeight, InteractiveElement, IntoElement,
-    KeyDownEvent, ParentElement, Render, SharedString, StatefulInteractiveElement, Styled,
-    WeakEntity, Window, div,
+    AnyElement, AnyView, AppContext, Context, Entity, FocusHandle, FontWeight, InteractiveElement,
+    IntoElement, KeyDownEvent, ParentElement, Render, ScrollStrategy, SharedString,
+    StatefulInteractiveElement, Styled, WeakEntity, Window,
+    component::{
+        IndexPath,
+        list::{List, ListDelegate, ListItem, ListState},
+    },
+    div,
 };
-use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
+use std::{
+    cell::{Cell, RefCell},
+    collections::BTreeMap,
+    rc::Rc,
+    sync::Arc,
+};
 
 /// A marker gutter (DESIGN §7: 16 px) followed by the item body.
 pub fn list(
@@ -33,48 +43,18 @@ pub fn list(
         // DESIGN §6 rule 14: an empty List renders nothing.
         return div().into_any_element();
     }
+    let items_len = items.len();
     let mut column = div()
         .flex()
         .flex_col()
         .w_full()
         .gap(theme.list_item_gap())
-        .children(items.into_iter().enumerate().map(|(index, item)| {
-            let marker: AnyElement = if ordered {
-                let style = theme.text(TextRole::Small);
-                div()
-                    .w(theme.list_gutter_width())
-                    .flex_shrink_0()
-                    .text_size(style.size)
-                    .line_height(style.line_height)
-                    .text_color(theme.muted_foreground())
-                    .child(SharedString::from(format!("{}", index + 1)))
-                    .into_any_element()
-            } else {
-                div()
-                    .w(theme.list_gutter_width())
-                    .h(theme.list_row_min_height())
-                    .flex_shrink_0()
-                    .flex()
-                    .items_center()
-                    .child(
-                        div()
-                            .w(theme.list_marker_size())
-                            .h(theme.list_marker_size())
-                            .rounded(theme.radius(Radius::Full))
-                            .bg(theme.muted_foreground()),
-                    )
-                    .into_any_element()
-            };
-            div()
-                .flex()
-                .flex_row()
-                .items_start()
-                .w_full()
-                .gap(theme.space(1))
-                .child(marker)
-                .child(div().flex_1().min_w(theme.space(0)).child(item))
-                .into_any_element()
-        }));
+        .children(
+            items
+                .into_iter()
+                .enumerate()
+                .map(|(index, item)| list_row(theme, ordered, index, items_len, item)),
+        );
     if state == VisualState::Refreshing {
         column = column.opacity(theme.refreshing_opacity());
     }
@@ -82,6 +62,300 @@ pub fn list(
         column = column.child(error_caption(theme));
     }
     column.into_any_element()
+}
+
+/// The 16 px marker gutter (dot or ordered number) plus the item body.
+pub fn list_row(
+    theme: &UiTheme,
+    ordered: bool,
+    index: usize,
+    total_items: usize,
+    item: AnyElement,
+) -> AnyElement {
+    let marker: AnyElement = if ordered {
+        let style = theme.text(TextRole::Small);
+        div()
+            .w(theme.list_number_gutter(total_items))
+            .flex_shrink_0()
+            .text_align(gpui_kit::TextAlign::Right)
+            .text_size(style.size)
+            .line_height(style.line_height)
+            .text_color(theme.muted_foreground())
+            .child(SharedString::from(format!("{}", index + 1)))
+            .into_any_element()
+    } else {
+        div()
+            .w(theme.list_gutter_width())
+            .h(theme.list_row_min_height())
+            .flex_shrink_0()
+            .flex()
+            .items_center()
+            .child(
+                div()
+                    .w(theme.list_marker_size())
+                    .h(theme.list_marker_size())
+                    .rounded(theme.radius(Radius::Full))
+                    .bg(theme.muted_foreground()),
+            )
+            .into_any_element()
+    };
+    div()
+        .flex()
+        .flex_row()
+        .items_start()
+        .w_full()
+        .gap(theme.space(1))
+        .child(marker)
+        .child(div().flex_1().min_w(theme.space(0)).child(item))
+        .into_any_element()
+}
+
+/// Above this many children the List uses the kit virtual list (SPEC §10.3).
+pub const VIRTUAL_LIST_THRESHOLD: usize = 100;
+
+pub fn should_virtualize(children: usize) -> bool {
+    children > VIRTUAL_LIST_THRESHOLD
+}
+
+#[derive(Clone, Debug)]
+struct ListModel {
+    items: Arc<Vec<String>>,
+    ordered: bool,
+    status: Option<String>,
+}
+
+/// The kit list adapter over retained IR children. Only `render_item` calls
+/// create a leaf `NodeView`; the kit virtual list calls it for visible rows.
+pub struct GenuiListDelegate {
+    model: ListModel,
+    theme: UiTheme,
+    factory: crate::view::NodeFactory,
+    created: Rc<Cell<usize>>,
+    frame_rendered: Rc<Cell<usize>>,
+    selected: Option<usize>,
+}
+
+impl GenuiListDelegate {
+    fn new(
+        model: ListModel,
+        theme: UiTheme,
+        factory: crate::view::NodeFactory,
+        created: Rc<Cell<usize>>,
+        frame_rendered: Rc<Cell<usize>>,
+    ) -> Self {
+        Self {
+            model,
+            theme,
+            factory,
+            created,
+            frame_rendered,
+            selected: None,
+        }
+    }
+
+    fn update(&mut self, model: ListModel) {
+        self.model = model;
+    }
+}
+
+impl ListDelegate for GenuiListDelegate {
+    type Item = ListItem;
+
+    fn items_count(&self, _section: usize, _cx: &gpui_kit::App) -> usize {
+        self.model.items.len()
+    }
+
+    fn render_item(
+        &mut self,
+        ix: IndexPath,
+        _window: &mut Window,
+        cx: &mut Context<ListState<Self>>,
+    ) -> Option<Self::Item> {
+        let id = self.model.items.get(ix.row)?.clone();
+        let existed = self.factory.containers.borrow().contains_key(&id);
+        let entity = self.factory.entity(&id, cx)?;
+        if !existed {
+            self.created.set(self.created.get().saturating_add(1));
+        }
+        self.frame_rendered
+            .set(self.frame_rendered.get().saturating_add(1));
+        let row = list_row(
+            &self.theme,
+            self.model.ordered,
+            ix.row,
+            self.model.items.len(),
+            AnyView::from(entity).into_any_element(),
+        );
+        Some(
+            ListItem::new(gpui_kit::ElementId::Name(SharedString::from(format!(
+                "genui-list-item-{}-{}",
+                self.model.items.get(ix.row)?,
+                ix.row
+            ))))
+            .p(self.theme.space(0))
+            .pb(self.theme.list_item_gap())
+            .child(row),
+        )
+    }
+
+    fn set_selected_index(
+        &mut self,
+        ix: Option<IndexPath>,
+        _window: &mut Window,
+        _cx: &mut Context<ListState<Self>>,
+    ) {
+        self.selected = ix.map(|ix| ix.row);
+    }
+
+    fn render_empty(
+        &mut self,
+        _window: &mut Window,
+        _cx: &mut Context<ListState<Self>>,
+    ) -> impl IntoElement {
+        // DESIGN §6 rule 14: an empty List renders nothing.
+        div()
+    }
+
+    fn loading(&self, _cx: &gpui_kit::App) -> bool {
+        matches!(
+            self.model.status.as_deref(),
+            Some("requested") | Some("loading")
+        )
+    }
+
+    fn render_loading(
+        &mut self,
+        _window: &mut Window,
+        _cx: &mut Context<ListState<Self>>,
+    ) -> impl IntoElement {
+        crate::motion::skeleton_rows(&self.theme, 3, self.theme.list_row_height())
+    }
+}
+
+/// The virtualized List entity. It owns the kit `ListState` and rebuilds the
+/// delegate model when the retained List revision changes.
+pub struct ListView {
+    pub id: String,
+    pub tree: Rc<RefCell<RetainedTree>>,
+    pub theme: UiTheme,
+    pub widths: Widths,
+    pub state: Entity<ListState<GenuiListDelegate>>,
+    pub created: Rc<Cell<usize>>,
+    pub frame_rendered: Rc<Cell<usize>>,
+    pub last_rev: u64,
+}
+
+impl ListView {
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn new(
+        id: String,
+        tree: Rc<RefCell<RetainedTree>>,
+        theme: UiTheme,
+        widths: Widths,
+        factory: crate::view::NodeFactory,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        let (model, rev) = read_list_model(&tree, &id);
+        let created = Rc::new(Cell::new(0));
+        let frame_rendered = Rc::new(Cell::new(0));
+        let delegate = GenuiListDelegate::new(
+            model,
+            theme.clone(),
+            factory,
+            created.clone(),
+            frame_rendered.clone(),
+        );
+        let state = cx.new(|cx| ListState::new(delegate, window, cx).selectable(false));
+        Self {
+            id,
+            tree,
+            theme,
+            widths,
+            state,
+            created,
+            frame_rendered,
+            last_rev: rev,
+        }
+    }
+
+    pub fn scroll_to_row(&mut self, row: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let ix = IndexPath {
+            section: 0,
+            row,
+            column: 0,
+        };
+        self.state.update(cx, |state, cx| {
+            state.scroll_to_item(ix, ScrollStrategy::Top, window, cx);
+        });
+    }
+}
+
+fn read_list_model(tree: &Rc<RefCell<RetainedTree>>, id: &str) -> (ListModel, u64) {
+    let tree = tree.borrow();
+    let Some(entry) = tree.get(id) else {
+        return (
+            ListModel {
+                items: Arc::new(Vec::new()),
+                ordered: false,
+                status: None,
+            },
+            0,
+        );
+    };
+    (
+        ListModel {
+            items: Arc::new(entry.primary_children()),
+            ordered: props::bool_(&entry.props, "ordered", false),
+            status: props::status(&entry.props),
+        },
+        entry.rev,
+    )
+}
+
+impl Render for ListView {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let (model, rev) = read_list_model(&self.tree, &self.id);
+        if rev != self.last_rev {
+            self.last_rev = rev;
+            self.state.update(cx, |state, _| {
+                state.delegate_mut().update(model.clone());
+            });
+            cx.notify();
+        }
+        self.frame_rendered.set(0);
+        let width = self.widths.get(&self.id, self.theme.message_max_width());
+        let loading = matches!(model.status.as_deref(), Some("requested") | Some("loading"));
+        let refreshing = matches!(model.status.as_deref(), Some("refreshing"));
+        let failed = matches!(model.status.as_deref(), Some("failed") | Some("denied"));
+        let mut list = div()
+            .flex()
+            .flex_col()
+            .w(width)
+            .h(self.theme.list_viewport_height())
+            .child(
+                List::new(&self.state)
+                    .scrollbar_visible(true)
+                    .max_h(self.theme.list_viewport_height()),
+            );
+        if refreshing {
+            list = list.opacity(self.theme.refreshing_opacity());
+        }
+        if failed {
+            list = list.child(error_caption(&self.theme));
+        }
+        if loading && model.items.is_empty() {
+            return div()
+                .w(width)
+                .child(crate::motion::skeleton_rows(
+                    &self.theme,
+                    3,
+                    self.theme.list_row_height(),
+                ))
+                .into_any_element();
+        }
+        list.into_any_element()
+    }
 }
 
 pub fn error_caption(theme: &UiTheme) -> AnyElement {
@@ -368,6 +642,14 @@ mod tests {
         assert_eq!(specs.len(), 2);
         assert_eq!(specs[0].value, "overview");
         assert_eq!(specs[1].value, "Orders");
+    }
+
+    #[test]
+    fn list_virtualization_threshold_is_strictly_above_one_hundred() {
+        assert!(!should_virtualize(0));
+        assert!(!should_virtualize(100));
+        assert!(should_virtualize(101));
+        assert!(should_virtualize(10_000));
     }
 
     #[test]

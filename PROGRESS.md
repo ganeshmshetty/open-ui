@@ -1175,7 +1175,7 @@ No old `want.*` golden was edited.
 Local gates: fmt, Clippy `-D warnings`, 386 workspace tests (320 core, 49
 conformance, 7 prompt, 5 std, 2 CLI, 1 replay, 2 tree) under default and
 `preserve_order`, 375 fixtures / 83,719 chunkings / 430 permutations, spec-check
-(3 programs, 4 fragments, 24 exemplars), 10 Python gate tests, source/dependency
+(3 programs, 4 fragments, 24 exemplars), 11 Python gate tests, source/dependency
 checks and all fuzz-target builds. CI runs the same fixture suite on Linux and
 macOS, which satisfies the exact-prompt-byte check. No fuzz campaign or mutation
 campaign was run, per the task constraints.

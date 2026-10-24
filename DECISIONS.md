@@ -171,7 +171,6 @@ evaluation set and transcript measurements remain open in `docs/milestones/M5.md
 - **Debounce base.** The 300 ms timer starts from the virtual clock at the
   dependency change (the clock before the observing `advance_clock`), cancels
   when arguments revert, and applies to queued queries.
-
 ## M6 renderer defaults recorded while implementing DESIGN/§10
 
 | Question | Options | Recommended default / action | Status |
@@ -182,3 +181,14 @@ evaluation set and transcript measurements remain open in `docs/milestones/M5.md
 | How should Markdown inline code and links look when the pinned TextView overrides the requested colors? | Custom Markdown renderer; accept and log; more theme overrides | Accept and log for M6. The TextView still paints inline code with an accent tint and links inherit the foreground in the captured light/dark set. A custom renderer or a pin-supported style fix is M8 work. | Logged |
 | Is `render.panic` an M6 or M8 code? | M6; M8 | M8. The milestone table assigns panic containment to M8; M6 has no subtree panic boundary and does not claim one. | `conformance/deferred.json` and SPEC §12.6 updated |
 | Should `rust-toolchain.toml` select 1.99.0? | Keep `stable` (locally 1.94, which cannot build gpui-pre); select 1.99.0 | Select 1.99.0. Core's 1.94 MSRV is recorded in the §1.2 matrix; the renderer needs the newer stable. | Adopted |
+## M7 renderer defaults recorded while implementing inputs/forms (§§7.3–7.4,7.8,10.4,10.10,10.14)
+
+| Question | Options | Recommended default / action | Status |
+| --- | --- | --- | --- |
+| How does a renderer name a node in `UiEvent`? | Keep IR `NodeId`; add a renderer event type; use the patch wire's `NodePath` | Use `NodePath` in the core `UiEvent`; `Session::event` resolves it. This removes a contract mismatch without duplicating the event type. `Session::activate(NodeId, ..)` remains for existing hosts. | Adopted; SPEC §§7.8,13 and CHANGELOG updated |
+| How does the renderer learn bound values and revisions? | Put value/rev in synthetic patch props; add a host-side state API | Add `Session::state_values()` and `UiView::sync_state`. Patches stay unchanged, existing form goldens stay stable, and the view still applies the §10.4 rev/origin rule. | Adopted |
+| How does a submit-only `Button` activate its form? | Require `on_click`; synthesize a button plan; accept the form's `on_submit` handle for that button | Accept the form handle when the node is a `submit: true` button in exactly that form. A button with both props still runs its own plan and then the form plan. | Adopted; core test and SPEC §7.4 |
+| How is Tab traversal implemented when the kit Root consumes Tab? | Rebind Root's actions; let inputs indent; unbind Root/Input Tab and handle it in the view | Unbind `root::Tab`/`root::TabPrev` and `IndentInline`/`OutdentInline`; the view emits `Blur` and calls `Window::focus_next`/`focus_prev`. Notes fields traverse instead of inserting a tab. | Adopted; PINS.md records the pinned behavior |
+| NumberInput, Slider and DateInput are named in the M7 brief but not in the phase-1 std catalog | Add components (new Library Spec hash); map to existing types | Map NumberInput to `Input(kind: "number"|"integer")`; Slider and DateInput are not in §8.8. Adding them would change the M2 library contract and hash, not a renderer milestone. | Not implemented; flagged for an owner-scope decision |
+| How are extensions bounded? | Full child traversal; leaf builders only | Leaf builders only in phase 1. Hosts compose their own data; the IR child pipeline is unchanged. | Adopted; SPEC §10.14; panic containment stays M8 |
+| Accessibility coverage on real platforms | Claim full coverage; measure the pinned projection | Measure the pinned accesskit projection and state that OS coverage is unverified: the test platform has no adapter. | Adopted; SPEC §10.10, PINS.md |

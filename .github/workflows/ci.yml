@@ -61,6 +61,9 @@ jobs:
       - name: GPUI renderer with screenshot support (macOS capture backend)
         if: runner.os == 'macOS'
         run: cargo check -p genui-gpui --features screenshot --locked
+      - name: Form demo headless smoke (macOS capture backend)
+        if: runner.os == 'macOS'
+        run: cargo run --locked -p genui-gpui --features screenshot --bin form-demo -- --self-test
       - name: Unit tests, live conformance and seeded streaming property
         env:
           GENUI_STREAM_CASES: "2000"

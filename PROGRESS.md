@@ -13,7 +13,7 @@ A milestone is complete only after its acceptance checks pass and CI is green.
 | M4 — Runtime | Complete for SPEC §14.1 | Evaluator, state, actions, queries, refs, events, forms, provenance, data-dependent nodes and runtime recovery; runtime fixtures and exact resolved/request/event/field goldens pass. Deferred: tool auto-run and some form scopes inside `each` (docs/milestones/M4.md). |
 | M5 — Prompt, feedback and messages | Complete for SPEC §14.1; ROADMAP item 4 open | `prompt`, `feedback` and `message` pass; 375 fixtures / 83,719 chunkings / 430 permutations; 386 tests; exact prompt bytes on Linux/macOS CI; 15 new fixtures. Model-evaluation recordings still need model access. |
 | M6 — GPUI skeleton | Complete (visual findings logged) | Pins active; `UiView`; layout/text/theme; gallery 25×2 PNGs; streaming dashboard 119-batch log/replay; SPEC §10.6 p99 8 ms target reported missed. |
-| M7 — Inputs and forms | Not started | Stable editing, keyboard form demo and accessibility. |
+| M7 — Inputs and forms | Complete (visual findings logged; OS a11y unverified) | 8 input/form kinds; 11 scripted interaction tests; keyboard-only demo run; 52 gallery PNGs reviewed; 469 workspace tests; form demo light/dark. |
 | M8 — Data components and sample host | Not started | Table stress, panic containment, transcript replay, security review, v0.1 tag. |
 
 ## M0 scope
@@ -1512,3 +1512,63 @@ Remaining logged gaps: `Image` capability still claims a loader until M8 lands i
 and the prose-segment renderer stays M7/M8. Gate run after the fixes: 452 fixtures
 / 106,634 chunkings, 456 workspace tests, spec-check clean, Clippy clean.
 
+## M7 — GPUI inputs, forms, focus, keyboard, accessibility and scripted interaction
+
+Status: **complete** for SPEC §14.1 M7. Branch `milestone/m7` (based on `074cdae`).
+Report: `docs/milestones/M7.md`; evidence: `docs/milestones/evidence/m7/`.
+
+### Built
+
+- Core: `UiEvent` is addressed by `NodePath`; submit-only buttons run the form's
+  `on_submit` plan; `Session::state_values()` exposes `{value, rev, origin}`.
+- Renderer: `Input`, `TextArea`, `Select`, `Checkbox`, `CheckboxGroup`,
+  `RadioGroup`, `Switch`, `Button`, `Form`; DESIGN field/error/submit rhythm;
+  store-to-widget sync, stable editing and frozen views.
+- Focus/keyboard: Tab/Shift-Tab with `Blur`, click focus, Escape, Enter submit,
+  arrow keys for Select/RadioGroup, Enter/Space on buttons/check/switch.
+- Accessibility: roles/labels/values/toggles for every control and form; pinned
+  accesskit projection measured (the test platform has no OS adapter).
+- Extensions: SPEC §10.14 leaf builder registry for host `Library` additions.
+- Demo: `examples/25-form-controls.ui`, `form-demo` with events/requests logging,
+  `--headless`, `--self-test`, `--screenshot`; gallery state sheet uses live M7
+  controls.
+
+### Evidence
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --all -- --check` | PASS |
+| `cargo clippy --workspace --all-targets -- -D warnings` | PASS |
+| clippy with `--features screenshot` | PASS |
+| `cargo test --workspace` | 469 passed, 0 failed, 0 ignored |
+| `cargo test -p genui-gpui --features screenshot` | 50 unit + 11 interaction + freshness + replay, PASS |
+| `genui-cli fixtures` | 449 fixtures / 105,726 chunkings / 430 permutations |
+| `genui-cli spec-check` | 3 programs, 4 fragments, 25 exemplars |
+| Gallery | 26 items × light/dark = 52 PNGs, 0 warnings |
+| Form demo self-test | 13 nodes, all 8 controls, 8 bound fields |
+| Keyboard-only demo run | PASS (`cargo test ... keyboard_only_run_reaches_submit`) |
+
+### Screenshot review
+
+Fixed: missing headless Select chevron (drawn from tokens), dark input text
+(invisible without explicit `foreground`), black checkbox fill (component primary
+instead of DESIGN accent), 36×20 switch (now 32×18), stretched buttons/badges in
+columns and forms, 12 px radio gaps (now 8), double-disabled opacity, and the
+state sheet's missing disabled/error/checked states.
+
+Logged: static screenshots cannot force keyboard focus (scripted tests cover it);
+motion/reduced-motion remains M8; NumberInput maps to Input kind number/integer
+and Slider/DateInput are not in the phase-1 std catalog; OS accessibility remains
+unverified; extensions are leaf-only; Select menu items are driven by keyboard in
+tests rather than an exposed item ID.
+
+### Open decisions / limitations
+
+- Adding Slider, DateInput or a dedicated NumberInput changes the M2 Library
+  Spec/hash; recorded in DECISIONS.md for the owner.
+- Extension panic containment and child traversal are M8.
+- The shared `CARGO_TARGET_DIR` can resolve another worktree's `genui-core`
+  artifact during doctests; `genui-gpui` now sets `doctest = false` (it has no
+  doctests). Recorded in PINS.md.
+- M8 still owns List/Table/Tabs, the image loader, panic containment, chart
+  tooltips, OS accessibility, motion and the real-model loop.

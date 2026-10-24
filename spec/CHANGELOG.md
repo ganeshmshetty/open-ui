@@ -1,5 +1,39 @@
 # Spec changelog
 
+## 2026-10-24 — M6 renderer implementation review (DESIGN §§4,10; SPEC §§1.2,10.1,10.3,10.6,10.12–10.13,12.6–12.7,14.1)
+
+- DESIGN 0.3 raises the light `danger` text to `#c81e1e`: the documented
+  `#dc2626` on `#fef2f2` measures 4.41:1, below the same section's WCAG AA
+  requirement. `#c81e1e` measures 5.24:1. The theme's contrast tests cover every
+  tone pair in both modes.
+- Add the M6 platform matrix to §1.2: macOS arm64 is locally verified, Linux is
+  compile/test verified by CI, macOS x86_64 and Windows remain supported by the
+  pinned crates but unexercised, and the UI-free crates keep a Rust 1.94 MSRV.
+  The renderer needs Rust 1.99 because `gpui-pre 0.3.9` uses
+  `std::hint::cold_path`; `rust-toolchain.toml` now selects 1.99.0.
+- §10.1/§10.6 record the measured notification boundary. M6 first tried one
+  entity per `Text`, then measured the 2,000-node stress stream: app-work p99
+  rose from 11.6 ms to 20.5 ms, so leaves stay inline and their nearest
+  container is notified. The §10.6 p99 8 ms target is reported as missed, not
+  waived. Cached boundaries are limited to Chart plots and Images.
+- §10.3 updates the implementation mapping after the pinned-version audit: Card
+  is the DESIGN anatomy; `Tag::custom` takes the background first; Alert uses
+  explicit tone colors; Chart uses a small canvas plot because the kit bar chart
+  ticks were not round and its line chart cannot leave null gaps. Chart hover
+  tooltips and the Markdown inline-code/link color mismatch are recorded M8
+  follow-ups.
+- §10.13 adds the debug-only developer inspector: retained tree, bounded patch
+  log and diagnostics list, with no protocol or IR changes.
+- §12.7 allows the test-support headless `render_to_image` path used by the M6
+  gallery, alongside the windowed path. Captures remain excluded from
+  performance numbers.
+- §12.6 and `conformance/deferred.json` move `render.panic` to M8, matching the
+  milestone table's panic-containment scope; M6 does not claim a renderer panic
+  boundary.
+- Examples 01, 02 and 22 now pass percentages as percentages (`3.2`, `99.9`,
+  `0.1`, `62`), not fractions. DESIGN §6.12 defines `percent` as a value already
+  in percent; the old exemplars rendered `0%` for a fractional input.
+
 ## 2026-10-24 — M4/M5 integration: emit events join the stored event shape (§§7.8,9.3)
 
 - Unify `ModelEvent` on the §9.3 shape. `emit` events now carry `name` and
@@ -26,6 +60,7 @@
 - Add `prompt`, `feedback` and `message` conformance categories, exact prompt,
   stored-message, replay, event and feedback goldens, and the corresponding CLI
   inspection commands.
+
 
 ## 2026-10-24 — Mutation campaign sharding adjustment (§12.8)
 

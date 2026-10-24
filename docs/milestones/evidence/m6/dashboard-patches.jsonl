@@ -1,0 +1,119 @@
+{"epoch":1,"ops":[{"op":"reset"}],"seq":0}
+{"epoch":1,"ops":[],"seq":1}
+{"epoch":1,"ops":[{"index":0,"node":{"id":"root","kind":"Column","props":{"align":"stretch","gap":{"tok":["space",2]},"padding":{"tok":["space",0]}},"role":"group","status":"partial"},"op":"insert","parent":null,"slot":"root"}],"seq":2}
+{"epoch":1,"ops":[],"seq":3}
+{"epoch":1,"ops":[{"index":0,"node":{"id":"root/children:#0","kind":"Heading","props":{"level":{"i":2},"text":"Rev"},"role":"heading","status":"partial"},"op":"insert","parent":"root","slot":"children"}],"seq":4}
+{"epoch":1,"ops":[{"id":"root/children:#0","op":"append_text","prop":"text","text":"enue "}],"seq":5}
+{"epoch":1,"ops":[{"id":"root/children:#0","op":"append_text","prop":"text","text":"reach"}],"seq":6}
+{"epoch":1,"ops":[{"id":"root/children:#0","op":"append_text","prop":"text","text":"ed $4"}],"seq":7}
+{"epoch":1,"ops":[{"id":"root/children:#0","op":"append_text","prop":"text","text":"2,800"}],"seq":8}
+{"epoch":1,"ops":[],"seq":9}
+{"epoch":1,"ops":[{"id":"root/children:#0","op":"set_props","set":{"level":{"i":1}},"unset":[]}],"seq":10}
+{"epoch":1,"ops":[],"seq":11}
+{"epoch":1,"ops":[{"index":1,"node":{"id":"root/children:#1","kind":"Grid","props":{"cols":{"i":2},"gap":{"tok":["space",2]}},"role":"group","status":"partial"},"op":"insert","parent":"root","slot":"children"}],"seq":12}
+{"epoch":1,"ops":[],"seq":13}
+{"epoch":1,"ops":[],"seq":14}
+{"epoch":1,"ops":[{"index":0,"node":{"id":"root/children:#1/children:#0","kind":"Stat","props":{"currency":"USD","format":"number","good":"up","label":"Revenue","value":{"i":428}},"role":"group","status":"partial"},"op":"insert","parent":"root/children:#1","slot":"children"}],"seq":15}
+{"epoch":1,"ops":[{"id":"root/children:#1/children:#0","op":"set_props","set":{"value":{"i":42800}},"unset":[]}],"seq":16}
+{"epoch":1,"ops":[{"id":"root/children:#1/children:#0","op":"set_props","set":{"delta":{"i":1}},"unset":[]}],"seq":17}
+{"epoch":1,"ops":[{"id":"root/children:#1/children:#0","op":"set_props","set":{"delta":{"i":12}},"unset":[]}],"seq":18}
+{"epoch":1,"ops":[],"seq":19}
+{"epoch":1,"ops":[],"seq":20}
+{"epoch":1,"ops":[{"id":"root/children:#1/children:#0","op":"set_props","set":{"format":"currency"},"unset":[]}],"seq":21}
+{"epoch":1,"ops":[],"seq":22}
+{"epoch":1,"ops":[],"seq":23}
+{"epoch":1,"ops":[],"seq":24}
+{"epoch":1,"ops":[{"index":1,"node":{"id":"root/children:#1/children:#1","kind":"Stat","props":{"currency":"USD","format":"number","good":"up","label":"Orders","value":{"i":324}},"role":"group","status":"partial"},"op":"insert","parent":"root/children:#1","slot":"children"}],"seq":25}
+{"epoch":1,"ops":[],"seq":26}
+{"epoch":1,"ops":[{"id":"root/children:#1/children:#1","op":"set_props","set":{"delta":{"i":8}},"unset":[]}],"seq":27}
+{"epoch":1,"ops":[],"seq":28}
+{"epoch":1,"ops":[],"seq":29}
+{"epoch":1,"ops":[],"seq":30}
+{"epoch":1,"ops":[{"index":2,"node":{"id":"root/children:#1/children:#2","kind":"Stat","props":{"currency":"USD","format":"number","good":"up","label":"Average order","value":{"i":1}},"role":"group","status":"partial"},"op":"insert","parent":"root/children:#1","slot":"children"}],"seq":31}
+{"epoch":1,"ops":[{"id":"root/children:#1/children:#2","op":"set_props","set":{"value":{"f":132.1}},"unset":[]}],"seq":32}
+{"epoch":1,"ops":[],"seq":33}
+{"epoch":1,"ops":[],"seq":34}
+{"epoch":1,"ops":[],"seq":35}
+{"epoch":1,"ops":[{"id":"root/children:#1/children:#2","op":"set_props","set":{"format":"currency"},"unset":[]}],"seq":36}
+{"epoch":1,"ops":[],"seq":37}
+{"epoch":1,"ops":[],"seq":38}
+{"epoch":1,"ops":[],"seq":39}
+{"epoch":1,"ops":[{"index":3,"node":{"id":"root/children:#1/children:#3","kind":"Stat","props":{"currency":"USD","format":"number","good":"up","label":"Conversion","value":{"f":3.2}},"role":"group","status":"partial"},"op":"insert","parent":"root/children:#1","slot":"children"}],"seq":40}
+{"epoch":1,"ops":[],"seq":41}
+{"epoch":1,"ops":[],"seq":42}
+{"epoch":1,"ops":[],"seq":43}
+{"epoch":1,"ops":[{"id":"root/children:#1/children:#3","op":"set_props","set":{"format":"percent"},"unset":[]}],"seq":44}
+{"epoch":1,"ops":[],"seq":45}
+{"epoch":1,"ops":[{"id":"root/children:#1","op":"set_props","set":{"cols":{"i":4}},"unset":[]}],"seq":46}
+{"epoch":1,"ops":[{"index":2,"node":{"id":"root/children:#2","kind":"Card","props":{"padding":{"tok":["space",4]}},"role":"region","status":"partial"},"op":"insert","parent":"root","slot":"children"}],"seq":47}
+{"epoch":1,"ops":[],"seq":48}
+{"epoch":1,"ops":[],"seq":49}
+{"epoch":1,"ops":[{"id":"root/children:#2","op":"set_props","set":{"title":"Re"},"unset":[]}],"seq":50}
+{"epoch":1,"ops":[{"id":"root/children:#2","op":"append_text","prop":"title","text":"venue"}],"seq":51}
+{"epoch":1,"ops":[{"id":"root/children:#2","op":"append_text","prop":"title","text":" tren"}],"seq":52}
+{"epoch":1,"ops":[{"id":"root/children:#2","op":"append_text","prop":"title","text":"d"}],"seq":53}
+{"epoch":1,"ops":[],"seq":54}
+{"epoch":1,"ops":[],"seq":55}
+{"epoch":1,"ops":[],"seq":56}
+{"epoch":1,"ops":[],"seq":57}
+{"epoch":1,"ops":[],"seq":58}
+{"epoch":1,"ops":[],"seq":59}
+{"epoch":1,"ops":[],"seq":60}
+{"epoch":1,"ops":[{"index":3,"node":{"id":"root/children:#3","kind":"Facts","props":{"columns":{"i":1},"items":[{"map":[["label","Reporting period"],["value","L"]]}]},"role":"list","status":"partial"},"op":"insert","parent":"root","slot":"children"}],"seq":61}
+{"epoch":1,"ops":[{"id":"root/children:#3","op":"set_props","set":{"items":[{"map":[["label","Reporting period"],["value","Last 3"]]}]},"unset":[]}],"seq":62}
+{"epoch":1,"ops":[{"id":"root/children:#3","op":"set_props","set":{"items":[{"map":[["label","Reporting period"],["value","Last 30 day"]]}]},"unset":[]}],"seq":63}
+{"epoch":1,"ops":[{"id":"root/children:#3","op":"remove"}],"seq":64}
+{"epoch":1,"ops":[],"seq":65}
+{"epoch":1,"ops":[],"seq":66}
+{"epoch":1,"ops":[],"seq":67}
+{"epoch":1,"ops":[],"seq":68}
+{"epoch":1,"ops":[{"index":3,"node":{"id":"root/children:#3","kind":"Facts","props":{"columns":{"i":1},"items":[{"map":[["label","Reporting period"],["value","Last 30 days"]]},{"map":[["label","Region"],["value","Nor"]]}]},"role":"list","status":"partial"},"op":"insert","parent":"root","slot":"children"}],"seq":69}
+{"epoch":1,"ops":[{"id":"root/children:#3","op":"set_props","set":{"items":[{"map":[["label","Reporting period"],["value","Last 30 days"]]},{"map":[["label","Region"],["value","North Am"]]}]},"unset":[]}],"seq":70}
+{"epoch":1,"ops":[{"id":"root/children:#3","op":"set_props","set":{"items":[{"map":[["label","Reporting period"],["value","Last 30 days"]]},{"map":[["label","Region"],["value","North America"]]}]},"unset":[]}],"seq":71}
+{"epoch":1,"ops":[],"seq":72}
+{"epoch":1,"ops":[],"seq":73}
+{"epoch":1,"ops":[{"id":"root/children:#3","op":"set_props","set":{"columns":{"i":2}},"unset":[]}],"seq":74}
+{"epoch":1,"ops":[{"id":"root","op":"set_status","status":"sealed"},{"id":"root/children:#0","op":"set_status","status":"sealed"},{"id":"root/children:#1","op":"set_status","status":"sealed"},{"id":"root/children:#1/children:#0","op":"set_status","status":"sealed"},{"id":"root/children:#1/children:#1","op":"set_status","status":"sealed"},{"id":"root/children:#1/children:#2","op":"set_status","status":"sealed"},{"id":"root/children:#1/children:#3","op":"set_status","status":"sealed"},{"id":"root/children:#2","op":"set_status","status":"sealed"},{"id":"root/children:#3","op":"set_status","status":"sealed"}],"seq":75}
+{"epoch":1,"ops":[],"seq":76}
+{"epoch":1,"ops":[],"seq":77}
+{"epoch":1,"ops":[],"seq":78}
+{"epoch":1,"ops":[],"seq":79}
+{"epoch":1,"ops":[],"seq":80}
+{"epoch":1,"ops":[],"seq":81}
+{"epoch":1,"ops":[],"seq":82}
+{"epoch":1,"ops":[],"seq":83}
+{"epoch":1,"ops":[],"seq":84}
+{"epoch":1,"ops":[],"seq":85}
+{"epoch":1,"ops":[],"seq":86}
+{"epoch":1,"ops":[],"seq":87}
+{"epoch":1,"ops":[],"seq":88}
+{"epoch":1,"ops":[],"seq":89}
+{"epoch":1,"ops":[],"seq":90}
+{"epoch":1,"ops":[],"seq":91}
+{"epoch":1,"ops":[],"seq":92}
+{"epoch":1,"ops":[],"seq":93}
+{"epoch":1,"ops":[],"seq":94}
+{"epoch":1,"ops":[],"seq":95}
+{"epoch":1,"ops":[],"seq":96}
+{"epoch":1,"ops":[],"seq":97}
+{"epoch":1,"ops":[],"seq":98}
+{"epoch":1,"ops":[],"seq":99}
+{"epoch":1,"ops":[],"seq":100}
+{"epoch":1,"ops":[],"seq":101}
+{"epoch":1,"ops":[],"seq":102}
+{"epoch":1,"ops":[],"seq":103}
+{"epoch":1,"ops":[{"index":0,"node":{"id":"root/children:#2/children:@trend","kind":"Chart","props":{"data":[{"map":[["week","Week 1"],["revenue",{"i":8200}]]},{"map":[["week","Week 2"],["revenue",{"i":10400}]]},{"map":[["week","Week 3"],["revenue",{"i":11200}]]},{"map":[["week","Week 4"],["revenue",{"i":13000}]]}],"kind":"line","summary":"Line chart, 4 points","x":"week","y":""},"role":"chart","status":"partial"},"op":"insert","parent":"root/children:#2","slot":"children"}],"seq":104}
+{"epoch":1,"ops":[{"id":"root/children:#2/children:@trend","op":"append_text","prop":"y","text":"reven"}],"seq":105}
+{"epoch":1,"ops":[{"id":"root/children:#2/children:@trend","op":"append_text","prop":"y","text":"ue"}],"seq":106}
+{"epoch":1,"ops":[],"seq":107}
+{"epoch":1,"ops":[{"id":"root/children:#2/children:@trend","op":"set_props","set":{"summary":"We"},"unset":[]}],"seq":108}
+{"epoch":1,"ops":[{"id":"root/children:#2/children:@trend","op":"append_text","prop":"summary","text":"ekly "}],"seq":109}
+{"epoch":1,"ops":[{"id":"root/children:#2/children:@trend","op":"append_text","prop":"summary","text":"reven"}],"seq":110}
+{"epoch":1,"ops":[{"id":"root/children:#2/children:@trend","op":"append_text","prop":"summary","text":"ue in"}],"seq":111}
+{"epoch":1,"ops":[{"id":"root/children:#2/children:@trend","op":"append_text","prop":"summary","text":"creas"}],"seq":112}
+{"epoch":1,"ops":[{"id":"root/children:#2/children:@trend","op":"append_text","prop":"summary","text":"ed fr"}],"seq":113}
+{"epoch":1,"ops":[{"id":"root/children:#2/children:@trend","op":"append_text","prop":"summary","text":"om $8"}],"seq":114}
+{"epoch":1,"ops":[{"id":"root/children:#2/children:@trend","op":"append_text","prop":"summary","text":",200 "}],"seq":115}
+{"epoch":1,"ops":[{"id":"root/children:#2/children:@trend","op":"append_text","prop":"summary","text":"to $1"}],"seq":116}
+{"epoch":1,"ops":[{"id":"root/children:#2/children:@trend","op":"append_text","prop":"summary","text":"3,000"}],"seq":117}
+{"epoch":1,"ops":[{"id":"root/children:#2/children:@trend","op":"set_status","status":"sealed"}],"seq":118}

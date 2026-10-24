@@ -122,6 +122,22 @@ Rules:
 - Component definitions live in `-std`. Component drawing lives in renderer crates. A library with no renderer is valid for parsing, linting and prompt generation.
 - One hash function for internal caches: xxh3-64. Digests that appear in stored data (library hash, prompt digest) use xxh3-128 in hex.
 
+**Platform matrix (M6).** The pins are verified per §10.9; this table records the
+support claim, not a CI guarantee for every row.
+
+| Target | Phase 1 support | Minimum toolchain | Notes |
+| --- | --- | --- | --- |
+| macOS arm64 (Apple Silicon) | Supported and locally verified in M6 | Rust 1.99.0 | GPUI's Metal backend; screenshots use the test-support headless renderer. |
+| macOS x86_64 | Supported by the pinned crates; not exercised in M6 | Rust 1.99.0 | Same source and CI workflow as arm64. |
+| Linux x86_64 (X11/Wayland) | Supported by the pinned crates; CI compiles and tests it | Rust 1.99.0 | GPU/renderer smoke is not yet automated. |
+| Windows x86_64 | Supported by the pinned crates; not exercised in M6 | Rust 1.99.0 | Compile-only status; no CI runner in phase 1. |
+| UI-free crates (`-core`, `-std`, `-prompt`, `-conformance`, `-cli`) | Supported on all hosts above | Rust 1.94 | No GPUI or async dependency (§12.8). |
+
+The renderer needs Rust 1.99.0 because `gpui-pre 0.3.9` uses `std::hint::cold_path`.
+`rust-toolchain.toml` selects that stable toolchain for the workspace; CI uses
+the current stable channel. Raising the renderer MSRV is a pin-set change and
+follows §10.9.
+
 ### 1.3 Data flow, token to frame
 
 1. The host feeds each model chunk to `Session::push(bytes)`.
@@ -1735,9 +1751,10 @@ impl UiView {
 - **Retained tree.** A `HashMap<NodeId, NodeEntry>` plus child index lists.
 - **Container nodes and inputs** (Column, Row, Grid, Card, Form, List, Tabs, Table, and every focusable input) are `Entity<NodeView>`s, so a change notifies only the entities it touches.
 - **View caching is limited.** `AnyView::cached` needs definite dimensions, and a cache miss in an ancestor re-renders its cached descendants, so nested caching does not hold (measured in the GPUI spike). Phase 1 uses `cached` only for subtrees whose size is known from the IR and that are expensive to rebuild: a Chart's plot area, an Image, and the viewport of a virtualized Table or List. Containers are not cached. M6 measures whether this meets 10.6 before adding any other cache boundary.
-- **Stateless leaves** (Text, Heading, Badge, Divider, Image) are not entities. Their parent builds them with `RenderOnce`.
-- **The component registry** maps `ComponentId` to `fn(&NodeEntry, &Children, &mut Window, &mut App) -> AnyElement`.
-- **The crate does no I/O.** It owns no networking, no tool logic and no model access. Images arrive as bytes from the host.
+- **Stateless leaves** (Text, Heading, Badge, Divider and Image) are not entities; their parent builds them inline, and a leaf update notifies its nearest container entity. M6 measured the alternative (one entity per Text) and rejected it: the 2,000-node stream's app-work p99 rose from 11.6 ms to 20.5 ms, so the coarser notification boundary stays. §10.6 records the measured consequence.
+- **The component registry** maps `ComponentId` to `fn(&NodeEntry, &Children, &mut Window, &mut App) -> AnyElement`. M6's registry lives in `genui-gpui::components`; unknown or later-milestone kinds render a labeled placeholder rather than a panic.
+- **The crate does no I/O.** It owns no networking, no tool logic and no model access. Images arrive as bytes from the host. The gallery and demo binaries own their file reads.
+- **M6 cache boundaries.** Chart plots and Images use `AnyView::cached` with the definite width assigned by their parent and a definite height from the theme. Containers are not cached; a cache miss in an ancestor can re-render cached descendants (spike finding).
 
 ### 10.2 Capabilities
 
@@ -1751,14 +1768,14 @@ These names were checked on docs.rs for `gpui-component 0.8.0` and `gpui-pre 0.3
 | --- | --- | --- |
 | `Column`, `Row` | `v_flex()` / `h_flex()` (kit helpers over `div().flex()`) | Gap and padding from tokens. |
 | `Grid` | `div().grid().grid_cols(n)` | Fixed `cols`. No responsive breakpoints in phase 1. |
-| `Card` | A styled `v_flex` built to DESIGN.md §6 rule 6 (border, `xl` radius, 16 px padding, title row) | Not kit `GroupBox`, whose default look does not match DESIGN.md. |
+| `Card` | A styled `v_flex` built to DESIGN.md §6 rule 6 (border, `xl` radius, 16 px padding, title row) | Not kit `GroupBox`; M6 implements the DESIGN anatomy directly. |
 | `Divider` | `separator::Separator` | |
 | `Heading` | styled `div` text (`text_xl()` and similar per level) | `label::Label` is for form labels. |
 | `Text` | `label::Label` or a styled `div` | Plain text. Long text appends via `append_text` (10.6). |
 | `Markdown` | `text::TextView::markdown(id, text)` | For a growing source, a `TextView` over an `Entity<TextViewState>` with `push_str`/`set_text`. Math rendering is not enabled in phase 1. |
 | `Code` | `TextView::markdown` with a fenced block | Uses the kit highlighter when the tree-sitter feature is on. Copy button through `clipboard::Clipboard`. |
-| `Badge` | `tag::Tag` (`TagVariant` from tone) | Kit `Badge` is a count or dot indicator, so it is not used here. |
-| `Alert` | `alert::Alert` (`AlertVariant`) | |
+| `Badge` | `tag::Tag::custom(bg, fg, border)` | Kit `Badge` is a count or dot indicator. `Tag::custom` takes the background first; M6 fixes that argument order. |
+| `Alert` | `alert::Alert` (`AlertVariant`) with explicit tone `bg`/`fg`/`border` overrides | |
 | `Image` | `gpui::img(ImageSource::Image(Arc<Image>))` | Bytes come from the host loader, never `ImageSource::Resource(Uri)`. Shows `alt` while pending or on failure. |
 | `Button` | `button::Button` | Tone: primary→`Primary`, secondary→`Default`, ghost→`Ghost`, danger→`Danger`. Disabled while gated or streaming. |
 | `Form` | `form::v_form()`, `form::Field` | Layout of labels and errors only. Validity comes from the core. |
@@ -1770,9 +1787,9 @@ These names were checked on docs.rs for `gpui-component 0.8.0` and `gpui-pre 0.3
 | `Switch` | `switch::Switch` | Not `button::Toggle`, which is a toggle button. |
 | `List` | `v_flex` of children. Above 100 items, `list::List` with a `ListDelegate` adapter over IR children. | |
 | `Table` | `table::DataTable` over `Entity<TableState<D>>` with a `TableDelegate` adapter | Rows are text cells only. |
-| `Stat` | `v_flex` of a caption `Label`, a styled value `div`, and a `tag::Tag` for the delta | Layout per DESIGN.md §7. |
+| `Stat` | `v_flex` of a caption label, a tabular value, and a custom tone `Tag` for the delta | Layout and number formats per DESIGN.md §6.12 and §7. |
 | `Facts` | `div().grid()` with two columns per fact (label, value) | Label `muted_foreground`, value `foreground`. |
-| `Chart` | `chart::BarChart` / `chart::LineChart` | Kit charts use band and value mappers: `x` maps to the band, `y` to the value. No legend in phase 1, since the chart is single-series. Tooltips are on. |
+| `Chart` | A small `canvas` plot for bars and lines | The pinned kit charts cannot leave null gaps, and the kit bar chart’s value ticks were not round; M6 draws bars, lines, gridlines and round value ticks itself. Titles/summaries use the DESIGN styles. Hover tooltips are deferred with the data-component polish in M8. |
 | `Tabs`, `Tab` | `tab::TabBar` and `tab::Tab` for the bar | Panel switching is built by the renderer, because the kit has no tab panel. Only the selected `Tab`'s children are rendered. |
 
 ### 10.4 Focus and input handling
@@ -1809,7 +1826,7 @@ The full visual design language (tokens, layout rules, component anatomy, stream
 | --- | --- |
 | Frame time while a 100 tokens/s stream grows a 2,000-node program | p99 under 8 ms of app work per frame |
 | Applying a batch of up to 50 ops | under 1 ms |
-| Appending to a long `Text` | only that node's entity is notified. Containers are not view-cached (10.1), so measure in M6 that layout of the whole message stays within the frame budget. |
+| Appending to a long `Text` | its nearest container entity is notified; containers are not view-cached (10.1). M6 measured a 2,000-node stress stream (100-column groups of 20 Texts) at app-work p50 5.8 ms, p95 11.2 ms, p99 11.6 ms, max 13.6 ms. The p99 8 ms target is **missed** and reported, not waived. |
 | Large tables | virtualized; construction cost independent of rows above 100 |
 | Memory | under 40 MB for 5,000 nodes, excluding images |
 | Coalescing | at most one drain of the queue per frame |
@@ -1875,6 +1892,20 @@ A message can contain prose before the program, and prose that becomes `Segment:
 - **Sanitizing.** Prose goes through the same character stripping as model text props (11): bidi controls and zero-width characters are removed. Raw HTML is shown as text. Markdown images are rendered as their alt text with a link. Links follow URL policy (7.6) with `Model` provenance.
 - **GPUI side.** `UiView` renders the whole message in segment order. Each markdown segment is a kit `TextView` over an `Entity<TextViewState>`, grown with `push_str` as deltas arrive. The program's tree mounts at its segment position.
 - **Fallback text** (4.7) includes the prose segments in order.
+
+### 10.13 Developer inspector (M6)
+
+`genui-gpui::inspector` is a debug-only view owned by the host, not by the IR.
+It renders three read-only lists from the renderer's retained state:
+
+- **tree**: `NodeEntry` kind, `NodeId` path and status, depth-first in slot order;
+- **patches**: the last applied `PatchBatch` summaries (epoch, seq, op count, whether the batch applied, was discarded or requested a snapshot);
+- **diagnostics**: the host-supplied current diagnostic list, with severity, wire code, path and message.
+
+It never mutates the program, adds no protocol messages, and is bounded (120
+tree lines, 16 patch entries, 24 diagnostics). The gallery enables it with
+`--inspector`; the dashboard's windowed demo can show the same panel through
+`DemoStage`. A host MAY omit it from release builds.
 
 ---
 
@@ -2035,7 +2066,7 @@ For every chunking it checks:
   the explicit documentation host context in `conformance/libs/host.json`. It does
   not silently allow arbitrary tool or ref names.
 - M2's checked-in diagnostic coverage audit lists the codes covered by static
-  fixtures and the codes awaiting M4 (execution/delivery) or M6 (renderer panic). Arithmetic overflow/finiteness codes already have lexical
+  fixtures and the codes awaiting M8 (renderer panic containment). Arithmetic overflow/finiteness codes already have lexical
   fixtures; their evaluated variants remain M4 work. Every reachable code and
   every declared conditional recovery variant must have a fixture.
 - **M0 bootstrap.** Before the parser and library exist, `spec-check` requires every `ui` and `ui-fragment` block to lex without diagnostics. It recognizes `ui-invalid` blocks but does not yet assert semantic rejection. At M2 the full validation rule above replaces this lexical-only gate. The M0 chunking harness checks finish-only lexical equality using a byte accumulator. At M1, `ui` and `ui-fragment` must parse without syntax diagnostics, and each `ui-invalid` must produce diagnostics. Every syntax fixture runs through resumable scanners under all 12.3 chunkings and compares final tokens/AST, segments and diagnostics. All entry points use the single 2.4 splitter. The live IR/patch/provisional invariants in 12.3 become mandatory with M3.
@@ -2060,7 +2091,7 @@ Conformance fixtures prove the core. These checks prove the whole system works a
 | `genui-cli feedback <file.ui>` | M5 | Prints the exact `ui-diag` block for a program, or `(no model feedback)`. |
 | `genui-cli message <file.ui> [digest] [--cut] [--replay]` | M5 | Prints the canonical stored message, or its model-facing replay with `--replay`. `--cut` records an unfinished stream. |
 | Scripted GPUI interaction tests | M7 | Headless GPUI tests (the gpui test context) that load a program, simulate clicks, typing, selection, submit and focus changes, and assert the exact `UiEvent`s, state and resulting patches. Behaviour is tested here, not by looking at screenshots. |
-| Gallery app and screenshot loop (backend: windowed `Window::render_to_image` from gpui-kit's test-support feature, dev-only; headless frame driving is a separate investigation; capture timing is excluded from performance numbers) | M6 | A demo binary renders every `examples/*.ui` and a per-component state sheet (all states from DESIGN.md §7) in light and dark. `--screenshot <dir>` writes one PNG per example and mode. At the end of M6, M7 and M8, the screenshot set is reviewed against DESIGN.md; each finding is fixed or logged in PROGRESS.md with a reason. Screenshots are not golden-compared in phase 1. |
+| Gallery app and screenshot loop (backend: gpui-kit's test-support `Window::render_to_image`; M6 uses `HeadlessAppContext` so captures are deterministic and offscreen, and also supports a normal window; capture timing is excluded from performance numbers) | M6 | A demo binary renders every `examples/*.ui` and a per-component state sheet (all states from DESIGN.md §7) in light and dark. `--screenshot <dir>` writes one PNG per example and mode. At the end of M6, M7 and M8, the screenshot set is reviewed against DESIGN.md; each finding is fixed or logged in PROGRESS.md with a reason. Screenshots are not golden-compared in phase 1. |
 | Real-model loop | M8 | The sample host streams a live model reply into the UI. The run is recorded as a transcript (prompt, chunks with timing, events) and replayed deterministically. Screenshots are taken at 25%, 50%, 75% and 100% of the stream to check that partial UIs look intentional. |
 
 `tree` uses genui-std and the default host policy (no tool/ref catalog). It reads

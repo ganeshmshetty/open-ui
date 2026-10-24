@@ -12,7 +12,7 @@ A milestone is complete only after its acceptance checks pass and CI is green.
 | M3 — Streaming and patches | Complete (mutation advisory) | CI green; fresh 601 s fuzz; 100k property; fixtures/replay. Mutation survivors recorded as backlog per the 2026-10-24 gate change. |
 | M4 — Runtime | Complete for SPEC §14.1 | Evaluator, state, actions, queries, refs, events, forms, provenance, data-dependent nodes and runtime recovery; runtime fixtures and exact resolved/request/event/field goldens pass. Deferred: tool auto-run and some form scopes inside `each` (docs/milestones/M4.md). |
 | M5 — Prompt, feedback and messages | Complete for SPEC §14.1; ROADMAP item 4 open | `prompt`, `feedback` and `message` pass; 375 fixtures / 83,719 chunkings / 430 permutations; 386 tests; exact prompt bytes on Linux/macOS CI; 15 new fixtures. Model-evaluation recordings still need model access. |
-| M6 — GPUI skeleton | Not started | Live streaming demo and recorded performance. |
+| M6 — GPUI skeleton | Complete (visual findings logged) | Pins active; `UiView`; layout/text/theme; gallery 25×2 PNGs; streaming dashboard 119-batch log/replay; SPEC §10.6 p99 8 ms target reported missed. |
 | M7 — Inputs and forms | Not started | Stable editing, keyboard form demo and accessibility. |
 | M8 — Data components and sample host | Not started | Table stress, panic containment, transcript replay, security review, v0.1 tag. |
 
@@ -1380,3 +1380,109 @@ order, fixture layout/comparison, CLI demos and static-fallback behavior.
 Remaining gaps: M4 runtime application/query delivery/state effects, ROADMAP item
 4's real-model evaluation and recorded transcripts, and advisory mutation triage.
 No files under `research/openui/` were opened, searched or copied.
+## M6 — GPUI skeleton, retained tree, components, gallery and streaming dashboard
+
+Completed on `milestone/m6` from `35d84e8`; main was not rebased or touched. Read
+AGENTS.md, SPEC §10, §12.7, §14.1 M6, DESIGN.md, ROADMAP items due M6, PINS.md
+and the approved GPUI spike findings before implementation. No file under
+`research/openui/` was opened; the throwaway spike code was not merged.
+
+### Built
+
+- Exact pin set activated in `genui-gpui` with a committed `Cargo.lock`.
+  Renderer MSRV is Rust 1.99.0 (`gpui-pre 0.3.9` uses
+  `std::hint::cold_path`); `rust-toolchain.toml` selects it and SPEC §1.2 records
+  the platform matrix. The UI-free crates keep the 1.94 MSRV.
+- `UiView`: retained path-keyed tree, slot-ordered children, epoch/sequence
+  checks, atomic batches, reset/snapshot handling, apply-before-frame and the
+  enqueue fallback. Bad IDs/gaps request a snapshot and never panic. Containers
+  are entities; leaves use their nearest container. Chart plots and Images use
+  `AnyView::cached` with definite dimensions.
+- Layout/text/data content components: Column, Row, Grid (220 px minimum cell),
+  Card, Divider, Heading, Text, Markdown, Code, Badge, Alert, Image
+  pending/failed placeholder, Button visual, Stat, Facts and Chart. Form, List,
+  Tabs/Tab and input components are labeled M7/M8 placeholders; Form/List/Tabs
+  still show their children so their anatomy is visible.
+- `UiTheme` is the only module with color/pixel literals; light/dark semantic
+  roles, five tones, Okabe-Ito chart palette, spacing/type/radius/control
+  scales, host overrides and WCAG AA tests. DESIGN §6.12 formatting (number,
+  compact, currency, percent, delta, date, tabular figures).
+- Canvas charts with zero-based round ticks, null gaps, singleton points, a
+  24-category cap, loading/empty/failed states, titles and summaries.
+- Gallery: all 24 exemplars and a component state sheet, `--list`,
+  `--screenshot` (one PNG per item/mode; 50 total), `--inspector`,
+  `--self-test-freshness`.
+- Streaming dashboard: Session → `UiView`, pre-frame batch apply, patch log,
+  metrics, optional screenshot, `--replay` and `--stress`.
+- Debug inspector: retained tree, bounded patch log and diagnostics list, with
+  no protocol change (SPEC §10.13).
+- Example 01/02/22 percent values corrected to DESIGN §6.12 semantics.
+
+### Evidence
+
+| Gate | Result |
+| --- | --- |
+| Conformance | 360 fixtures / 83,719 byte chunkings / 430 seeded permutations |
+| `spec-check` | 3 complete programs, 4 fragments, 24 exemplars validate; 0 `ui-invalid` in SPEC |
+| Workspace tests | green: 310 core/property, 47 conformance/CLI, 46 renderer unit, 2 renderer integration, std/doc tests |
+| Renderer with `screenshot` | 46 unit + freshness + patch-replay, green |
+| Gallery | 25 items × light/dark = 50 PNGs; zero Warning+ diagnostics; manifest checked in |
+| Freshness | one batch visible with no later trigger (4,571 pixels), append_text visible, reset cleared |
+| Dashboard exemplar | 593 bytes / 119 chunks / 119 batches / 10 nodes; app p50 0.11 ms, p99 0.21 ms |
+| Dashboard replay | 119-batch log replays to a 10-node tree without panic |
+| 2,000-node stress | 2,101 nodes / 855 batches; apply p99 0.06 ms; app p50 5.68 ms, p95 10.78 ms, p99 11.54 ms, max 16.24 ms |
+| Memory | exemplar RSS 83.2 MB (baseline 58.7 MB); stress 174.4 MB (baseline 58.8 MB; delta 115.6 MB), including GPUI/Metal |
+| Capture | test-support headless `render_to_image`; 101–107 ms per capture, excluded from app work |
+
+Commands and the full report are in `docs/milestones/M6.md`. Checked-in
+artifacts: `docs/milestones/evidence/m6/{gallery-manifest.tsv,state-sheet-light.png,
+state-sheet-dark.png,01-sales-dashboard-light.png,01-sales-dashboard-dark.png,
+02-operations-light.png,05-support-light.png,08-incident-form-light.png,
+13-sales-tabs-light.png,18-release-notes-light.png,dashboard-light.png,
+dashboard-patches.jsonl,dashboard-metrics.json,dashboard-replay.txt,
+stress-2000.json,freshness.txt}`.
+
+### Performance and memory targets (reported, not gating)
+
+The §10.6 p99 8 ms app-work target is **missed** for the 2,000-node stress
+(11.54 ms; p95 10.78 ms, p50 5.68 ms). Making every `Text` an entity was
+measured and made it worse (p99 20.5 ms), so the coarser nearest-container
+notification stays and the spec records the measured consequence. The 40 MB
+memory target is not met by process RSS (174.4 MB, including GPU-backed
+framework and 2,101 retained elements); the retained tree itself is small, but
+the process number is reported rather than hidden. The example dashboard is
+comfortably within the frame budget. Capture-path time includes GPU readback and
+is not compared with the frame target.
+
+### Screenshot review
+
+Reviewed the 50-PNG set and the state sheet in both modes. Fixed: stretched
+Badges/Buttons, reversed `Tag::custom` colors, non-round bar ticks, missing null
+gaps/singleton points, wrapped chart ticks, chart/summary overlap, muted failure
+text, fractional percent exemplars, and inspector-mode width overflow. Logged:
+Grid catalog gap 2 vs DESIGN 3 (8 px vs 12 px; changing it changes the M2 Library
+Spec hash), Markdown inline-code tint and link color from the pinned TextView,
+missing chart hover tooltips, streaming fades/reduced motion, Image loader,
+`code_highlight: false`, and `render.panic` still M8.
+
+### Spec / DESIGN changes
+
+DESIGN draft 0.3 changes the light danger text to `#c81e1e` (4.41:1 to 5.24:1).
+SPEC §1.2 adds the platform matrix; §§10.1/10.6 record the notification boundary
+and measured miss; §10.3 records the pinned-API mapping audit; §10.13 defines the
+inspector; §12.6/§12.7 allow the headless screenshot backend and move
+`render.panic` to M8. `conformance/deferred.json` and examples 01/02/22 changed
+in the same commits. Reasons are in `spec/CHANGELOG.md`.
+
+### Remaining limitations / next milestone
+
+`UiEvent` delivery is M7 (the core `UiEvent` type does not exist until the runtime
+work); M6 buttons render their anatomy but emit no event. `render.panic`
+containment remains M8.
+
+No M7 or M8 implementation is claimed. M7 must replace input/form placeholders,
+add focus/input synchronization, gating, keyboard submission and accessibility,
+then repeat the screenshot review with scripted interaction tests. M8 owns data
+components (List/Table/Tabs), virtualization, the host image loader, chart
+tooltips, panic containment/quarantine, and the real-model loop. The frame and
+memory misses above remain open and are not waived.

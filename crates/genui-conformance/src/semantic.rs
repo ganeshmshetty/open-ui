@@ -402,7 +402,7 @@ mod audit_tests {
             }
         }
         for deferred in deferred.values() {
-            assert!(["M4", "M5", "M6"].contains(&deferred.milestone.as_str()));
+            assert!(["M4", "M5", "M8"].contains(&deferred.milestone.as_str()));
             assert!(!deferred.reason.is_empty());
         }
     }

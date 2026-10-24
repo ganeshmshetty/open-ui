@@ -4,6 +4,19 @@ version.workspace = true
 edition.workspace = true
 publish.workspace = true
 
+[features]
+default = []
+# `Window::render_to_image` capture for the gallery (SPEC §12.7).
+# It is a dev-only feature; normal builds of the renderer do not need it.
+screenshot = ["gpui-kit/test-support"]
+
 [dependencies]
 genui-core.workspace = true
 genui-std.workspace = true
+gpui-kit.workspace = true
+gpui-component.workspace = true
+gpui-base.workspace = true
+gpui-pre.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+

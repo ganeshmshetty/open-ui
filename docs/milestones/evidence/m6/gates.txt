@@ -1,0 +1,26 @@
+M6 local gates (2026-10-24, Darwin arm64, Rust 1.99.0)
+
+PASS cargo fmt --all -- --check
+PASS cargo clippy --workspace --all-targets -- -D warnings
+PASS cargo clippy -p genui-gpui --all-targets --features screenshot -- -D warnings
+PASS cargo test --workspace               (310 core/property, 47 conformance/CLI, 46 renderer, std/doc, 2 integration)
+PASS cargo test -p genui-gpui --features screenshot (46 unit, freshness, patch replay)
+PASS cargo test --workspace --features serde_json/preserve_order (identical core/conformance goldens)
+PASS cargo run -p genui-cli -- fixtures   (360 fixtures, 83,719 chunkings, 430 permutations)
+PASS cargo run -p genui-cli -- spec-check (3 programs, 4 fragments, 24 exemplars)
+PASS python3 scripts/quality.py sources
+PASS python3 scripts/quality.py dependencies
+PASS python3 -m unittest discover -s scripts -p test_*.py (11 tests)
+PASS cargo check --manifest-path fuzz/Cargo.toml --bins --locked
+PASS gallery --list (24 exemplars + state sheet; zero Warning+ diagnostics)
+PASS gallery --screenshot <dir> --mode both (50 PNGs, manifest.tsv)
+PASS gallery --self-test-freshness (batch visible, append visible, reset cleared)
+PASS dashboard --file examples/01-sales-dashboard.ui --chunk 5 --headless
+PASS dashboard --replay dashboard-patches.jsonl (119 batches, 10 nodes, no panic)
+PASS dashboard --stress 2000 --chunk 64 --capture-every 100 --headless
+     nodes 2101, apply p99 0.06 ms, app work p50 5.68 ms / p95 10.78 ms /
+     p99 11.54 ms / max 16.24 ms, capture p50 102.53 ms, RSS 174.4 MB
+     (baseline 58.8 MB; SPEC §10.6 p99 8 ms target MISSED and reported)
+
+Not run: mutation/fuzz campaigns (out of M6 scope), GPUI windowed interactive
+capture under an active desktop, Linux/Windows renderer smoke.

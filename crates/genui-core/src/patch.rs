@@ -1073,6 +1073,106 @@ mod tests {
         assert!(empty.diff(&empty).is_empty());
     }
     #[test]
+    fn diff_measured_charges_base_preorders_and_position_scans() {
+        let (old, _lib, _ir) = tree_with(&["a", "b"]);
+        let mut next = Tree::default();
+        next.apply(&insert("root2", None, 0)).unwrap();
+        for (index, id) in ["x", "y", "z"].iter().enumerate() {
+            next.apply(&insert(id, Some("root2"), index as u32))
+                .unwrap();
+        }
+        let (ops, work) = old.diff_measured(&next);
+        assert!(!ops.is_empty());
+        assert_eq!(
+            work.wire_nodes_examined, 14,
+            "two preorders over three retained and four next nodes"
+        );
+
+        let (old, _lib, _ir) = tree_with(&["a", "b"]);
+        let (_, work) = old.diff_measured(&old);
+        assert_eq!(
+            work.wire_nodes_examined, 15,
+            "the shared children scan each retained sibling once"
+        );
+    }
+    #[test]
+    fn diff_measured_charges_prop_comparisons_and_retained_props() {
+        let (mut old, _lib, _ir) = tree_with(&["a"]);
+        old.nodes.get_mut("a").unwrap().node.props = [
+            ("text".into(), json!("hello")),
+            ("gone".into(), json!(true)),
+        ]
+        .into();
+        let mut next = old.clone();
+        next.nodes.get_mut("a").unwrap().node.props = [("text".into(), json!("world"))].into();
+        let (ops, work) = old.diff_measured(&next);
+        assert_eq!(
+            work.props_compared, 3,
+            "one target prop plus the two retained props"
+        );
+        assert_eq!(
+            ops,
+            vec![Op::SetProps {
+                id: "a".into(),
+                set: [("text".into(), json!("world"))].into(),
+                unset: vec!["gone".into()],
+            }],
+            "a non-prefix edit replaces the text and unsets the removed prop"
+        );
+        for op in ops {
+            old.apply(&op).unwrap();
+        }
+        assert_eq!(old, next);
+    }
+    #[test]
+    fn diff_emits_set_props_when_only_unsets_remain() {
+        let (mut old, _lib, _ir) = tree_with(&["a"]);
+        old.nodes.get_mut("a").unwrap().node.props = [("gone".into(), json!(true))].into();
+        let mut next = old.clone();
+        next.nodes.get_mut("a").unwrap().node.props.clear();
+        let ops = old.diff(&next);
+        assert_eq!(
+            ops,
+            vec![Op::SetProps {
+                id: "a".into(),
+                set: BTreeMap::new(),
+                unset: vec!["gone".into()],
+            }]
+        );
+        for op in ops {
+            old.apply(&op).unwrap();
+        }
+        assert_eq!(old, next);
+    }
+    #[test]
+    fn diff_moves_a_retained_node_that_only_changes_its_slot() {
+        let (mut old, _lib, _ir) = tree_with(&["a"]);
+        old.apply(&Op::Insert {
+            parent: Some("root".into()),
+            slot: "other".into(),
+            index: 0,
+            node: node("x", "Column"),
+        })
+        .unwrap();
+        let mut next = old.clone();
+        next.apply(&Op::Move {
+            id: "a".into(),
+            parent: Some("root".into()),
+            slot: "other".into(),
+            index: 0,
+        })
+        .unwrap();
+        let ops = old.diff(&next);
+        assert!(
+            matches!(&ops[..], [Op::Move { id, slot, index: 0, .. }] if id == "a" && slot == "other"),
+            "unexpected ops: {ops:?}"
+        );
+        for op in ops {
+            old.apply(&op).unwrap();
+        }
+        assert_eq!(old, next);
+    }
+    #[test]
     fn wire_maps_preserve_entry_order_and_reserved_keys_without_backend_dependence() {
         let map = Value::Map(Arc::new(vec![
             ("z".into(), Value::Int(2)),
@@ -1211,6 +1311,77 @@ mod tests {
             "unexpected ops: {ops:?}"
         );
         assert_eq!(root_children(&tree), vec!["b", "a"]);
+    }
+    #[test]
+    fn maintain_reorders_retained_siblings_after_an_inserted_prefix() {
+        let (mut tree, lib, mut ir) = tree_with(&["a", "b"]);
+        ir.nodes.insert(crate::ir::NodeId(13), column(13, "x"));
+        let projection = projection(
+            vec![13, 11, 12],
+            &[(11, "a", Some("root"), 0), (12, "b", Some("root"), 1)],
+            &[
+                (13, "x", Some("root"), 0),
+                (12, "b", Some("root"), 1),
+                (11, "a", Some("root"), 2),
+            ],
+        );
+        let (ops, _) = tree.maintain(&ir, &lib, &projection);
+        assert_eq!(
+            ops,
+            vec![
+                Op::Insert {
+                    parent: Some("root".into()),
+                    slot: "children".into(),
+                    index: 0,
+                    node: node("x", "Column"),
+                },
+                Op::Move {
+                    id: "b".into(),
+                    parent: Some("root".into()),
+                    slot: "children".into(),
+                    index: 1,
+                },
+            ],
+            "the inserted prefix shifts each later retained detach estimate"
+        );
+        assert_eq!(root_children(&tree), vec!["x", "b", "a"]);
+    }
+    #[test]
+    fn maintain_reorders_after_an_earlier_move_in_the_same_slot() {
+        let (mut tree, lib, ir) = tree_with(&["a", "b", "c"]);
+        let projection = projection(
+            vec![12, 13, 11],
+            &[
+                (11, "a", Some("root"), 0),
+                (12, "b", Some("root"), 1),
+                (13, "c", Some("root"), 2),
+            ],
+            &[
+                (12, "b", Some("root"), 0),
+                (13, "c", Some("root"), 1),
+                (11, "a", Some("root"), 2),
+            ],
+        );
+        let (ops, _) = tree.maintain(&ir, &lib, &projection);
+        assert_eq!(
+            ops,
+            vec![
+                Op::Move {
+                    id: "b".into(),
+                    parent: Some("root".into()),
+                    slot: "children".into(),
+                    index: 0,
+                },
+                Op::Move {
+                    id: "c".into(),
+                    parent: Some("root".into()),
+                    slot: "children".into(),
+                    index: 1,
+                },
+            ],
+            "the first move shifts the next retained detach estimate"
+        );
+        assert_eq!(root_children(&tree), vec!["b", "c", "a"]);
     }
     #[test]
     fn maintain_moves_a_node_between_slots_at_an_unchanged_index() {

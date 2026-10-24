@@ -1476,6 +1476,10 @@ in the same commits. Reasons are in `spec/CHANGELOG.md`.
 
 ### Remaining limitations / next milestone
 
+`UiEvent` delivery is M7 (the core `UiEvent` type does not exist until the runtime
+work); M6 buttons render their anatomy but emit no event. `render.panic`
+containment remains M8.
+
 No M7 or M8 implementation is claimed. M7 must replace input/form placeholders,
 add focus/input synchronization, gating, keyboard submission and accessibility,
 then repeat the screenshot review with scripted interaction tests. M8 owns data

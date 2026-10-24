@@ -13,7 +13,7 @@ A milestone is complete only after its acceptance checks pass and CI is green.
 | M4 — Runtime | Complete for SPEC §14.1 | Evaluator, state, actions, queries, refs, events, forms, provenance, data-dependent nodes and runtime recovery; runtime fixtures and exact resolved/request/event/field goldens pass. Deferred: tool auto-run and some form scopes inside `each` (docs/milestones/M4.md). |
 | M5 — Prompt, feedback and messages | Complete for SPEC §14.1; ROADMAP item 4 open | `prompt`, `feedback` and `message` pass; 375 fixtures / 83,719 chunkings / 430 permutations; 386 tests; exact prompt bytes on Linux/macOS CI; 15 new fixtures. Model-evaluation recordings still need model access. |
 | M6 — GPUI skeleton | Complete (visual findings logged) | Pins active; `UiView`; layout/text/theme; gallery 25×2 PNGs; streaming dashboard 119-batch log/replay; SPEC §10.6 p99 8 ms target reported missed. |
-| M7 — Inputs and forms | Complete (visual findings logged; OS a11y unverified) | 8 input/form kinds; 11 scripted interaction tests; keyboard-only demo run; 52 gallery PNGs reviewed; 473 workspace tests; form demo light/dark. |
+| M7 — Inputs and forms | Complete (visual findings logged; OS a11y unverified) | 8 input/form kinds; 12 scripted interaction tests; keyboard-only demo run; 52 gallery PNGs reviewed; 476 workspace tests; form demo light/dark. |
 | M8 — Data components and sample host | Not started | Table stress, panic containment, transcript replay, security review, v0.1 tag. |
 
 ## M0 scope
@@ -1540,8 +1540,8 @@ Report: `docs/milestones/M7.md`; evidence: `docs/milestones/evidence/m7/`.
 | `cargo fmt --all -- --check` | PASS |
 | `cargo clippy --workspace --all-targets -- -D warnings` | PASS |
 | clippy with `--features screenshot` | PASS |
-| `cargo test --workspace` | 473 passed, 0 failed, 0 ignored |
-| `cargo test -p genui-gpui --features screenshot` | 51 unit + 11 interaction + freshness + replay, PASS |
+| `cargo test --workspace` | 476 passed, 0 failed, 0 ignored |
+| `cargo test -p genui-gpui --features screenshot` | 51 unit + 12 interaction + freshness + replay, PASS |
 | `genui-cli fixtures` | 452 fixtures / 106,634 chunkings / 430 permutations |
 | `genui-cli spec-check` | 3 programs, 4 fragments, 25 exemplars |
 | Gallery | 26 items × light/dark = 52 PNGs, 0 warnings |

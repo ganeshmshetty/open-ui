@@ -1848,7 +1848,9 @@ These names were checked on docs.rs for `gpui-component 0.8.0` and `gpui-pre 0.3
     is deferred until blur, unless it was caused by an action the user just
     triggered.
   The host calls `sync_state(session.state_values(), window, cx)` after each
-  session update and once after loading. Initial values arrive this way.
+  session update and once after loading. Initial values arrive this way. An
+  initial or restored `User` value is not the view's own echo: it is applied
+  when the widget is not focused, so a thawed message shows its saved text.
 - **Typed text survives rebuilds.** `set_props`, `append_text`, status changes
   and parent re-renders only notify the input entity. They never recreate its
   widget state, so the text, cursor, selection and focus stay put.
@@ -2200,7 +2202,7 @@ Conformance fixtures prove the core. These checks prove the whole system works a
 | `genui-cli prompt [--digest] [options.json]` | M5 | Prints the exact static prompt for the std library, or its digest, optionally with a `PromptOptions` JSON file. |
 | `genui-cli feedback <file.ui>` | M5 | Prints the exact `ui-diag` block for a program, or `(no model feedback)`. |
 | `genui-cli message <file.ui> [digest] [--cut] [--replay]` | M5 | Prints the canonical stored message, or its model-facing replay with `--replay`. `--cut` records an unfinished stream. |
-| Scripted GPUI interaction tests | M7 | Headless GPUI tests in `crates/genui-gpui/tests/interaction.rs`. They load a program, simulate clicks, typing, selection, submit, Tab/Shift-Tab, Enter/Escape and focus changes, and assert the exact `UiEvent`s, session state and patches. Eleven tests cover every input, validation, submit-only forms, streaming/frozen gates, rebuild survival, host extensions and the accesskit projection. The keyboard-only test runs the form-demo example itself. Behaviour is tested here, not by looking at screenshots. |
+| Scripted GPUI interaction tests | M7 | Headless GPUI tests in `crates/genui-gpui/tests/interaction.rs`. They load a program, simulate clicks, typing, selection, submit, Tab/Shift-Tab, Enter/Escape and focus changes, and assert the exact `UiEvent`s, session state and patches. Twelve tests cover every input, validation, submit-only forms, streaming/frozen gates, rebuild survival, host extensions and the accesskit projection. The keyboard-only test runs the form-demo example itself. Behaviour is tested here, not by looking at screenshots. |
 | Gallery app and screenshot loop (backend: gpui-kit's test-support `Window::render_to_image`; M6 uses `HeadlessAppContext` so captures are deterministic and offscreen, and also supports a normal window; capture timing is excluded from performance numbers) | M6 | A demo binary renders every `examples/*.ui` and a per-component state sheet (all states from DESIGN.md §7) in light and dark. `--screenshot <dir>` writes one PNG per example and mode. At the end of M6, M7 and M8, the screenshot set is reviewed against DESIGN.md; each finding is fixed or logged in PROGRESS.md with a reason. Screenshots are not golden-compared in phase 1. |
 | Form demo | M7 | `form-demo` loads `examples/25-form-controls.ui`, acts as the host for `UiEvent` delivery and state sync, and prints each event/request/model event. `--screenshot DIR` writes light/dark PNGs with the headless test-support backend; `--headless`/`--self-test` are a CI smoke. It is the runnable demo behind the M7 done-when. |
 | Real-model loop | M8 | The sample host streams a live model reply into the UI. The run is recorded as a transcript (prompt, chunks with timing, events) and replayed deterministically. Screenshots are taken at 25%, 50%, 75% and 100% of the stream to check that partial UIs look intentional. |

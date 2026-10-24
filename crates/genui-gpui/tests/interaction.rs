@@ -55,7 +55,6 @@ struct Host {
     session: Session,
     ui: Entity<UiView>,
     seen: Rc<RefCell<Seen>>,
-    frozen: bool,
     _subscription: Subscription,
 }
 
@@ -89,9 +88,6 @@ impl Host {
         cx: &mut Context<Self>,
     ) {
         self.seen.borrow_mut().events.push(event.clone());
-        if self.frozen {
-            return;
-        }
         let update = self.session.event(event.clone());
         self.apply_update(update, window, cx);
     }
@@ -233,7 +229,7 @@ fn build_source(cx: &mut gpui_kit::TestAppContext, source: &str) -> Harness {
     cx.update(|cx| theme.install(cx));
     let options = WindowOptions {
         window_bounds: Some(gpui_kit::WindowBounds::Windowed(gpui_kit::Bounds {
-            origin: gpui_kit::point(gpui_kit::px(0.), gpui_kit::px(0.)),
+            origin: gpui_kit::Point::default(),
             size: theme.demo_window_size(),
         })),
         focus: true,
@@ -265,7 +261,6 @@ fn build_source(cx: &mut gpui_kit::TestAppContext, source: &str) -> Harness {
                         session,
                         ui,
                         seen,
-                        frozen: false,
                         _subscription: subscription,
                     }
                 })
@@ -900,11 +895,10 @@ fn pinned_controls_expose_roles_labels_values_and_states(cx: &mut gpui_kit::Test
         nodes: nodes.clone(),
         input,
     });
-    visual.draw(
-        gpui_kit::point(gpui_kit::px(0.), gpui_kit::px(0.)),
-        gpui_kit::size(gpui_kit::px(800.), gpui_kit::px(600.)),
-        move |_, _| gpui_kit::div().size_full().child(probe.clone()),
-    );
+    let probe_size = UiTheme::for_mode(genui_gpui::theme::ThemeMode::Light).demo_window_size();
+    visual.draw(gpui_kit::Point::default(), probe_size, move |_, _| {
+        gpui_kit::div().size_full().child(probe.clone())
+    });
     let nodes = nodes.borrow();
     let get = |name: &str| {
         nodes

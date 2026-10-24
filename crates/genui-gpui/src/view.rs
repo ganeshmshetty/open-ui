@@ -289,12 +289,20 @@ impl UiView {
     /// disabled and emit no events.
     pub fn freeze(&mut self, cx: &mut Context<Self>) {
         self.frozen.set(true);
+        self.notify_controls(cx);
         cx.notify();
     }
 
     pub fn thaw(&mut self, cx: &mut Context<Self>) {
         self.frozen.set(false);
+        self.notify_controls(cx);
         cx.notify();
+    }
+
+    fn notify_controls(&self, cx: &mut Context<Self>) {
+        for entity in self.containers.borrow().values() {
+            entity.update(cx, |_, cx| cx.notify());
+        }
     }
 
     pub fn is_frozen(&self) -> bool {
@@ -1566,7 +1574,7 @@ impl NodeView {
                     &label,
                     checked,
                     disabled,
-                    &handle,
+                    Some(&handle),
                     move |next, _window, cx| {
                         *local.borrow_mut() = Value::Bool(*next);
                         sink.edit(&node_id, Value::Bool(*next), cx);

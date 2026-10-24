@@ -316,6 +316,22 @@ pub fn build() -> StateSheet {
         "Switch",
         json!({"label": "Notifications", "bind": {"bind": "$notify"}}),
     );
+    let disabled = scene.add(
+        Some(&form),
+        "Input",
+        json!({
+            "label": "Disabled input",
+            "bind": {"bind": "$disabled"},
+            "placeholder": "Unavailable"
+        }),
+    );
+    overrides.insert(disabled, VisualState::Disabled);
+    let disabled_switch = scene.add(
+        Some(&form),
+        "Switch",
+        json!({"label": "Disabled switch", "bind": {"bind": "$disabled_switch"}}),
+    );
+    overrides.insert(disabled_switch, VisualState::Disabled);
     scene.add(
         Some(&form),
         "Button",
@@ -533,6 +549,8 @@ pub fn build() -> StateSheet {
         ),
         ("speed", CoreValue::from("Express")),
         ("notify", CoreValue::Bool(true)),
+        ("disabled", CoreValue::from("Not available")),
+        ("disabled_switch", CoreValue::Bool(false)),
     ] {
         state.insert(
             name.to_string(),

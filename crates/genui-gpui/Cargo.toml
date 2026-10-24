@@ -4,6 +4,11 @@ version.workspace = true
 edition.workspace = true
 publish.workspace = true
 
+[lib]
+# No doctest examples; disabling avoids resolving a second workspace's
+# genui-core artifact when the mandated shared CARGO_TARGET_DIR is in use.
+doctest = false
+
 [features]
 default = []
 # `Window::render_to_image` capture for the gallery (SPEC §12.7).

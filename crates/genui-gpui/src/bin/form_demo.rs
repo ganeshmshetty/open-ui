@@ -396,7 +396,7 @@ fn headless(args: &Args, source: &str) -> Result<(), String> {
             println!("headless form · {summary_text}");
             println!("{tree}");
         }
-        return Ok(());
+        Ok(())
     }
     #[cfg(not(feature = "screenshot"))]
     {

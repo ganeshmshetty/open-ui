@@ -222,7 +222,7 @@ pub fn checkbox(
     label: &str,
     checked: bool,
     disabled: bool,
-    focus_handle: &gpui_kit::FocusHandle,
+    focus_handle: Option<&gpui_kit::FocusHandle>,
     on_change: impl Fn(&bool, &mut Window, &mut App) + 'static,
 ) -> AnyElement {
     checkbox_with(theme, id, label, checked, disabled, focus_handle, on_change)
@@ -234,17 +234,20 @@ fn checkbox_with(
     label: &str,
     checked: bool,
     disabled: bool,
-    focus_handle: &gpui_kit::FocusHandle,
+    focus_handle: Option<&gpui_kit::FocusHandle>,
     on_change: impl Fn(&bool, &mut Window, &mut App) + 'static,
 ) -> AnyElement {
     let body = theme.text(TextRole::Body);
     let caption = theme.text(TextRole::Caption);
     let label = props::sanitize_text(label);
-    BaseCheckbox::new(id)
+    let mut checkbox = BaseCheckbox::new(id)
         .checked(checked)
         .disabled(disabled)
-        .track_focus(focus_handle)
-        .accessibility_label(label.clone())
+        .accessibility_label(label.clone());
+    if let Some(focus_handle) = focus_handle {
+        checkbox = checkbox.track_focus(focus_handle);
+    }
+    checkbox
         .on_change(move |next, _, window, cx| {
             on_change(
                 &matches!(next, gpui_kit::base::CheckboxState::Checked),
@@ -326,9 +329,7 @@ pub fn checkbox_group(
         let checked = selected.iter().any(|value| value == &option.value);
         let on_change = on_change.clone();
         let option_label = option.label.clone();
-        let handle = focus_handles
-            .get(index)
-            .expect("checkbox group focus handle");
+        let handle = focus_handles.get(index);
         list = list.child(checkbox_with(
             theme,
             ElementId::Name(SharedString::from(format!(
@@ -600,10 +601,7 @@ pub fn select_chevron(theme: &UiTheme) -> AnyElement {
     canvas(
         move |bounds, _, _| {
             let mut builder = PathBuilder::stroke(stroke);
-            builder.move_to(point(
-                bounds.origin.x + px(0.0),
-                bounds.origin.y + px(half * 0.55),
-            ));
+            builder.move_to(point(bounds.origin.x, bounds.origin.y + px(half * 0.55)));
             builder.line_to(point(
                 bounds.origin.x + px(half),
                 bounds.origin.y + px(half * 1.45),

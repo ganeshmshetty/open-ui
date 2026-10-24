@@ -1,4 +1,7 @@
 [toolchain]
-channel = "stable"
+# gpui-pre 0.3.9 uses `std::hint::cold_path`, stabilized after 1.94. The
+# renderer's MSRV is recorded in SPEC §1.2; the UI-free core still builds on
+# 1.94 (see the platform matrix).
+channel = "1.99.0"
 profile = "minimal"
 components = ["rustfmt", "clippy"]

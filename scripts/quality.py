@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""SPEC §12.8 gates; inspect only project-owned Rust and tracked fixture history."""
+"""SPEC §12.8 gates; inspect only project-owned Rust and tracked fixture history.
+
+Golden protection: a modified/deleted want.* file must be paired with both
+spec/SPEC.md and spec/CHANGELOG.md somewhere in the pushed range. Newly added
+fixtures are tests and need no contract change (fixtures-first workflow).
+"""
 import argparse
 import json
 from pathlib import Path
@@ -86,9 +91,10 @@ def fixture_errors(names, commit):
 
 
 def fixtures(root, base, head):
-    # Every commit is checked independently, including added/deleted/renamed goldens.
-    # A force-push makes github.event.before unreachable from the new head; the
-    # range is then invalid, so fall back to checking the new head commit itself.
+    # A golden change is accepted when the range also documents the contract in
+    # both spec files. Newly added fixtures are tests, not weakened goldens, so
+    # they need no spec change (AGENTS.md: fixtures first). Every commit is still
+    # inspected; the documentation may land in a sibling commit of the same push.
     revision = head
     if base and set(base) != {"0"}:
         try:
@@ -98,14 +104,29 @@ def fixtures(root, base, head):
         else:
             revision = f"{base}..{head}"
     commits = git(root, "rev-list", revision).splitlines()
-    errors = []
+    per_commit = []
+    touched = set()
     for commit in commits:
         parents = git(root, "rev-list", "--parents", "-n", "1", commit).split()[1:]
         if parents:
-            names = git(root, "diff", "--name-only", "--no-renames", "-z", parents[0], commit).split("\0")
+            raw = git(root, "diff", "--name-status", "--no-renames", "-z", parents[0], commit)
         else:
-            names = git(root, "diff-tree", "--root", "--no-commit-id", "--name-only", "-r", "-z", commit).split("\0")
-        errors.extend(fixture_errors(names, commit))
+            raw = git(root, "diff-tree", "--root", "--no-commit-id", "--name-status", "-r", "-z", commit)
+        parts = [part for part in raw.split("\0") if part]
+        entries = list(zip(parts[0::2], parts[1::2]))
+        per_commit.append((commit, entries))
+        touched.update(name for _, name in entries)
+    documented = {"spec/SPEC.md", "spec/CHANGELOG.md"} <= touched
+    errors = []
+    for commit, entries in per_commit:
+        changed = [
+            name
+            for status, name in entries
+            if Path(name).name.startswith("want.") and status != "A"
+        ]
+        if changed and not documented:
+            missing = {"spec/SPEC.md", "spec/CHANGELOG.md"} - touched
+            errors.append(f"{commit}: want.* changed without {', '.join(sorted(missing))}")
     return errors
 
 

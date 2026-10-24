@@ -541,6 +541,24 @@ mod tests {
                     .req("text", T::text())
                     .example("Leaf(\"ok\")"),
             )
+            .component(
+                ComponentDef::new("Stack", Role::Group)
+                    .group("G")
+                    .doc("A stack.")
+                    .req("children", T::nodes()),
+            )
+            .component(
+                ComponentDef::new("Show", Role::Paragraph)
+                    .group("G")
+                    .doc("A text binding sink.")
+                    .req("value", T::binding(T::text())),
+            )
+            .component(
+                ComponentDef::new("ListShow", Role::Paragraph)
+                    .group("G")
+                    .doc("A list binding sink.")
+                    .req("items", T::binding(T::list(T::text()))),
+            )
             .build()
             .unwrap()
     }
@@ -602,5 +620,100 @@ mod tests {
         assert!(!v.action_sources.contains_key("a"));
         assert!(v.action_sources.contains_key("b"));
         assert_eq!(v.action_sources.len(), 1);
+    }
+
+    fn live_validator<'a>(
+        lib: &'a Library,
+        options: &'a Options,
+        source: &str,
+        state: StateDef,
+        candidate: StateDef,
+        changed: &[&str],
+    ) -> (Validator<'a>, BTreeSet<String>) {
+        let parsed = parse_batch(source.as_bytes(), options.limits.clone().syntax);
+        let mut validator = Validator::new(&Program::default(), Vec::new(), lib, options);
+        for statement in &parsed.program.statements {
+            let kind = validator.classify(&statement.value);
+            validator
+                .table
+                .insert(statement.name.clone(), statement.clone());
+            validator.kinds.insert(statement.name.clone(), kind);
+        }
+        validator.ir.states.insert("s".into(), state);
+        validator.state_candidates.insert("s".into(), candidate);
+        validator.state_budget.insert("s".into(), 4);
+        let mut machine = crate::validate::tasks::Machine::default();
+        machine.sources = validator.table.clone();
+        machine.ambiguous.insert("s".into());
+        machine.changed_sources = changed.iter().map(|name| (*name).to_string()).collect();
+        validator.tasks = Some(machine);
+        let dirty = std::iter::once("root".to_string()).collect();
+        (validator, dirty)
+    }
+
+    const LIVE_STATES: &str = "root=Stack([alpha, zeta, omega])\nalpha=ListShow(items:$s)\nzeta=Show(value:$s)\nomega=Show(value:$s)\n";
+
+    #[test]
+    fn live_inference_widens_only_ambiguous_base_types() {
+        let lib = library();
+        let options = Options::default();
+        let candidate = StateDef {
+            default: Value::List(Vec::new().into()),
+            ty: T::list(T::Any),
+        };
+        let state = StateDef {
+            default: Value::List(Vec::new().into()),
+            ty: T::list(T::Any),
+        };
+        let (validator, dirty) = live_validator(
+            &lib,
+            &options,
+            LIVE_STATES,
+            state,
+            candidate,
+            &["alpha", "zeta", "root"],
+        );
+        let (validation, _, _) = validator.run_live(crate::validate::tasks::Changes {
+            dirty: &dirty,
+            sources: &[],
+            reverse: &BTreeMap::new(),
+        });
+        assert_eq!(
+            validation.ir.states["s"].ty,
+            T::list(T::Text),
+            "an empty-list base type must widen to the first bound list target"
+        );
+    }
+
+    #[test]
+    fn live_inference_ignores_a_null_default_on_a_concrete_state() {
+        let lib = library();
+        let options = Options::default();
+        let state = StateDef {
+            default: Value::Null,
+            ty: T::Text,
+        };
+        let candidate = StateDef {
+            default: Value::Null,
+            ty: T::Text,
+        };
+        let (validator, dirty) = live_validator(
+            &lib,
+            &options,
+            LIVE_STATES,
+            state,
+            candidate,
+            &["alpha", "zeta", "root"],
+        );
+        let (validation, _, _) = validator.run_live(crate::validate::tasks::Changes {
+            dirty: &dirty,
+            sources: &[],
+            reverse: &BTreeMap::new(),
+        });
+        assert_eq!(
+            validation.ir.states["s"].ty,
+            T::Text,
+            "only an Any base type may take an inferred null default"
+        );
     }
 }

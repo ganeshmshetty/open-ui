@@ -38,6 +38,10 @@ fn library() -> Library {
             .group("G")
             .doc("A list binding sink.")
             .opt_none("items", T::binding(T::list(T::text()))),
+        ComponentDef::new("IntListShow", Role::Paragraph)
+            .group("G")
+            .doc("An integer list binding sink.")
+            .opt_none("items", T::binding(T::list(T::Int))),
         ComponentDef::new("Pair", Role::Paragraph)
             .group("G")
             .doc("Two binding sinks.")
@@ -408,6 +412,41 @@ fn live_infers_ambiguous_state_types_like_batch() {
     assert!(
         session.diagnostics().is_empty(),
         "{:?}",
+        session
+            .diagnostics()
+            .iter()
+            .map(|d| (d.code, d.stmt.clone()))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn live_retraction_rechecks_the_earlier_orphan_binding() {
+    // §2.10: when the root first appears, its binding target can retract a
+    // type already inferred from a retained orphan. The orphan reader must be
+    // revalidated, and the new target itself must stay valid.
+    let mut session = Session::new(SessionOptions::program(Arc::new(library())));
+    session.push(b"$xs=[]\nalpha=IntListShow(items:$xs)\n");
+    session.push(b"zeta=ListShow(items:$xs)\nroot=Stack([zeta])\n");
+    assert_eq!(session.ir().states["xs"].ty, T::list(T::Text));
+    assert!(
+        session
+            .diagnostics()
+            .iter()
+            .any(|d| d.code == Code::BindTarget && d.stmt.as_deref() == Some("alpha")),
+        "the retained orphan reader must be rechecked: {:?}",
+        session
+            .diagnostics()
+            .iter()
+            .map(|d| (d.code, d.stmt.clone()))
+            .collect::<Vec<_>>()
+    );
+    assert!(
+        !session
+            .diagnostics()
+            .iter()
+            .any(|d| d.code == Code::BindTarget && d.stmt.as_deref() == Some("zeta")),
+        "the first root binding must remain valid: {:?}",
         session
             .diagnostics()
             .iter()

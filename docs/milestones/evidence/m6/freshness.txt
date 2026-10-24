@@ -1,0 +1,1 @@
+freshness: one batch visible without a later trigger (4571 pixels), append_text visible, reset cleared

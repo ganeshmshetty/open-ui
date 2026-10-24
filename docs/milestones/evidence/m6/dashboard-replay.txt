@@ -1,0 +1,12 @@
+replay: 119 batches, 10 nodes, epoch Some(1), no panic
+Column  root sealed
+  Heading  root/children:#0 sealed
+  Grid  root/children:#1 sealed
+    Stat  root/children:#1/children:#0 sealed
+    Stat  root/children:#1/children:#1 sealed
+    Stat  root/children:#1/children:#2 sealed
+    Stat  root/children:#1/children:#3 sealed
+  Card  root/children:#2 sealed
+    Chart  root/children:#2/children:@trend sealed
+  Facts  root/children:#3 sealed
+

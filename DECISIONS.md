@@ -67,6 +67,7 @@ production for state/query allocation, with stop, rollback and deferred-dirty-su
 tests. General node tasks/visible projection and dirty source inference remain
 implementation work; the owner requirement and acceptance conditions are unchanged.
 
+<<<<<<< HEAD
 ## M5 defaults recorded while implementing the contract
 
 | Question | Options | Recommended default / action | Status |
@@ -171,3 +172,15 @@ evaluation set and transcript measurements remain open in `docs/milestones/M5.md
 - **Debounce base.** The 300 ms timer starts from the virtual clock at the
   dependency change (the clock before the observing `advance_clock`), cancels
   when arguments revert, and applies to queued queries.
+=======
+## M6 renderer defaults recorded while implementing DESIGN/§10
+
+| Question | Options | Recommended default / action | Status |
+| --- | --- | --- | --- |
+| Which screenshot backend should the M6 gallery use? | Windowed `render_to_image`; test-support headless; OS capture | Test-support `HeadlessAppContext` with `current_headless_renderer`, because it produced real text offscreen and avoids focus/display flakiness. Windowed capture remains implemented by `render_to_image`. | Adopted; SPEC §12.7 clarified |
+| Should every `Text` be an entity so `append_text` notifies only it? | Inline leaves with nearest-container notification; one entity per Text | Inline leaves. The 2,000-node stress p99 was 11.6 ms inline versus 20.5 ms with one entity per Text. | Adopted with measured consequence in SPEC §10.6 |
+| DESIGN §6 rule 5 says Grid `gap: 3`, but the std catalog default is `gap: 2` | Change the catalog default (new Library Spec hash); follow the catalog; change DESIGN | Follow the catalog in M6. The renderer cannot distinguish an omitted argument from the resolved default. Changing the catalog is a dedicated M2-contract change, not an M6 side effect. | Logged as a known 8 px vs 12 px deviation in PROGRESS/M6 |
+| How should Markdown inline code and links look when the pinned TextView overrides the requested colors? | Custom Markdown renderer; accept and log; more theme overrides | Accept and log for M6. The TextView still paints inline code with an accent tint and links inherit the foreground in the captured light/dark set. A custom renderer or a pin-supported style fix is M8 work. | Logged |
+| Is `render.panic` an M6 or M8 code? | M6; M8 | M8. The milestone table assigns panic containment to M8; M6 has no subtree panic boundary and does not claim one. | `conformance/deferred.json` and SPEC §12.6 updated |
+| Should `rust-toolchain.toml` select 1.99.0? | Keep `stable` (locally 1.94, which cannot build gpui-pre); select 1.99.0 | Select 1.99.0. Core's 1.94 MSRV is recorded in the §1.2 matrix; the renderer needs the newer stable. | Adopted |
+>>>>>>> fa0c005 (docs(m6): completion report, screenshot evidence and measured gaps (SPEC §14.1 M6))

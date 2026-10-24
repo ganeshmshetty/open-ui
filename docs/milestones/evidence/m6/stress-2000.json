@@ -1,0 +1,36 @@
+{
+  "frames": 852,
+  "queue_drains": 0,
+  "batches_enqueued": 0,
+  "batches_applied": 855,
+  "ops_applied": 4653,
+  "nodes": 2101,
+  "captured_frames": 9,
+  "snapshot_requests": 0,
+  "apply": {
+    "count": 855,
+    "p50_ms": 0.020625,
+    "p95_ms": 0.055292,
+    "p99_ms": 0.0645,
+    "max_ms": 0.225167
+  },
+  "render": {
+    "count": 852,
+    "p50_ms": 0.003417,
+    "p95_ms": 0.005291,
+    "p99_ms": 0.007125,
+    "max_ms": 0.013708
+  },
+  "node_render_total_ms": 4810.709916,
+  "frame_app": {
+    "count": 852,
+    "p50_ms": 5.67821,
+    "p95_ms": 10.775997,
+    "p99_ms": 11.540419,
+    "max_ms": 16.242417
+  },
+  "rss_bytes": 182910976,
+  "baseline_rss_bytes": 61636608,
+  "rss_delta_bytes": 121274368,
+  "wall_ms": 822.709501
+}

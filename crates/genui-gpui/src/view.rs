@@ -631,7 +631,7 @@ impl NodeView {
         self.overrides
             .get(&entry.id)
             .copied()
-            .unwrap_or_else(|| data_state(&entry.props).unwrap_or_else(|| state_of(entry.status)))
+            .unwrap_or_else(|| state_of(entry.status))
     }
 
     fn data_state(&self, entry: &NodeEntry) -> VisualState {

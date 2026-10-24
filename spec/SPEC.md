@@ -1847,8 +1847,8 @@ These targets are reported, not gating, in phase 1.
 
 - row virtualization holds: at most 12 rows were built at any scroll offset (0, 1,000, 10,000, 25,000, 49,980), independent of 50,000 total rows;
 - steady app work after construction: p50 0.04 ms, p99 0.05 ms, max 0.05 ms (inside the 8 ms target);
-- one construction frame: 290 ms, of which row parsing was 99 ms and applying the snapshot was 131 ms; the "construction cost independent of rows above 100" target is **missed** for data parsing and reported, not waived;
-- process RSS after the run: 773 MB with a 54 MB baseline. This includes the core's retained ref value, the renderer's parsed rows and GPUI/Metal surfaces; the 40 MB target does not apply to 50k rows but the number is reported rather than hidden;
+- one construction frame: 323 ms, of which row parsing was 111 ms and applying the snapshot was 136 ms; the "construction cost independent of rows above 100" target is **missed** for data parsing and reported, not waived;
+- process RSS after the run: 772 MB with a 54 MB baseline. This includes the core's retained ref value, the renderer's parsed rows and GPUI/Metal surfaces; the 40 MB target does not apply to 50k rows but the number is reported rather than hidden;
 - scrolling to a distant row including a headless capture took under 200 ms; capture time is excluded from app work.
 
 ### 10.7 Interaction with the host

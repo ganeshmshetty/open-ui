@@ -1546,8 +1546,8 @@ PR or tag was made. Full report: `docs/milestones/M8.md`.
 | Gate | Result |
 | --- | --- |
 | fmt / clippy (default + screenshot) | pass, `-D warnings` |
-| Workspace tests | pass: 341 core, 49 conformance, 70 renderer unit, 1 patch replay, 10 prompt, 5 std, 4 CLI + 3 integration, screenshot freshness/panic/replay |
-| Fixtures | 449 fixtures / 105,726 chunkings / 430 seeded permutations |
+| Workspace tests | pass: 344 core, 49 conformance, 71 renderer unit, 1 patch replay, 10 prompt, 5 std, 4 CLI + 3 integration, screenshot freshness/panic/replay |
+| Fixtures | 452 fixtures / 106,634 chunkings / 430 seeded permutations |
 | Spec-check | 3 programs, 4 fragments, 24 exemplars |
 | Transcripts | 20/20 exact replays |
 | Gallery | 50 PNGs, reviewed; 0 Warning+ diagnostics |
@@ -1556,8 +1556,8 @@ PR or tag was made. Full report: `docs/milestones/M8.md`.
 
 ### Performance and memory (reported misses)
 
-- 50k table: one 290 ms construction frame (99 ms parse + 131 ms snapshot apply)
-  and 773 MB process RSS (54 MB baseline). The "construction independent of rows"
+- 50k table: one 323 ms construction frame (111 ms parse + 136 ms snapshot apply)
+  and 772 MB process RSS (54 MB baseline). The "construction independent of rows"
   target is missed for parsing; the memory number is reported rather than waived.
 - Steady table frames: p50 0.04 ms, p99 0.05 ms (inside 8 ms).
 - M6's 2,000-node stream p99 11.6 ms and 40 MB memory misses are unchanged.

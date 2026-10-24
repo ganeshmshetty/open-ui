@@ -1,0 +1,20 @@
+   Compiling genui-core v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-core)
+   Compiling genui-prompt v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-prompt)
+   Compiling genui-std v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-std)
+   Compiling genui-conformance v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-conformance)
+   Compiling genui-cli v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-cli)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.86s
+     Running `target/debug/genui-cli fixtures`
+PASS: 323 fixtures, 73503 chunkings, 400 seeded permutations (M3 live invariants and static validation).
+  extract: 28 fixtures, 6326 chunkings
+  fuzz-regress: 2 fixtures, 486 chunkings
+  grammar: 37 fixtures, 8383 chunkings
+  ir: 15 fixtures, 3082 chunkings
+  lex: 35 fixtures, 7975 chunkings
+  library: 36 fixtures, 4535 chunkings
+  limits: 22 fixtures, 7875 chunkings
+  patches: 5 fixtures, 1177 chunkings
+  resolve: 18 fixtures, 4292 chunkings
+  schema: 62 fixtures, 14875 chunkings
+  statements: 40 fixtures, 8943 chunkings
+  streaming: 23 fixtures, 5554 chunkings

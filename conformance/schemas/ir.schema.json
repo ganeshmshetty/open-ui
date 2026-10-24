@@ -126,8 +126,27 @@
         },
         {
           "type": "object",
-          "additionalProperties": {
-            "$ref": "#/$defs/value"
+          "additionalProperties": false,
+          "required": [
+            "map"
+          ],
+          "properties": {
+            "map": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/$defs/value"
+                  }
+                ],
+                "minItems": 2,
+                "maxItems": 2
+              }
+            }
           }
         }
       ]
@@ -167,8 +186,8 @@
           "additionalProperties": false,
           "properties": {
             "action": {
-              "type": "integer",
-              "minimum": 0
+              "type": "string",
+              "minLength": 1
             }
           },
           "required": [

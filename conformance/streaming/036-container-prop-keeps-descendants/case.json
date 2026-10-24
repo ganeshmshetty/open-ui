@@ -1,0 +1,1 @@
+{"notes":"SPEC \u00a7\u00a73.5,5.3: changing a title does not revisit unchanged slot contents.","tags":["I7","container"],"tier":"core","title":"Container prop edits retain unchanged child tasks"}

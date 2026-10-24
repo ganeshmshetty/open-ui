@@ -1,0 +1,9 @@
+{
+  "title": "cutoff-bad-char",
+  "tier": "core",
+  "tags": [],
+  "notes": "M3 SPEC \u00a7\u00a72.4,3,6,12.3; hand-authored expected final result and explicit transition chunks.",
+  "limits": {
+    "max_stmt_bytes": 12
+  }
+}

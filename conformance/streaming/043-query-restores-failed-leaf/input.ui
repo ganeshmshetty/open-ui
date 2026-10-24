@@ -1,0 +1,2 @@
+root=Text(text(rows))
+query rows=tool("known",{},default:"ok")

@@ -4,13 +4,14 @@ import argparse
 from collections import Counter
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-SHARD_COUNT = 8
+SHARD_COUNT = 32
 
 
 def review_outcomes(outcomes, generated, hashes, review):
@@ -48,10 +49,10 @@ def inventory_errors(groups, expected):
     return []
 
 
-def aggregate(directory, review_path):
+def aggregate(directory, review_path, inventory_path=None):
     folders = sorted(p for p in directory.iterdir() if p.is_dir())
     if len(folders) != SHARD_COUNT:
-        raise ValueError("expected exactly eight mutation shards")
+        raise ValueError("expected exactly thirty-two mutation shards")
     review = json.loads(review_path.read_text())
     groups, results, manifests, raw_hashes = [], [], [], {}
     errors = []
@@ -65,7 +66,7 @@ def aggregate(directory, review_path):
         results.append(data)
         manifests.append(hashes)
         raw_hashes[folder.name] = hashlib.sha256(data_path.read_bytes()).hexdigest()
-    expected = json.loads((ROOT / "conformance/mutations/inventory.json").read_text())
+    expected = json.loads((inventory_path or ROOT / "conformance/mutations/m3/inventory.json").read_text())
     errors.extend(inventory_errors(groups, expected))
     if any(m != manifests[0] for m in manifests):
         errors.append("shards used different source manifests")
@@ -103,13 +104,26 @@ def main():
     mode.add_argument("--output", type=Path)
     mode.add_argument("--aggregate", type=Path)
     parser.add_argument("--shard")
-    parser.add_argument("--review", type=Path, default=ROOT / "conformance/mutations/review.json")
+    parser.add_argument("--review", type=Path, default=ROOT / "conformance/mutations/m3/review.json")
+    parser.add_argument("--inventory", type=Path, default=ROOT / "conformance/mutations/m3/inventory.json")
     args = parser.parse_args()
     if args.aggregate:
-        aggregate(args.aggregate, args.review)
+        aggregate(args.aggregate, args.review, args.inventory)
         return 0
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
+    # Keep the full live chunk harness practical under concurrent mutations,
+    # without retaining large debug-symbol caches in each isolated build.
+    environment = os.environ.copy()
+    environment.update({
+        "CARGO_PROFILE_DEV_DEBUG": "0",
+        "CARGO_PROFILE_TEST_DEBUG": "0",
+        "CARGO_PROFILE_TEST_OPT_LEVEL": "1",
+    })
+    (output / "test-profile.json").write_text(json.dumps({
+        key: environment[key] for key in ["CARGO_PROFILE_DEV_DEBUG",
+            "CARGO_PROFILE_TEST_DEBUG", "CARGO_PROFILE_TEST_OPT_LEVEL"]
+    }, indent=2) + "\n")
     with tempfile.TemporaryDirectory(prefix="genui-mutations-") as directory:
         source = Path(directory)
         paths = subprocess.check_output([
@@ -124,17 +138,25 @@ def main():
             target = source / name
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(path, target)
-            if name.startswith("crates/genui-core/src/syntax") or name == "crates/genui-core/src/ir.rs":
+            if name.startswith("crates/genui-core/src/") and name.endswith(".rs"):
                 hashes[name] = hashlib.sha256(path.read_bytes()).hexdigest()
         (output / "source.json").write_text(json.dumps(hashes, indent=2) + "\n")
-        subprocess.run(["cargo", "test", "--workspace", "--locked"], cwd=source, check=True)
+        subprocess.run(["cargo", "test", "--workspace", "--locked"], cwd=source, env=environment, check=True)
         command = ["cargo", "mutants", "--dir", str(source), "-p", "genui-core",
                    "-f", "crates/genui-core/src/syntax.rs", "-f", "crates/genui-core/src/syntax/**",
-                   "-f", "crates/genui-core/src/ir.rs", "--test-workspace", "true", "--jobs", "2",
+                   "-f", "crates/genui-core/src/ir.rs",
+                   "-f", "crates/genui-core/src/patch.rs", "-f", "crates/genui-core/src/session.rs",
+                   "-f", "crates/genui-core/src/canonical.rs",
+                   "-f", "crates/genui-core/src/validate/**",
+                   "-f", "crates/genui-core/src/diagnostics.rs",
+                   "-f", "crates/genui-core/src/arena.rs",
+                   "-f", "crates/genui-core/src/persistent.rs",
+                   "-f", "crates/genui-core/src/maintenance.rs",
+                   "--test-workspace", "true", "--jobs", "2",
                    "--timeout", "60", "--build-timeout", "300", "--output", str(output)]
         if args.shard:
             command.extend(["--shard", args.shard])
-        result = subprocess.run(command, cwd=ROOT, check=False)
+        result = subprocess.run(command, cwd=ROOT, env=environment, check=False)
     outcomes_file = output / "mutants.out/outcomes.json"
     mutants_file = output / "mutants.out/mutants.json"
     if not outcomes_file.is_file() or not mutants_file.is_file():

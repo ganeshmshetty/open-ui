@@ -1,0 +1,1 @@
+{"children":{"children":[{"children":{},"id":"root/children:@later","kind":"Text","props":{"bold":false,"mono":false,"size":"md","text":"Ready","tone":"neutral"},"role":"paragraph"}]},"id":"root","kind":"Column","props":{"align":"stretch","gap":{"tok":["space",2]},"padding":{"tok":["space",0]}},"role":"group"}

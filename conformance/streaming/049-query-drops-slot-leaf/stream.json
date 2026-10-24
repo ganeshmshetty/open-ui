@@ -1,0 +1,1 @@
+["query rows=tool(\"known\",{},default:\"ok\")\nbefore=Divider()\nafter=Divider()\nneedle=Text(text(rows))\nroot=Column([before,needle,after])\n","query a=tool(\"known\",{},default:[])\n"]

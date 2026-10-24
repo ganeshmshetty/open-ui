@@ -1,0 +1,6 @@
+{
+  "title": "keep-last-good",
+  "tier": "core",
+  "tags": [],
+  "notes": "SPEC \u00a7\u00a73,12.3: explicit live chunks plus every standard chunking."
+}

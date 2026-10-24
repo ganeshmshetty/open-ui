@@ -1,9 +1,1 @@
-{
-  "id": "root",
-  "kind": "Extra",
-  "role": "group",
-  "props": {
-    "text": "ok"
-  },
-  "children": {}
-}
+{"children":{},"id":"root","kind":"Extra","props":{"text":"ok"},"role":"group"}

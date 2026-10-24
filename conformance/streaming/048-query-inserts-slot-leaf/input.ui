@@ -1,0 +1,5 @@
+before=Divider()
+after=Divider()
+needle=Text(text(rows))
+root=Column([before,needle,after])
+query rows=tool("known",{},default:"ok")

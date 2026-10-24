@@ -1,0 +1,27 @@
+{
+  "accepted": true,
+  "source_commit": "b6f17ed0f331a4cc6b518deebc3bdf913c82a942",
+  "toolchain": "rustc 1.101.0-nightly (19833af72 2026-10-20)",
+  "cargo_fuzz": "cargo-fuzz 0.13.2",
+  "mode": "Program and Message; randomized 1..97-byte chunks; stream == batch, seal, prose and replay assertions; varied limits",
+  "runs": {
+    "streaming": {
+      "command": "cargo +nightly fuzz run streaming -- -max_total_time=601 -seed=20261023 -max_len=32768 -dict=fuzz/syntax.dict -print_final_stats=1",
+      "engine_seconds": 602,
+      "executions": 10900,
+      "exit_code": 0,
+      "peak_rss_mb": 803,
+      "log_sha256": "0478035aeb8e4401f73e92906a74955ee9dac7c763a2b3c110c911233f4e905e",
+      "source_hashes_match": true
+    },
+    "validator": {
+      "command": "cargo +nightly fuzz run validator -- -max_total_time=601 -seed=20261023 -max_len=32768 -dict=fuzz/syntax.dict -print_final_stats=1",
+      "engine_seconds": 602,
+      "executions": 19287,
+      "exit_code": 0,
+      "peak_rss_mb": 558,
+      "log_sha256": "5a285e1a7d50066dcf923cad97ff543c7860a2371d8f93d38ba57667fc3e1f27",
+      "source_hashes_match": true
+    }
+  }
+}

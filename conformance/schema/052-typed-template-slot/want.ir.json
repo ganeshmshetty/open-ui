@@ -1,9 +1,1 @@
-{
-  "id": "root",
-  "kind": "Tabs",
-  "role": "tab_list",
-  "props": {},
-  "children": {
-    "tabs": []
-  }
-}
+{"children":{"tabs":[]},"id":"root","kind":"Tabs","props":{},"role":"tab_list"}

@@ -1,0 +1,13 @@
+[
+  {
+    "chunk": 0,
+    "id": "root",
+    "prop": "text",
+    "equals": "shown"
+  },
+  {
+    "chunk": 1,
+    "id": "root",
+    "absent": true
+  }
+]

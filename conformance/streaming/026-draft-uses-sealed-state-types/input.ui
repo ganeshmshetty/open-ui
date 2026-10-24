@@ -1,0 +1,4 @@
+$x=null
+root=Column([draft,check])
+check=Checkbox("Flag",bind:$x)
+draft=Input("Name",bind:$x)

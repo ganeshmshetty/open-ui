@@ -1,0 +1,1 @@
+{"notes":"SPEC \u00a73.3 I6: the consumer is sealed, but its referenced action is still provisional.","tags":[],"tier":"core","title":"provisional action alias stays inert at a sealed consumer"}

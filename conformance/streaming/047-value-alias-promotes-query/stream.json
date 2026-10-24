@@ -1,0 +1,1 @@
+["query q=tool(\"known\",{},default:\"ok\")\nroot=Text(text(v))\n","v=q\n"]

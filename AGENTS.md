@@ -56,7 +56,7 @@ The spike is throwaway code that answers those questions.
 4. **The core stays UI-free.** `<name>-core` must never depend on gpui, gpui-kit, tokio, or any UI or async crate.
 5. **Safety.** No `unsafe` in core (`#![forbid(unsafe_code)]`). No panics on model input. Every recovery emits exactly one diagnostic (§4).
 6. **Pins.** Use exactly the set in §10.9: `gpui-kit`, `gpui-component` and `gpui-base` at `=0.8.0`, and `gpui-pre` at `=0.3.9`. Commit `Cargo.lock`. Bump pins only in a dedicated change that follows §10.9.
-7. **Keep changes small.** One milestone, or part of one, per branch or PR. Commit messages say which spec sections they implement.
+7. **Keep changes small and demo-first.** One milestone, or part of one, per branch or PR. Commit messages say which spec sections they implement. Every milestone must end with a runnable demo of the user-visible behavior it unlocks; prefer a working vertical slice over exhaustive internal hardening.
 8. **Keep `PROGRESS.md` current.** After each milestone (and before stopping mid-milestone): status, evidence, next step, open issues, spec changes.
 
 ## Quality bar (no sloppy work)
@@ -89,7 +89,7 @@ cargo +nightly fuzz run parser -- -max_total_time=600
 
 - **Don't block on owner decisions.** Log them in `DECISIONS.md` (question, options, your recommended default, what you did meanwhile) and keep going with the default unless it is irreversible or changes scope. The owner answers in batches.
 - **Milestone report** (end of every milestone, also appended to PROGRESS.md): gates passed with numbers; spec changes and why; open DECISIONS.md items; risks; what the next milestone needs.
-- **Self-merge:** you may merge your own milestone branch into main when every CI gate (SPEC §12.7–12.8) is green and the milestone review has no open blockers.
+- **Self-merge:** you may merge your own milestone branch into main when every required CI gate (SPEC §12.7–12.8) is green and the milestone review has no open blockers. Mutation testing is advisory per §12.8 and never blocks a merge; record its backlog in `PROGRESS.md`.
 
 ## Asking for help
 

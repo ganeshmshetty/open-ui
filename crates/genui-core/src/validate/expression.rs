@@ -625,3 +625,824 @@ fn placeholders(s: &str) -> usize {
     }
     count
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        ir::Role,
+        r#lib::{ActionDef, FunctionDef},
+        syntax::ast::NullOrigin,
+        value::Value,
+    };
+
+    fn library() -> Library {
+        Library::builder("test", "0.1.0")
+            .group(crate::r#lib::GroupDef::new("G", 0, "`Leaf`."))
+            .component(
+                crate::r#lib::ComponentDef::new("Leaf", Role::Paragraph)
+                    .group("G")
+                    .doc("A leaf.")
+                    .req("text", T::text())
+                    .example("Leaf(\"ok\")"),
+            )
+            .component(
+                crate::r#lib::ComponentDef::new("Box", Role::Group)
+                    .group("G")
+                    .doc("A box.")
+                    .req("children", T::nodes())
+                    .example("Box([])"),
+            )
+            .component(
+                crate::r#lib::ComponentDef::new("Control", Role::Button)
+                    .group("G")
+                    .doc("A control.")
+                    .opt_none("on_click", T::action())
+                    .example("Control()"),
+            )
+            .action(ActionDef {
+                name: "notify".into(),
+                params: vec![T::text()],
+                doc: "Notify.".into(),
+            })
+            .function(FunctionDef {
+                name: "pick_two".into(),
+                params: vec![T::int(), T::text()],
+                result: T::text(),
+                fuel: 8,
+                implementation: None,
+            })
+            .build()
+            .unwrap()
+    }
+
+    fn options() -> Options {
+        Options::default()
+    }
+
+    fn validator<'a>(lib: &'a Library, opt: &'a Options) -> Validator<'a> {
+        Validator::new(&Program::default(), Vec::new(), lib, opt)
+    }
+
+    fn state(v: &mut Validator<'_>, name: &str, ty: T, default: Value) {
+        v.ir.states.insert(name.into(), StateDef { default, ty });
+    }
+
+    fn codes(v: &Validator<'_>) -> Vec<Code> {
+        v.diagnostics.iter().map(|d| d.code).collect()
+    }
+
+    fn expr(text: &str) -> Expr {
+        let source = format!("x={text}");
+        parse_batch(source.as_bytes(), crate::limits::SyntaxLimits::default())
+            .program
+            .statements
+            .into_iter()
+            .next()
+            .unwrap()
+            .value
+    }
+
+    #[test]
+    fn unary_index_and_lambda_value_forms_are_checked() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+        state(&mut v, "n", T::int(), Value::from(1));
+        state(&mut v, "b", T::bool(), Value::from(true));
+        state(
+            &mut v,
+            "l",
+            T::list(T::int()),
+            Value::List(std::sync::Arc::new(vec![Value::from(1)])),
+        );
+        state(
+            &mut v,
+            "m",
+            T::map(T::Any),
+            Value::Map(std::sync::Arc::new(vec![])),
+        );
+
+        let neg = v.check_value(&expr("-$n"), &Context::at("x", None));
+        assert!(neg.valid);
+        assert_eq!(neg.ty, T::Int);
+        let not = v.check_value(&expr("!$b"), &Context::at("x", None));
+        assert!(not.valid);
+        assert_eq!(not.ty, T::Bool);
+        let bad = v.check_value(&expr("!$n"), &Context::at("x", None));
+        assert!(!bad.valid);
+
+        let indexed = v.check_value(&expr("$l[0]"), &Context::at("x", None));
+        assert!(indexed.valid);
+        let keyed = v.check_value(&expr("$m[\"a\"]"), &Context::at("x", None));
+        assert!(keyed.valid);
+        let wrong = v.check_value(&expr("$l[\"a\"]"), &Context::at("x", None));
+        assert!(!wrong.valid);
+
+        let lambda = v.check_value(&expr("map($l, |x| x + 1)"), &Context::at("x", None));
+        assert!(lambda.valid, "map lambda is legal");
+        let misuse = v.check_value(
+            &Expr::Lambda {
+                params: vec!["x".into()],
+                body: Box::new(expr("x + 1")),
+            },
+            &Context::at("x", None),
+        );
+        assert!(!misuse.valid);
+        assert!(codes(&v).contains(&Code::LambdaMisuse));
+    }
+
+    #[test]
+    fn list_limits_and_element_validity() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+        v.limits.max_list_len = 2;
+        state(&mut v, "n", T::int(), Value::from(1));
+
+        let at_limit = v.check_value(&expr("[$n,1]"), &Context::at("x", None));
+        assert!(at_limit.valid);
+        assert!(!codes(&v).contains(&Code::ListLen));
+        let over = v.check_value(&expr("[$n,1,2]"), &Context::at("x", None));
+        assert!(over.valid);
+        assert_eq!(codes(&v).iter().filter(|c| **c == Code::ListLen).count(), 1);
+
+        let mut v = validator(&lib, &opt);
+        state(&mut v, "n", T::int(), Value::from(1));
+        let invalid = v.check_value(&expr("[$n,missing]"), &Context::at("x", None));
+        assert!(!invalid.valid);
+        let map = v.check_value(&expr("{a: 1, b: missing}"), &Context::at("x", None));
+        assert!(!map.valid);
+        let good = v.check_value(&expr("{a: $n}"), &Context::at("x", None));
+        assert!(good.valid);
+    }
+
+    #[test]
+    fn binary_operator_type_rules_are_exact() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+        state(&mut v, "t", T::text(), Value::from("a"));
+        state(&mut v, "u", T::text(), Value::from("b"));
+        state(&mut v, "n", T::int(), Value::from(1));
+        state(&mut v, "flag", T::bool(), Value::from(true));
+
+        let text_add = v.check_value(&expr("$t + $u"), &Context::at("x", None));
+        assert!(text_add.valid);
+        assert_eq!(text_add.ty, T::Text);
+        let number_add = v.check_value(&expr("$n + $n"), &Context::at("x", None));
+        assert!(number_add.valid);
+        assert_eq!(number_add.ty, T::Number);
+        let mixed = v.check_value(&expr("$t + $n"), &Context::at("x", None));
+        assert!(!mixed.valid, "mixed addition is an expr.type");
+        let text_mul = v.check_value(&expr("$t * $u"), &Context::at("x", None));
+        assert!(!text_mul.valid, "multiplication is numeric only");
+        let eq = v.check_value(&expr("$t == $n"), &Context::at("x", None));
+        assert!(eq.valid);
+        assert_eq!(eq.ty, T::Bool);
+        let cmp = v.check_value(&expr("$n < 2"), &Context::at("x", None));
+        assert!(cmp.valid);
+        assert_eq!(cmp.ty, T::Bool);
+        let logic = v.check_value(&expr("$flag && $n"), &Context::at("x", None));
+        assert!(!logic.valid, "logical operands are booleans");
+
+        let invalid_left = v.check_value(&expr("missing + 1"), &Context::at("x", None));
+        assert!(!invalid_left.valid);
+        let mut v = validator(&lib, &opt);
+        state(&mut v, "n", T::int(), Value::from(1));
+        let invalid_right = v.check_value(&expr("$n + missing"), &Context::at("x", None));
+        assert!(!invalid_right.valid);
+    }
+
+    #[test]
+    fn member_and_index_follow_container_types() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+        state(
+            &mut v,
+            "m",
+            T::map(T::Any),
+            Value::Map(std::sync::Arc::new(vec![])),
+        );
+        state(
+            &mut v,
+            "l",
+            T::list(T::int()),
+            Value::List(std::sync::Arc::new(vec![])),
+        );
+        state(&mut v, "s", T::text(), Value::from("x"));
+        state(&mut v, "k", T::int(), Value::from(0));
+
+        assert!(v.check_value(&expr("$m.a"), &Context::at("x", None)).valid);
+        assert!(!v.check_value(&expr("$s.a"), &Context::at("x", None)).valid);
+
+        assert!(
+            v.check_value(&expr("$l[$k]"), &Context::at("x", None))
+                .valid
+        );
+        let mut unknown_index = validator(&lib, &opt);
+        state(
+            &mut unknown_index,
+            "l",
+            T::list(T::int()),
+            Value::List(std::sync::Arc::new(vec![])),
+        );
+        state(
+            &mut unknown_index,
+            "k",
+            T::Any,
+            Value::Map(std::sync::Arc::new(vec![])),
+        );
+        assert!(
+            unknown_index
+                .check_value(&expr("$l[$k]"), &Context::at("x", None))
+                .valid
+        );
+        let invalid_index = v.check_value(&expr("$l[missing]"), &Context::at("x", None));
+        assert!(!invalid_index.valid);
+        let invalid_base = v.check_value(&expr("missing[$k]"), &Context::at("x", None));
+        assert!(!invalid_base.valid);
+        let wrong_base = v.check_value(&expr("$s[$k]"), &Context::at("x", None));
+        assert!(!wrong_base.valid);
+        let mut map_key = validator(&lib, &opt);
+        state(
+            &mut map_key,
+            "m",
+            T::map(T::Any),
+            Value::Map(std::sync::Arc::new(vec![])),
+        );
+        state(&mut map_key, "s", T::text(), Value::from("x"));
+        assert!(
+            map_key
+                .check_value(&expr("$m[$s]"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("$s[$s]"), &Context::at("x", None))
+                .valid
+        );
+    }
+
+    #[test]
+    fn recovered_null_is_invalid_as_a_value() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+        let recovered = Expr::Null {
+            origin: NullOrigin { recovered: true },
+        };
+        let checked = v.check_value(&recovered, &Context::at("x", None));
+        assert!(!checked.valid);
+        assert!(v.diagnostics.is_empty());
+    }
+
+    #[test]
+    fn cap_value_truncates_nested_map_lists() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+        v.limits.max_list_len = 2;
+        let mut value = Value::Map(std::sync::Arc::new(vec![(
+            "a".into(),
+            Value::List(std::sync::Arc::new(vec![
+                Value::from(1),
+                Value::from(2),
+                Value::from(3),
+            ])),
+        )]));
+        v.cap_value(&mut value, &Context::at("x", None));
+        assert_eq!(
+            v.diagnostics
+                .iter()
+                .filter(|d| d.code == Code::ListLen)
+                .count(),
+            1
+        );
+        let Value::Map(entries) = &value else {
+            panic!("map");
+        };
+        let Value::List(items) = &entries[0].1 else {
+            panic!("list");
+        };
+        assert_eq!(items.len(), 2);
+    }
+
+    #[test]
+    fn normalize_action_keeps_good_steps_and_marks_invalid_ones() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+        state(&mut v, "s", T::int(), Value::from(1));
+        v.kinds.insert("a".into(), Kind::Action);
+        v.cache.insert("a".into(), Checked::dynamic(T::Action));
+        v.action_sources.insert("a".into(), expr("say(\"hi\")"));
+
+        let (valid, source) = v.normalize_action(&expr("a"), &Context::at("x", None));
+        assert!(valid);
+        assert_eq!(source, expr("say(\"hi\")"));
+        let (valid, source) = v.normalize_action(&expr("s"), &Context::at("x", None));
+        assert!(!valid);
+        assert_eq!(source, expr("s"));
+
+        let recovered = Expr::Null {
+            origin: NullOrigin { recovered: true },
+        };
+        assert_eq!(
+            v.normalize_action(&recovered, &Context::at("x", None)),
+            (true, Expr::null())
+        );
+
+        let before = v.diagnostics.len();
+        let (valid, source) =
+            v.normalize_action(&expr("[say(1),say(\"ok\")]"), &Context::at("x", None));
+        assert!(valid);
+        assert_eq!(v.diagnostics.len() - before, 1);
+        assert!(
+            matches!(source, Expr::List { items } if items.len() == 2 && items[1] == expr("say(\"ok\")"))
+        );
+
+        let (valid, source) = v.normalize_action(&expr("say(1)"), &Context::at("x", None));
+        assert!(valid);
+        assert_eq!(source, Expr::null());
+
+        let mut v = validator(&lib, &opt);
+        v.limits.max_list_len = 1;
+        let before = v.diagnostics.len();
+        v.normalize_action(&expr("[say(\"a\"),say(\"b\")]"), &Context::at("x", None));
+        assert_eq!(
+            v.diagnostics[before..]
+                .iter()
+                .filter(|d| d.code == Code::ListLen)
+                .count(),
+            1
+        );
+        let mut v = validator(&lib, &opt);
+        v.limits.max_list_len = 1;
+        v.normalize_action(&expr("[say(\"a\")]"), &Context::at("x", None));
+        assert!(!v.diagnostics.iter().any(|d| d.code == Code::ListLen));
+    }
+
+    #[test]
+    fn action_steps_cover_every_builtin_action() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+        state(&mut v, "s", T::int(), Value::from(1));
+
+        assert!(matches!(
+            v.action_steps(&expr("set($s,1)")).as_slice(),
+            [Step::Set { state, .. }] if state == "s"
+        ));
+        assert!(matches!(
+            v.action_steps(&expr("restore($s)")).as_slice(),
+            [Step::Restore { states }] if states == &vec!["s".to_string()]
+        ));
+        assert!(matches!(
+            v.action_steps(&expr("refresh(q)")).as_slice(),
+            [Step::Refresh { query }] if query == "q"
+        ));
+        assert!(matches!(
+            v.action_steps(&expr("say(\"hi\")")).as_slice(),
+            [Step::Say { .. }]
+        ));
+        assert!(matches!(
+            v.action_steps(&expr("open(\"https://example.com\")"))
+                .as_slice(),
+            [Step::Open { .. }]
+        ));
+        assert!(matches!(
+            v.action_steps(&expr("emit(\"notify\",\"x\")")).as_slice(),
+            [Step::Emit { name, params }] if name == "notify" && params.len() == 1
+        ));
+        assert!(matches!(
+            v.action_steps(&expr("notify(\"x\")")).as_slice(),
+            [Step::Emit { name, .. }] if name == "notify"
+        ));
+    }
+
+    #[test]
+    fn check_action_validates_names_lists_and_custom_arity() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+        state(&mut v, "s", T::int(), Value::from(1));
+        v.kinds.insert("a".into(), Kind::Action);
+        v.cache.insert("a".into(), Checked::dynamic(T::Action));
+        v.table.insert(
+            "known".into(),
+            crate::syntax::ast::Statement {
+                kind: crate::syntax::ast::StatementKind::Bind,
+                name: "known".into(),
+                value: expr("1"),
+            },
+        );
+        v.kinds.insert("known".into(), Kind::Value);
+
+        assert!(v.check_action(&expr("a"), &Context::at("x", None)));
+        let before = v.diagnostics.len();
+        assert!(!v.check_action(&expr("known"), &Context::at("x", None)));
+        assert_eq!(
+            v.diagnostics.len(),
+            before,
+            "known non-action name is resolved"
+        );
+        assert!(!v.check_action(&expr("missing"), &Context::at("x", None)));
+        assert_eq!(v.diagnostics.last().map(|d| d.code), Some(Code::Unresolved));
+
+        assert!(!v.check_action(&expr("[say(\"ok\"),say(1)]"), &Context::at("x", None)));
+        assert!(!v.check_action(&expr("notify(msg: \"x\")"), &Context::at("x", None)));
+        assert!(!v.check_action(&expr("notify(missing)"), &Context::at("x", None)));
+        assert!(!v.check_action(&expr("missing"), &Context::at("x", None)));
+        let recovered = Expr::Null {
+            origin: NullOrigin { recovered: true },
+        };
+        assert!(!v.check_action(&recovered, &Context::at("x", None)));
+    }
+
+    #[test]
+    fn check_action_enforces_arity_and_emit_rules() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+        state(&mut v, "s", T::int(), Value::from(1));
+
+        assert!(v.check_action(&expr("restore($s)"), &Context::at("x", None)));
+        assert!(!v.check_action(&expr("restore()"), &Context::at("x", None)));
+        assert!(v.check_action(&expr("emit(\"notify\",\"x\")"), &Context::at("x", None)));
+        assert!(!v.check_action(&expr("emit(\"notify\")"), &Context::at("x", None)));
+        assert!(!v.check_action(&expr("emit(1,2)"), &Context::at("x", None)));
+
+        let before = v.diagnostics.len();
+        assert!(!v.check_action(&expr("emit(\"nope\",1)"), &Context::at("x", None)));
+        let unknown = v.diagnostics[before..]
+            .iter()
+            .filter(|d| d.code == Code::UnknownFn)
+            .count();
+        assert_eq!(unknown, 1);
+    }
+
+    #[test]
+    fn calls_that_name_slots_or_actions_are_not_values() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+        state(
+            &mut v,
+            "l",
+            T::list(T::int()),
+            Value::List(Default::default()),
+        );
+
+        for source in [
+            "Leaf(\"x\")",
+            "Widget()",
+            "each($l)",
+            "say(\"hi\")",
+            "notify(\"x\")",
+        ] {
+            let before = v.diagnostics.len();
+            let checked = v.check_value(&expr(source), &Context::at("x", None));
+            assert!(!checked.valid, "{source} is a slot, not a value");
+            assert_eq!(
+                codes(&v)[before..],
+                [Code::SlotKind],
+                "{source} reports exactly one slot-kind diagnostic"
+            );
+        }
+    }
+
+    #[test]
+    fn library_functions_check_arity_names_and_argument_types() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+
+        assert!(
+            v.check_value(&expr("pick_two(1,\"x\")"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("pick_two(1)"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("pick_two(1,\"x\",2)"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("pick_two(key: 1,\"x\")"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("pick_two(missing,\"x\")"), &Context::at("x", None))
+                .valid,
+            "an unresolved argument makes the call invalid"
+        );
+        assert!(
+            !v.check_value(&expr("pick_two(1,2)"), &Context::at("x", None))
+                .valid,
+            "literal argument type mismatches are rejected"
+        );
+        assert!(
+            !v.check_value(&expr("pick_two(1,missing)"), &Context::at("x", None))
+                .valid
+        );
+    }
+
+    #[test]
+    fn builtin_arity_and_sort_named_arguments_are_exact() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+        state(
+            &mut v,
+            "l",
+            T::list(T::int()),
+            Value::List(Default::default()),
+        );
+        state(&mut v, "flag", T::bool(), Value::from(true));
+
+        assert!(
+            v.check_value(&expr("if($flag,1,2)"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("if($flag,1)"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("if(1,2,3)"), &Context::at("x", None))
+                .valid,
+            "if requires a boolean condition"
+        );
+        assert!(
+            !v.check_value(&expr("len(1)"), &Context::at("x", None))
+                .valid,
+            "len requires a list, text or map"
+        );
+        assert!(
+            v.check_value(&expr("coalesce(1,2)"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("coalesce(1)"), &Context::at("x", None))
+                .valid
+        );
+
+        assert!(
+            v.check_value(&expr("sort_by($l,|x| x)"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            v.check_value(
+                &expr("sort_by($l,|x| x,desc: true)"),
+                &Context::at("x", None)
+            )
+            .valid
+        );
+        assert!(
+            !v.check_value(
+                &expr("sort_by($l,|x| x,key: true)"),
+                &Context::at("x", None)
+            )
+            .valid,
+            "sort_by only accepts the desc named argument"
+        );
+        assert!(
+            !v.check_value(&expr("sort_by($l,|x| x,desc: 1)"), &Context::at("x", None))
+                .valid,
+            "named arguments must be boolean"
+        );
+        assert!(
+            !v.check_value(&expr("len($l,desc: true)"), &Context::at("x", None))
+                .valid,
+            "only sort_by accepts named arguments"
+        );
+        assert!(
+            !v.check_value(
+                &expr("sort_by($l,|x| x,desc: missing)"),
+                &Context::at("x", None)
+            )
+            .valid
+        );
+    }
+
+    #[test]
+    fn builtin_argument_types_and_lambda_placement_are_checked() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+        state(
+            &mut v,
+            "l",
+            T::list(T::int()),
+            Value::List(Default::default()),
+        );
+        state(&mut v, "t", T::text(), Value::from("a"));
+        state(&mut v, "u", T::url(), Value::from("https://example.com"));
+        state(&mut v, "n", T::int(), Value::from(1));
+
+        let url_sum = v.check_value(&expr("$t + $u"), &Context::at("x", None));
+        assert!(url_sum.valid);
+        assert_eq!(url_sum.ty, T::Number, "only text plus text stays text");
+
+        assert!(
+            !v.check_value(&expr("first(1)"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("last(1)"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("min(1)"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("round(\"x\")"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("fixed(\"x\",1)"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("contains(1,\"x\")"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("join(1,\",\")"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("fmt(1)"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("sum($l,1)"), &Context::at("x", None))
+                .valid,
+            "a numeric second sum argument must be textual"
+        );
+        assert!(
+            !v.check_value(&expr("join([1],\",\")"), &Context::at("x", None))
+                .valid,
+            "join rejects non-string literal elements"
+        );
+
+        assert!(
+            !v.check_value(&expr("filter($l,|x| x + 1)"), &Context::at("x", None))
+                .valid,
+            "filter needs a boolean predicate"
+        );
+        assert!(
+            v.check_value(&expr("filter($l,|x| true)"), &Context::at("x", None))
+                .valid
+        );
+        assert!(
+            !v.check_value(&expr("map($l,|x,y| x)"), &Context::at("x", None))
+                .valid,
+            "lambdas take exactly one parameter"
+        );
+        assert!(
+            !v.check_value(&expr("map(|x| x,$l)"), &Context::at("x", None))
+                .valid,
+            "the lambda must be the second positional argument"
+        );
+        assert!(
+            !v.check_value(&expr("map($l,|x| missing)"), &Context::at("x", None))
+                .valid,
+            "an invalid lambda body invalidates the call"
+        );
+    }
+
+    #[test]
+    fn builtin_results_have_exact_types() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+        state(
+            &mut v,
+            "l",
+            T::list(T::int()),
+            Value::List(Default::default()),
+        );
+
+        let cases = [
+            ("contains(\"a\",\"b\")", T::Bool),
+            ("len($l)", T::Int),
+            ("len(\"abc\")", T::Int),
+            ("fmt(\"{}\",1)", T::Text),
+            ("text(1)", T::Text),
+            ("upper(\"a\")", T::Text),
+            ("lower(\"A\")", T::Text),
+            ("join($l,\",\")", T::Text),
+            ("fixed(1,2)", T::Text),
+            ("map($l,|x| x + 1)", T::list(T::Number)),
+            ("filter($l,|x| true)", T::list(T::int())),
+            ("sort_by($l,|x| x)", T::list(T::int())),
+            ("sum($l)", T::Number),
+            ("round(1)", T::Number),
+        ];
+        for (source, expected) in cases {
+            let checked = v.check_value(&expr(source), &Context::at("x", None));
+            assert!(checked.valid, "{source} is valid");
+            assert_eq!(checked.ty, expected, "{source} returns {expected:?}");
+        }
+    }
+
+    #[test]
+    fn action_lists_and_unknown_component_names_are_slot_kinds() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+
+        assert!(v.check_action(&expr("[say(\"ok\")]"), &Context::at("x", None)));
+        let before = v.diagnostics.len();
+        assert!(!v.check_action(&expr("Widget()"), &Context::at("x", None)));
+        assert_eq!(codes(&v)[before..], [Code::SlotKind]);
+
+        let before = v.diagnostics.len();
+        assert!(!v.check_action(&expr("restore(1)"), &Context::at("x", None)));
+        assert_eq!(codes(&v)[before..], [Code::ExprType]);
+    }
+
+    #[test]
+    fn emit_payload_is_checked_against_the_named_action_parameter() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+
+        let before = v.diagnostics.len();
+        assert!(
+            !v.check_action(&expr("emit(\"notify\",1)"), &Context::at("x", None)),
+            "a literal that the event parameter cannot accept is an expr.type"
+        );
+        assert_eq!(
+            codes(&v)[before..],
+            [Code::ExprType],
+            "the emit payload check reports exactly once"
+        );
+
+        let before = v.diagnostics.len();
+        assert!(v.check_action(&expr("emit(\"notify\",\"x\")"), &Context::at("x", None)));
+        assert_eq!(
+            codes(&v)[before..],
+            Vec::<Code>::new(),
+            "an accepted emit payload stays clean"
+        );
+    }
+
+    #[test]
+    fn say_accepts_unknown_payloads_and_rejects_known_non_maps() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+        state(
+            &mut v,
+            "m",
+            T::map(T::Any),
+            Value::Map(std::sync::Arc::new(vec![])),
+        );
+
+        let before = v.diagnostics.len();
+        assert!(
+            v.check_action(&expr("say(\"hi\", $m.a)"), &Context::at("x", None)),
+            "an unknown member type is a legal say payload"
+        );
+        assert_eq!(
+            codes(&v)[before..],
+            Vec::<Code>::new(),
+            "only known non-map payloads are rejected"
+        );
+    }
+
+    #[test]
+    fn open_rejects_urls_that_fail_validation() {
+        let lib = library();
+        let opt = options();
+        let mut v = validator(&lib, &opt);
+
+        let before = v.diagnostics.len();
+        assert!(
+            !v.check_action(
+                &expr("open(\"javascript:alert(1)\")"),
+                &Context::at("x", None)
+            ),
+            "a URL outside the allowed scheme is tainted"
+        );
+        assert_eq!(codes(&v)[before..], [Code::TaintedUrl]);
+    }
+
+    #[test]
+    fn fmt_placeholder_counting_handles_braces() {
+        let lib = library();
+        let opt = options();
+        let r = validate(b"root=Leaf(fmt(\"{}\",1))", &lib, &opt);
+        assert!(!r.diagnostics.iter().any(|d| d.code == Code::FmtArgs));
+        let r = validate(b"root=Leaf(fmt(\"a}\",1))", &lib, &opt);
+        assert!(r.diagnostics.iter().any(|d| d.code == Code::FmtArgs));
+        let r = validate(b"root=Leaf(fmt(\"{{}}\",1))", &lib, &opt);
+        assert!(r.diagnostics.iter().any(|d| d.code == Code::FmtArgs));
+    }
+}

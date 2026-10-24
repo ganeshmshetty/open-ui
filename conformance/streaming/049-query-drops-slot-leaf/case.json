@@ -1,0 +1,1 @@
+{"limits":{"max_queries":1},"notes":"SPEC \u00a7\u00a73.5\u20133.6,5.2\u20135.3,6: failed leaf insertion/removal keeps source positions and unrelated siblings.","tags":["I7","query","recovery","slot"],"tier":"core","title":"049-query-drops-slot-leaf"}

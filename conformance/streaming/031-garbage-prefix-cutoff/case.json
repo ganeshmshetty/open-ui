@@ -1,0 +1,13 @@
+{
+  "limits": {
+    "max_stmt_bytes": 16
+  },
+  "notes": "SPEC §§2.5,3.5–3.7: an unrecognized prefix may exceed statement-tail size, but its diagnostic history must not be rescanned. The eventual statement cutoff keeps exactly the first 16 bad characters.",
+  "tags": [
+    "I7",
+    "cutoff",
+    "diagnostics"
+  ],
+  "tier": "core",
+  "title": "Provisional lexer errors before a recognized header obey the eventual cutoff"
+}

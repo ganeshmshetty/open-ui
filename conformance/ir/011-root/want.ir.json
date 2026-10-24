@@ -1,7 +1,1 @@
-{
-  "id": "root",
-  "kind": "Divider",
-  "role": "separator",
-  "props": {},
-  "children": {}
-}
+{"children":{},"id":"root","kind":"Divider","props":{},"role":"separator"}

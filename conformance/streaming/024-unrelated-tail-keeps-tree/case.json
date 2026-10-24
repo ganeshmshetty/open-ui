@@ -1,0 +1,9 @@
+{
+  "title": "Unrelated provisional statement preserves the displayed tree",
+  "tier": "core",
+  "tags": [
+    "I7",
+    "dirty"
+  ],
+  "notes": "SPEC \u00a7\u00a73.5\u20133.6: orphan tail changes must not revisit displayed nodes; deterministic work counts are tested separately at 1,000 nodes."
+}

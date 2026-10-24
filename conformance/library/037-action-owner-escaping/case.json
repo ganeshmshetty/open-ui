@@ -1,0 +1,9 @@
+{
+  "notes": "SPEC §5.5: escape percent before pipe; role namespaces and argument spelling cannot alias. Required positional arguments need no DSL named spelling.",
+  "tags": [
+    "M3",
+    "arenas"
+  ],
+  "tier": "core",
+  "title": "Source action owner escapes arbitrary host argument names"
+}

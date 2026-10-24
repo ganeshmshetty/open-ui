@@ -1,0 +1,1 @@
+[{"code":"syntax.stmt_shape","path":null,"recovery":"StatementDropped","stmt":"v"},{"code":"name.unresolved","path":"root","recovery":"ValueNulled","stmt":"root"},{"code":"query.unknown_tool","path":null,"recovery":"KeptLastGood","stmt":"q"},{"code":"name.orphan","path":null,"recovery":"None","stmt":"q"}]

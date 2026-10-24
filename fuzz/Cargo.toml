@@ -11,6 +11,7 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4"
 genui-core = { path = "../crates/genui-core" }
 genui-std = { path = "../crates/genui-std" }
+genui-conformance = { path = "../crates/genui-conformance" }
 
 [[bin]]
 name = "lexer"
@@ -43,6 +44,13 @@ bench = false
 [[bin]]
 name = "validator"
 path = "fuzz_targets/validator.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "streaming"
+path = "fuzz_targets/streaming.rs"
 test = false
 doc = false
 bench = false

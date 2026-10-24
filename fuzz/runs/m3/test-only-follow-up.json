@@ -1,0 +1,16 @@
+{
+  "production_and_fuzz_target_unchanged": true,
+  "reason": "Only cfg(test) API regressions added after the mutation audit; no production core, conformance helper, generator or fuzz-target code changed.",
+  "changed_files": {
+    "crates/genui-conformance/src/streaming.rs": {
+      "frozen_sha256": "0c2678e1e21846aa8e9c645c385e9e1cec67e2fad309fe8e269362ca5cfcced0",
+      "current_sha256": "a36d74620b910a07ccff6f40911d6f2128a370156777a81421dbeaeaa7e97073"
+    },
+    "crates/genui-core/src/syntax/quality_tests.rs": {
+      "frozen_sha256": "373815ef7b52342db80c144346da4fbfe39630bf9772abd4cdac67fe5a36d6cc",
+      "current_sha256": "08fbc05166613caa012c44f4a877b962f4dbb4dfc5ad9fe96e9f44e21facc36b"
+    }
+  },
+  "conformance_production_prefix_sha256": "a69c677d255c8293ff0d1d06390b95282af9097a2ba49dff3322c853ce9cd4aa",
+  "original_acceptance": "acceptance.json"
+}

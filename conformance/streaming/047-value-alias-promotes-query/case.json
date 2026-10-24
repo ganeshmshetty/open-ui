@@ -1,0 +1,1 @@
+{"notes":"SPEC \u00a7\u00a72.10,2.15,3.5: new value aliases extend reachability and invalidate consumers without evaluating the query.","tags":["I7","query","alias"],"tier":"core","title":"A late scalar alias promotes an orphan query"}

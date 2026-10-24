@@ -1,0 +1,3 @@
+query z=tool("known",{},default:false)
+root=Text("Value",bold:z)
+query a=tool("known",{},default:[])

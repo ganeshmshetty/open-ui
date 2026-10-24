@@ -1,0 +1,1 @@
+{"notes":"SPEC \u00a73.3.5; final member access is a static type error, but the incomplete member must not flicker.","tags":[],"tier":"core","title":"closed tail parse failure keeps previous display"}

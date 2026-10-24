@@ -1,0 +1,33 @@
+   Compiling serde_core v1.0.229
+   Compiling once_cell v1.21.4
+   Compiling num-traits v0.2.19
+   Compiling percent-encoding v2.3.2
+   Compiling serde v1.0.229
+   Compiling idna v1.1.0
+   Compiling form_urlencoded v1.2.2
+   Compiling tempfile v3.27.0
+   Compiling url v2.5.8
+   Compiling rusty-fork v0.3.1
+   Compiling proptest v1.12.0
+   Compiling serde_json v1.0.154
+   Compiling genui-core v0.1.0 (/private/tmp/genui-m3-survivor-source/crates/genui-core)
+    Finished `test` profile [optimized] target(s) in 8.17s
+     Running unittests src/lib.rs (target/debug/deps/genui_core-6521a348a5b808b9)
+
+running 1 test
+
+thread 'syntax::quality_tests::provisional_numeric_span_stays_relative_to_its_original_token' (32662695) panicked at crates/genui-core/src/syntax/quality_tests.rs:83:5:
+assertion `left == right` failed
+  left: (0, 9, 1, 1)
+ right: (6, 9, 2, 6)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test syntax::quality_tests::provisional_numeric_span_stays_relative_to_its_original_token ... FAILED
+
+failures:
+
+failures:
+    syntax::quality_tests::provisional_numeric_span_stays_relative_to_its_original_token
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 54 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p genui-core --lib`

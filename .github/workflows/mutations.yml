@@ -10,20 +10,20 @@ permissions:
 jobs:
   mutation:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[mutation-gate]')
-    name: Syntax / IR shard ${{ matrix.shard }}
+    name: Syntax / IR / patches shard ${{ matrix.shard }}
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Install mutation tester
         run: cargo install cargo-mutants --version 27.1.0 --locked
-      - name: Syntax and IR mutations with all workspace tests
-        run: python3 scripts/mutation.py --output mutation-results --shard ${{ matrix.shard }}/8
+      - name: Syntax, IR and patch mutations with all workspace tests
+        run: python3 scripts/mutation.py --output mutation-results --shard ${{ matrix.shard }}/32
       - name: Upload complete mutation evidence
         if: always()
         uses: actions/upload-artifact@v4

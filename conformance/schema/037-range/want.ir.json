@@ -1,12 +1,1 @@
-{
-  "id": "root",
-  "kind": "Heading",
-  "role": "heading",
-  "props": {
-    "text": "ok",
-    "level": {
-      "i": 4
-    }
-  },
-  "children": {}
-}
+{"children":{},"id":"root","kind":"Heading","props":{"level":{"i":4},"text":"ok"},"role":"heading"}

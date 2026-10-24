@@ -1,0 +1,3 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.08s
+     Running `target/debug/genui-cli spec-check`
+PASS: 3 ui programs and 4 ui fragments validate; 0 ui-invalid blocks rejected; 24 exemplar programs validate.

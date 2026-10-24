@@ -1,9 +1,1 @@
-{
-  "id": "root",
-  "kind": "Markdown",
-  "role": "region",
-  "props": {
-    "source": "[image: A]"
-  },
-  "children": {}
-}
+{"children":{},"id":"root","kind":"Markdown","props":{"source":"[image: A]"},"role":"region"}

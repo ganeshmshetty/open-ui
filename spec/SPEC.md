@@ -362,6 +362,11 @@ The extractor runs before the lexer. It is a line-based state machine:
 5. **Streaming.** A partial fence or a partial statement-start line at the end of a chunk is held back until its LF, or until enough tokens arrive to decide (the 2.4 lookahead).
 
 The extractor's output is an ordered list of `Segment::Markdown(String)` and at most one `Segment::Program`.
+The normalized Program segment is for message display/storage. The syntax pipeline
+also receives the selected **original bytes**, excluding fences/prose, so CRLF,
+BOM and repaired UTF-8 do not change the pre-normalization program-size budget.
+A completed closing fence flushes/seals that program immediately; later prose may
+continue streaming, and action dispatch still waits for Session::finish().
 
 ### 2.10 Reference instantiation
 
@@ -369,9 +374,16 @@ A name used as a child in several places creates one node instance per use. The 
 
 **Cycles** are defined per instantiation path. If S is instantiated while S is already an ancestor on the current path, that reference is omitted from its slot, with `name.cycle` reported at that path. This depends only on the final tree, never on the order statements arrived in.
 
+Static value/action definitions have no node-instantiation path. Their dependency
+graph is checked by strongly connected component: each cyclic component emits one
+`name.cycle`, owned by its lexicographically smallest statement, with no path and
+`ChildOmitted`. Its members have invalid static values. An acyclic statement
+referencing the component does not move or duplicate that diagnostic. Node and
+deferred-template references keep the per-instantiation rule above.
+
 **Budgets.** `max_nodes` (expanded node count) and `max_ir_depth` are allocated in canonical order: a pre-order depth-first walk from `root`, following slot order, over the current statement table.
 
-- When the walk exceeds a budget, the remaining children of that slot are omitted (`limit.nodes` or `limit.ir_depth`, once per statement).
+- When the walk exceeds a budget, the remaining children of the directly affected slot are omitted (`limit.nodes` or `limit.ir_depth`, once per statement). Diagnostic deduplication does not control traversal. A limit in a descendant slot does not stop an ancestor slot; if recovery drops the descendant component (for example `min_items`), its allocation is reclaimed before the next ancestor sibling.
 - While streaming, the allocation is recomputed after each sealing. Nodes already displayed MAY be removed by a later recomputation. They are nodes, not sealed statements, so I1 still holds.
 
 The root has IR depth 1 and counts as one node. Alias names do not add IR depth.
@@ -626,6 +638,15 @@ Some diagnostics depend on text that has not arrived yet. While streaming, they 
 - `name.orphan`.
 
 Provisional diagnostics MAY be shown in developer UI. They MUST NOT be fed back to the model.
+Implementations may conservatively retain additional semantic diagnostics as
+provisional until finish when their stability has not been established. Lexer
+errors in an open statement remain provisional until its size-cutoff decision;
+errors intersecting a skipped cutoff range disappear rather than commit. Errors
+on a possible resynchronization header stay provisional until the line decision
+fixes the skipped range. The
+current `Session::diagnostics()` list is authoritative; `Update.diagnostics` gives
+only additions/changed provisional flags, and a host replaces provisional entries
+from the current list when they disappear.
 
 ### 3.8 Complexity and performance targets
 
@@ -636,6 +657,11 @@ Provisional diagnostics MAY be shown in developer UI. They MUST NOT be fed back 
 | Parsing a sealed statement | O(statement), once |
 | Updating the IR | O(dirty nodes) |
 | Generating patches | O(changed props) |
+
+The dirty set includes changed or retracted diagnostic entries. Explicit snapshot
+observers that materialize the complete IR or diagnostic list may cost O(snapshot);
+this does not permit deferring semantic validation into an observer. Held-back
+statement prefixes count toward tail work, even before a header is recognized.
 
 Reference budgets on a 2023 Apple-silicon laptop, release build:
 
@@ -939,15 +965,28 @@ pub struct Props(SmallVec<[(PropId, Prop); 6]>);
 - **Tokens.** Design tokens such as `gap: 3` and `tone: "danger"` are checked against token scales. The model never supplies pixels or colors.
 
 For static-only IR snapshots, a Dynamic prop is encoded as `{"dynamic": N}`;
-`N` indexes the deterministic expression arena. Node slots separately retain
+`N` is a deterministic dense snapshot index, assigned on first use in the canonical
+validation walk (including checks before recovery drops). It is an observer view,
+not live identity. In memory, `ExprId` is an opaque structural identity including
+recovered-null metadata; hash collisions compare the full identity. Inserting an
+earlier expression MUST NOT renumber retained props. Expression owners release
+obsolete references when rechecked, so growing a tail does not retain its old
+expression bodies. Node slots separately retain
 `SlotPlan { base, expression, accepts }` for data-dependent node expressions;
 empty concrete children do not imply an empty plan. Plans preserve source bases,
 lambda scopes and accepted component types without manufacturing instances.
 The IR also retains the canonical node-statement template table used by named
 references inside these plans; no definition is lost when a template is deferred.
-Action handles index ordered typed steps, bound to their owning node and form
-scope. Capability fallbacks whose text depends on data retain the original node,
-descendants and `to_text` template beside the Dynamic expression, for M4 to render.
+Static action-plan references use the source-owner string
+`<NodePath>|arg:<escaped-argument>`. In the argument, `%` becomes `%25` and `|`
+becomes `%7C`; the final literal `|` is therefore unambiguous even for host-defined
+argument names. This identity is independent of plan storage/arrival order and
+refers to ordered typed steps bound to their owning node and form scope. M2/M3
+plans are inert. M4 replaces these source references in resolved props with opaque
+runtime handles tied to the current epoch (§7.4); source-owner identity alone is
+not an authorization to dispatch an event. Capability fallbacks whose text
+depends on data retain the original node, descendants and `to_text` template
+beside the Dynamic expression, for M4 to render.
 This includes literal data tables and floats: M2 does not substitute JSON or
 platform number formatting for the specified text/table formatter.
 Non-literal list/map constructors (including containers over statement references)
@@ -955,8 +994,10 @@ remain expression plans. M2 does not fold data through the value table; this als
 keeps long alias/container chains from recursively growing cached value types.
 Direct aliases of literal constants can still resolve statically.
 
-These arenas are process-local validation output; M3 patches serialize resolved
-wire values according to §6.5, not these static snapshot markers.
+These arenas are process-local validation output. In the static-only M3 phase,
+a dynamic prop is carried as `{"deferred": <structural Expr AST>}` in patches,
+without evaluation; unlike an arena index, this survives unrelated arena growth.
+M4 replaces this staging representation with resolved values (§6.5/G9).
 
 ### 5.6 Statement kinds and node expressions
 
@@ -995,6 +1036,10 @@ pub enum ResolvedProp { Value(Value), Token(TokenValue), Binding(StateKey), Acti
 ```
 
 `NodeInit` never contains children. Children arrive as their own `Insert` ops.
+The root uses `parent: null`, `slot: "root"`, `index: 0`. Wire props use names
+and §6.5 values; process-local numeric IDs are resolved through the library.
+During M3, static action handles are inert plans; no requests, events or execution
+are implemented. Provisional nodes carry no action handle. A sealed consumer that depends on a provisional action alias also withholds that handle until the dependency seals.
 
 ### 6.3 Guarantees
 
@@ -1008,7 +1053,7 @@ pub enum ResolvedProp { Value(Value), Token(TokenValue), Binding(StateKey), Acti
 - **G6. Replay.** Replaying every batch of an epoch from its `Reset` produces exactly the resolved tree the core holds.
 - **G7. Sequence numbers.** `seq` increases by one per batch within an epoch. A renderer that sees a gap asks the host to call `Session::snapshot()`. The snapshot is a `Reset` plus inserts, and it carries the current epoch and the next `seq`.
 - **G8. Epochs.** `epoch` changes only on `reset()`, which the host calls on regenerate. A renderer discards batches from older epochs.
-- **G9. Resolved props.** Patches carry resolved props: expressions are already evaluated. Bindings, action plans and query status remain as handles, which the renderer passes back in events.
+- **G9. Resolved props (from M4).** Patches carry resolved props: expressions are already evaluated. In M3 only, unevaluated data props use the explicit `deferred` staging representation (§5.5); no evaluator is implied. Bindings, action plans and query status remain as handles, which the renderer passes back in events.
 
 ### 6.4 Coalescing
 
@@ -1020,6 +1065,11 @@ Within one batch the core coalesces ops:
 - ops are ordered parents before children, and siblings by index.
 
 The renderer SHOULD apply at most one batch per frame, merging queued batches in order (10.6).
+M3 computes the diff from the previous displayed tree to the chunk's final tree,
+so intermediate insert/remove pairs and repeated writes do not escape. Root-first
+pre-order uses slot-name byte order between distinct slots and sibling index
+within a slot. Equal props produce no op; a string extension uses append_text,
+other value changes use one set_props per node. Kind changes remove then insert.
 
 ### 6.5 JSON encoding (normative)
 
@@ -1038,11 +1088,11 @@ Batches are serde types. The reference encoding is JSON Lines, one batch per lin
 | `Null`, `Bool`, `Str` | JSON null, boolean and string. Provenance is not serialized, except in fixtures of category `provenance`, which use `{"s":"text","prov":"tool"}`. |
 | `Int` | `{"i":2}` |
 | `Float` | `{"f":2.5}` |
-| `List`, `Map` | A JSON array, and a JSON object with insertion order kept. |
+| `List`, `Map` | A JSON array; a map is `{"map":[["key", value], ...]}` with entry order kept. The tag prevents collisions with numeric/ref/token/handle objects, and an ordered pair array survives canonical object-key sorting. Plain Library Spec metadata/default values remain ordinary JSON. |
 | `Ref` | `{"ref":"t4.places"}` |
 | `Token` | `{"tok":["space",3]}` |
 | `Binding` | `{"bind":"$name"}` |
-| `Action` | `{"action":17}` |
+| `Action` | `{"action":"<opaque handle>"}`. Static M2/M3 inspection uses the source-owner key (`"root|arg:on_click"`); M4 runtime handles also bind the current epoch (7.4). |
 | `Status` | `{"status":"loading"}`. The values are `idle`, `loading`, `ready`, `refreshing` and `failed`. |
 
 Example:
@@ -1340,7 +1390,7 @@ without unnecessary ASCII escaping, and shortest round-trip JSON number formatti
 (preserving `.0` for a float with an integral value). Array order is preserved.
 The `hash` member is excluded from the hashed document. The hash is xxh3-128,
 32 lowercase hexadecimal digits, and is stamped into stored messages.
-The checked-in golden is compared byte for byte; tests never rewrite it.
+The checked-in golden is compact canonical JSON followed by one file-terminating LF (excluded from the hashed document), compared byte for byte; tests never rewrite it.
 
 ### 8.3 Types
 
@@ -1790,7 +1840,9 @@ conformance/
     case.json                 title, tier, tags, limits overrides, notes
     input.ui                  whole program, or a full model reply with prose and fence
     stream.json               optional explicit chunking (array of strings)
-    script.json               interactive tier: events, deliveries, clock advances
+    script.json               interactive tier: events, deliveries, clock advances;
+                              patches core tier may use session commands push/finish/snapshot/reset
+    checkpoints.json          streaming: exact explicit-stream node/prop/status checks
     want.tokens.json          ordered lexical tokens (category lex only)
     want.ast.json             structural AST (M1 syntax categories and fuzz-regress)
     want.segments.json        ordered Markdown/Program text segments (category extract)
@@ -1812,7 +1864,7 @@ If an implementation and a fixture disagree, the disagreement is treated as a sp
 
 - **Lexical tokens** are compared as an ordered array of `{kind, text}` in `want.tokens.json`. String text is decoded, state text omits `$`, newlines use LF, and other tokens retain their source spelling. Source locations are not compared. In `lex`, `want.diag.json` contains only the four diagnostic comparison fields below; `stmt` and `path` are null for standalone lexical scans. Lexical fixtures do not require IR or patches. Strict schemas live in `conformance/schemas/`.
 - **AST** is compared structurally as strict JSON (schemas in `conformance/schemas/ast.schema.json`), excluding source locations and diagnostics. `grammar`, `statements`, `extract` and syntax `fuzz-regress` fixtures use AST goldens until IR exists in M2. `extract` also compares the ordered `{kind, text}` segment array exactly. M1 fixtures do not require IR or patches.
-- **IR** is compared as canonical JSON: sorted keys, `{id, kind, role, props, children}`, absent props omitted, encoded as in 6.5.
+- **IR** goldens are compact canonical JSON followed by one file-terminating LF, and are compared as canonical JSON: sorted keys, `{id, kind, role, props, children}`, absent props omitted, encoded as in 6.5. `children` includes every validated slot, including its empty array. Retained patch-tree comparisons normalize empty slots, since inserts do not carry empty slot declarations.
 - **Diagnostics** are compared as a multiset of `(code, stmt, path, recovery)`. `message` and `hint` are not compared, except in category `feedback`, which compares the rendered `ui-diag` text byte for byte.
 - **Patches** are compared exactly in category `patches`. Elsewhere they are checked by replay: applying them to an empty tree must give `want.ir.json` or `want.resolved.json`.
 - **Prompts and the Library Spec** are compared byte for byte.
@@ -1920,6 +1972,17 @@ slot; source paths retain their original positions. An absent root prints
 path (`-` if absent). Exit status is nonzero for Warning+ diagnostics or I/O/usage
 errors; diagnostic reports go to stdout and operational errors to stderr.
 
+`replay` uses raw DSL and the same default host policy as tree. Its default
+chunk size is 64 bytes; `--chunk N` must be positive. Each chunk prints its byte
+range, phase, canonical patch JSON (including empty batches) and the canonical
+wire tree including statuses and deferred expressions. Finish prints its final
+update and diagnostics. Warning+ diagnostics fail; usage/I/O errors go to stderr.
+`push` emits one batch per accepted chunk, even when ops are empty. `finish` emits
+a batch only if it changes the tree (or initializes a new session); repeated
+finish/push after finish are inert. `snapshot` returns an Update containing Reset
+and inserts and consumes the next sequence number in the current epoch. `reset`
+clears syntax, diagnostics/prose/IR, increments epoch and emits seq 0 Reset.
+
 ### 12.8 Quality gates (CI)
 
 These run in CI and fail the build. They turn the AGENTS.md rules into checks.
@@ -1934,7 +1997,7 @@ These run in CI and fail the build. They turn the AGENTS.md rules into checks.
    codes to actual diagnostic fixtures and `conformance/deferred.json` contains
    only `{milestone, reason}` records. The table/audit tests reject unknown codes,
    missing fixtures and empty reasons.
-7. **Mutation testing:** `cargo-mutants` on `syntax` and `ir` runs before a milestone is marked done; surviving mutants are fixed or justified in PROGRESS.md. (Not on every push.)
+7. **Mutation testing (advisory):** `cargo-mutants` runs nightly and on demand over `syntax`, `ir`, `patch`, Session and canonical encoding. Its report must cover a complete inventory and review surviving mutants, but it does **not** block a merge or milestone. Fix or record survivors when they protect a behavior on the current critical path; otherwise they stay in the backlog. A small per-PR subset may be run for changes to these modules.
 
 The source scanner checks project Rust files under `crates/` and `fuzz/`, including
 untracked files locally. It recognizes comments, literals and conditional ignore
@@ -1946,15 +2009,20 @@ transitive core graph across targets and optional features, including dev-only
 edges. New UI/async families must be added to this policy when introduced.
 Fixture protection checks each commit independently, including additions,
 deletions and renames; a later spec edit cannot excuse an earlier golden change.
-The milestone-only mutation workflow runs manually or on an explicit
-`[mutation-gate]` push, and checks all syntax/IR mutants with workspace
-tests in an isolated project-only copy. Results, source hashes, tool version and
-any survivor rationale are retained in milestone metadata. Eight CI shards must
-cover the frozen inventory exactly once and use identical current source hashes;
-each baseline must pass, and every survivor needs a source-matched rationale.
-Build timeouts fail the gate; test timeouts are killed mutants under the mutation
-tool's model. Direct public API contracts and nested
-recovery metadata need assertions as well as end-to-end fixtures. Lexical cases
+The advisory mutation workflow runs nightly or manually, and checks all
+syntax/IR/patch/Session/canonical mutants with workspace tests in an isolated
+project-only copy. Results, source hashes, tool version and survivor rationales are
+retained as backlog evidence. Shards should cover the inventory exactly once and use
+identical source hashes, but an incomplete or failed run is a report to triage, not
+a merge blocker. Build timeouts are defects worth fixing; test timeouts are killed
+mutants under the mutation tool's model. Direct public API contracts and nested
+recovery metadata need assertions as well as end-to-end fixtures. Streaming
+assertions include both operands of binary/index dependencies, raw byte endpoints
+after UTF-8 repair and CRLF normalization, exact closed-copy lambda/named-argument
+tails, and live cutoff diagnostic retention/suppression before resynchronization.
+Mutation builds may optimize tests and omit debug symbols; all workspace tests,
+the complete inventory and the source-matched survivor review remain mandatory.
+Lexical cases
 include EOF without a terminating newline for pending symbols, `$`, `\u` and
 `\u{...`; token and recovery spans are asserted directly. Expression-depth
 cutoff cases retain enclosing delimiters and siblings while skipping nested
@@ -1991,7 +2059,7 @@ impl Session {
     pub fn advance_clock(&mut self, now_ms: u64) -> Update;  // debounce timers
 
     // Inspection
-    pub fn snapshot(&mut self) -> PatchBatch;                // reset + inserts, current epoch, next seq
+    pub fn snapshot(&mut self) -> Update;                // reset + inserts, current epoch, next seq
     pub fn diagnostics(&self) -> &[Diagnostic];
     pub fn feedback(&self) -> Option<String>;                // 4.6, after finish
     pub fn fallback_text(&self) -> String;
@@ -2034,7 +2102,7 @@ pub fn render_event(ev: &ModelEvent) -> String;
 | M0 | Workspace, CI, conformance runner skeleton, fixture schemas, fuzz stubs, `spec-check` | CI green; `lex` fixtures pass; every ```` ```ui ```` block in this spec at least lexes. |
 | M1 | Lexer, splitter, extractor, batch parser, AST | `lex`, `grammar`, `statements` and `extract` pass; round-trip property passes; 10 minutes of fuzzing is clean. |
 | M2 | Library model, builder, `<name>-std` (8.8), Library Spec JSON; resolver, validator, recovery ladder, IR with path IDs, limits | `library`, `resolve`, `schema`, `ir` and `limits` pass, including permutations; one fixture per diagnostic code; `spec-check` passes on every example. |
-| M3 | Streaming parser: tail closing, sealing, held-back bytes, provisional diagnostics, dirty tracking, patches | `streaming` and `patches` pass under every chunking; stream equals batch on 100k generated programs. |
+| M3 | Streaming parser: tail closing, sealing, held-back bytes, provisional diagnostics, dirty tracking, patches | `streaming` and `patches` pass under every chunking; stream equals batch on 100k generated programs; CI and a fresh 601-second fuzz campaign are green. Mutation survivors are advisory and recorded. |
 | M4 | Runtime: values, builtins, provenance, state, forms, actions, queries, refs | `numbers`, `expr`, `iteration`, `state`, `forms`, `actions`, `queries`, `refs` and `provenance` pass in both tiers. |
 | M5 | Prompt generator, feedback, stored messages, events | `prompt`, `feedback` and `message` pass; prompt bytes identical on macOS and Linux CI. |
 | M6 | GPUI skeleton: pins, `UiView` queue, retained tree, cached child views, layout and text components, theming | A fixture streams live in a demo window; recorded patch streams replay without panic; frame and memory numbers recorded; the gallery app (12.7) renders every implemented component's examples in light and dark, and the screenshot set has been reviewed against DESIGN.md with every finding fixed or logged in PROGRESS.md. |

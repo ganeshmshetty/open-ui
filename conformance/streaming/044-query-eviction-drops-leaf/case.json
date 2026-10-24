@@ -1,0 +1,1 @@
+{"limits":{"max_queries":1},"notes":"SPEC \u00a7\u00a72.15,3.5\u20133.6,5.3: failed leaf checks are retained; a query change can create or drop the root without replaying unrelated definitions.","tags":["I7","query","recovery"],"tier":"core","title":"044-query-eviction-drops-leaf"}

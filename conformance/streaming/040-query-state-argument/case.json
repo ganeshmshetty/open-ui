@@ -1,0 +1,1 @@
+{"limits":{},"notes":"SPEC \u00a7\u00a72.15,3.5\u20133.6: query metadata and canonical budgets update without revalidating unrelated nodes. No request is issued in M3.","tags":["I7","query"],"tier":"core","title":"040-query-state-argument"}

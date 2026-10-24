@@ -1,0 +1,3 @@
+query q=tool("known",{bad:needle},default:[])
+root=Column([needle])
+needle=Divider()

@@ -80,15 +80,22 @@ impl MessageParser {
         let extracted = self.extractor.finish();
         let mut parsed = if extracted.rejected {
             ParseResult::default()
-        } else if let Some(Segment::Program(source)) = extracted
+        } else if extracted
             .segments
             .iter()
-            .find(|s| matches!(s, Segment::Program(_)))
+            .any(|s| matches!(s, Segment::Program(_)))
         {
-            parse_batch(source.as_bytes(), self.limits)
+            parse_batch(&extracted.program_raw, self.limits)
         } else {
             ParseResult::default()
         };
+        if extracted
+            .diagnostics
+            .iter()
+            .any(|d| d.code == Code::BadUtf8)
+        {
+            parsed.diagnostics.retain(|d| d.code != Code::BadUtf8);
+        }
         parsed.diagnostics.extend(extracted.diagnostics.clone());
         order_diagnostics(&mut parsed.diagnostics);
         (extracted, parsed)
@@ -100,7 +107,7 @@ pub fn parse_message(bytes: &[u8], limits: SyntaxLimits) -> (ExtractResult, Pars
     parser.finish()
 }
 
-fn parse_split(split: SplitResult, limits: &SyntaxLimits) -> ParseResult {
+pub(crate) fn parse_split(split: SplitResult, limits: &SyntaxLimits) -> ParseResult {
     let mut result = ParseResult {
         program: Program::default(),
         diagnostics: split.diagnostics,

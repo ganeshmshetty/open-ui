@@ -1,0 +1,1 @@
+{"notes":"SPEC \u00a7\u00a73.5,4,8.8: failures after ordinary prop validation must update retained check diagnostics, not accumulate stale copies.","tags":["I7","recovery","Facts"],"tier":"core","title":"Failed post-validation checks replace their diagnostic ownership"}

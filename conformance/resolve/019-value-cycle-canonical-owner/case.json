@@ -1,0 +1,1 @@
+{"tier":"core","title":"Static value cycles have a stable canonical owner","notes":"SPEC §2.10: an earlier acyclic user must not move the diagnostic within a retained value cycle.","tags":["cycle","I7","canonical"]}

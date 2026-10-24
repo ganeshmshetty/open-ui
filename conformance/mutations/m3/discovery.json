@@ -1,0 +1,3514 @@
+{
+  "accepted": false,
+  "complete": false,
+  "commit": "ffd602f41f7f06339a658fd45bf4b29e765fe963",
+  "run_url": "https://github.com/ganeshmshetty/open-ui/actions/runs/39777596929",
+  "missing_shards": [
+    4
+  ],
+  "reason": "Shard 4 runner shutdown; shards 1 and 6 exposed unreviewed survivors. Preserved as discovery only.",
+  "shards": [
+    {
+      "shard": "syntax-ir-mutations-0",
+      "outcomes_sha256": "87d851940c8e458b57801cbf93cb30a7a807541109706dd199cbd235b8770924",
+      "counts": {
+        "Success": 1,
+        "CaughtMutant": 69,
+        "Timeout": 41,
+        "Unviable": 11
+      },
+      "errors": [],
+      "mutants": [
+        {
+          "name": "crates/genui-core/src/canonical.rs:8:5: replace encode -> String with String::new()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/canonical.rs:13:5: replace serialize -> Result<String, serde_json::Error> with Ok(String::new())",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/canonical.rs:8:5: replace encode -> String with \"xyzzy\".into()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/canonical.rs:13:5: replace serialize -> Result<String, serde_json::Error> with Ok(\"xyzzy\".into())",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/canonical.rs:16:5: replace string with ()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/canonical.rs:26:19: replace match guard ch < '\\u{0020}' with true in string",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/canonical.rs:26:22: replace < with == in string",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/canonical.rs:26:22: replace < with > in string",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/canonical.rs:26:22: replace < with <= in string",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/canonical.rs:26:19: replace match guard ch < '\\u{0020}' with false in string",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/canonical.rs:35:5: replace write_value with ()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/canonical.rs:44:22: replace > with == in write_value",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/canonical.rs:44:22: replace > with < in write_value",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/canonical.rs:44:22: replace > with >= in write_value",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/canonical.rs:56:22: replace > with == in write_value",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/canonical.rs:56:22: replace > with < in write_value",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:155:9: replace Ir::intern -> ExprId with Default::default()",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/canonical.rs:56:22: replace > with >= in write_value",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:158:34: replace && with || in Ir::intern",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:158:29: replace == with != in Ir::intern",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:167:9: replace Ir::canonical_tree -> serde_json::Value with Default::default()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:168:13: replace Ir::canonical_tree::tree -> serde_json::Value with Default::default()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:213:5: replace escape_key -> String with String::new()",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:213:5: replace escape_key -> String with \"xyzzy\".into()",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:216:13: delete match arm '/' in escape_key",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:217:13: delete match arm ':' in escape_key",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:218:13: delete match arm '%' in escape_key",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:219:13: delete match arm '~' in escape_key",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:228:9: replace NodePath::root -> Self with Default::default()",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:231:9: replace NodePath::child -> Self with Default::default()",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:239:9: replace NodePath::element -> (Self, Option<Code>) with (Default::default(), None)",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:239:9: replace NodePath::element -> (Self, Option<Code>) with (Default::default(), Some(Default::default()))",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:220:13: delete match arm '#' in escape_key",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:240:13: delete match arm Some(Value::Str(s)) in NodePath::element",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:241:13: delete match arm Some(Value::Int(i)) in NodePath::element",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:245:24: replace match guard seen.insert(k.clone()) with true in NodePath::element",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:263:9: replace IdAllocator::allocate -> NodeId with Default::default()",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:267:9: replace IdAllocator::allocate_with -> NodeId with Default::default()",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:245:24: replace match guard seen.insert(k.clone()) with false in NodePath::element",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:271:35: replace match guard existing != path with true in IdAllocator::allocate_with",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:271:35: replace match guard existing != path with false in IdAllocator::allocate_with",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:271:44: replace != with == in IdAllocator::allocate_with",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:286:9: replace IdAllocator::path -> Option<&NodePath> with Some(Box::leak(Box::new(Default::default())))",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:21:9: replace PatchBatch::canonical_json -> Result<String, serde_json::Error> with Ok(String::new())",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:21:9: replace PatchBatch::canonical_json -> Result<String, serde_json::Error> with Ok(\"xyzzy\".into())",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/ir.rs:286:9: replace IdAllocator::path -> Option<&NodePath> with None",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:95:9: replace Replay::apply -> ApplyReport with Default::default()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:96:51: replace < with == in Replay::apply",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:96:51: replace < with <= in Replay::apply",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:101:36: replace != with == in Replay::apply",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:96:51: replace < with > in Replay::apply",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:102:23: replace && with || in Replay::apply",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:102:26: delete ! in Replay::apply",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:103:13: replace || with && in Replay::apply",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:103:58: replace && with || in Replay::apply",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:103:28: replace && with || in Replay::apply",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:103:41: replace != with == in Replay::apply",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:103:17: delete ! in Replay::apply",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:103:61: delete ! in Replay::apply",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:103:69: replace && with || in Replay::apply",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:111:19: replace && with || in Replay::apply",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:103:82: replace >= with < in Replay::apply",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:111:12: delete ! in Replay::apply",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:135:9: replace Tree::from_ir -> Self with Default::default()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:204:9: replace Tree::canonical_tree -> J with Default::default()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:205:13: replace Tree::canonical_tree::visit -> J with Default::default()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:224:9: replace Tree::attach -> Result<(), String> with Ok(())",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:178:20: delete ! in Tree::from_ir",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:226:22: replace > with == in Tree::attach",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:226:22: replace > with < in Tree::attach",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:226:22: replace > with >= in Tree::attach",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:234:22: replace != with == in Tree::attach",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:234:27: replace || with && in Tree::attach",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:234:75: replace != with == in Tree::attach",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:249:17: replace && with || in Tree::detach",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:242:9: replace Tree::detach with ()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:256:40: replace == with != in Tree::detach",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:251:39: replace != with == in Tree::detach",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:261:9: replace Tree::apply -> Result<BTreeSet<String>, String> with Ok(BTreeSet::new())",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:261:9: replace Tree::apply -> Result<BTreeSet<String>, String> with Ok(BTreeSet::from_iter([String::new()]))",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:261:9: replace Tree::apply -> Result<BTreeSet<String>, String> with Ok(BTreeSet::from_iter([\"xyzzy\".into()]))",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:312:32: replace || with && in Tree::apply",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:312:26: replace == with != in Tree::apply",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:312:35: delete ! in Tree::apply",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:327:75: replace && with || in Tree::apply",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:327:64: replace == with != in Tree::apply",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:327:87: replace == with != in Tree::apply",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:332:21: replace || with && in Tree::apply",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:331:36: replace > with < in Tree::apply",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:331:36: replace > with == in Tree::apply",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:331:36: replace > with >= in Tree::apply",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:332:42: replace && with || in Tree::apply",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:377:9: replace Tree::preorder -> Vec<(String, Option<String>, String, u32)> with vec![]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:377:9: replace Tree::preorder -> Vec<(String, Option<String>, String, u32)> with vec![(String::new(), None, String::new(), 0)]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:377:9: replace Tree::preorder -> Vec<(String, Option<String>, String, u32)> with vec![(String::new(), None, String::new(), 1)]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:377:9: replace Tree::preorder -> Vec<(String, Option<String>, String, u32)> with vec![(String::new(), None, \"xyzzy\".into(), 0)]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:332:84: replace != with == in Tree::apply",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:377:9: replace Tree::preorder -> Vec<(String, Option<String>, String, u32)> with vec![(String::new(), None, \"xyzzy\".into(), 1)]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:377:9: replace Tree::preorder -> Vec<(String, Option<String>, String, u32)> with vec![(String::new(), Some(String::new()), String::new(), 0)]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:377:9: replace Tree::preorder -> Vec<(String, Option<String>, String, u32)> with vec![(String::new(), Some(String::new()), String::new(), 1)]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:377:9: replace Tree::preorder -> Vec<(String, Option<String>, String, u32)> with vec![(String::new(), Some(String::new()), \"xyzzy\".into(), 0)]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:377:9: replace Tree::preorder -> Vec<(String, Option<String>, String, u32)> with vec![(String::new(), Some(String::new()), \"xyzzy\".into(), 1)]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:377:9: replace Tree::preorder -> Vec<(String, Option<String>, String, u32)> with vec![(String::new(), Some(\"xyzzy\".into()), String::new(), 0)]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:377:9: replace Tree::preorder -> Vec<(String, Option<String>, String, u32)> with vec![(String::new(), Some(\"xyzzy\".into()), String::new(), 1)]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:377:9: replace Tree::preorder -> Vec<(String, Option<String>, String, u32)> with vec![(String::new(), Some(\"xyzzy\".into()), \"xyzzy\".into(), 0)]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:377:9: replace Tree::preorder -> Vec<(String, Option<String>, String, u32)> with vec![(\"xyzzy\".into(), None, String::new(), 0)]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:377:9: replace Tree::preorder -> Vec<(String, Option<String>, String, u32)> with vec![(String::new(), Some(\"xyzzy\".into()), \"xyzzy\".into(), 1)]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:377:9: replace Tree::preorder -> Vec<(String, Option<String>, String, u32)> with vec![(\"xyzzy\".into(), None, \"xyzzy\".into(), 0)]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:377:9: replace Tree::preorder -> Vec<(String, Option<String>, String, u32)> with vec![(\"xyzzy\".into(), None, String::new(), 1)]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:377:9: replace Tree::preorder -> Vec<(String, Option<String>, String, u32)> with vec![(\"xyzzy\".into(), None, \"xyzzy\".into(), 1)]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:377:9: replace Tree::preorder -> Vec<(String, Option<String>, String, u32)> with vec![(\"xyzzy\".into(), Some(String::new()), String::new(), 0)]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:377:9: replace Tree::preorder -> Vec<(String, Option<String>, String, u32)> with vec![(\"xyzzy\".into(), Some(String::new()), String::new(), 1)]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:377:9: replace Tree::preorder -> Vec<(String, Option<String>, String, u32)> with vec![(\"xyzzy\".into(), Some(String::new()), \"xyzzy\".into(), 0)]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:377:9: replace Tree::preorder -> Vec<(String, Option<String>, String, u32)> with vec![(\"xyzzy\".into(), Some(String::new()), \"xyzzy\".into(), 1)]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:377:9: replace Tree::preorder -> Vec<(String, Option<String>, String, u32)> with vec![(\"xyzzy\".into(), Some(\"xyzzy\".into()), String::new(), 0)]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:377:9: replace Tree::preorder -> Vec<(String, Option<String>, String, u32)> with vec![(\"xyzzy\".into(), Some(\"xyzzy\".into()), String::new(), 1)]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:377:9: replace Tree::preorder -> Vec<(String, Option<String>, String, u32)> with vec![(\"xyzzy\".into(), Some(\"xyzzy\".into()), \"xyzzy\".into(), 0)]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:377:9: replace Tree::preorder -> Vec<(String, Option<String>, String, u32)> with vec![(\"xyzzy\".into(), Some(\"xyzzy\".into()), \"xyzzy\".into(), 1)]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:398:9: replace Tree::diff -> Vec<Op> with vec![Default::default()]",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:398:9: replace Tree::diff -> Vec<Op> with vec![]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:407:54: replace != with == in Tree::diff",
+          "summary": "CaughtMutant"
+        }
+      ]
+    },
+    {
+      "shard": "syntax-ir-mutations-1",
+      "outcomes_sha256": "a79bce59362ee86e808785df1ba456e41bdccc8f6a0857153daf4b95d58c8b59",
+      "counts": {
+        "Success": 1,
+        "CaughtMutant": 31,
+        "Timeout": 75,
+        "Unviable": 14,
+        "MissedMutant": 1
+      },
+      "errors": [
+        "unreviewed or stale survivor: crates/genui-core/src/session.rs:629:9: delete match arm Expr::Binary{left, right, ..} | Expr::Index{base:left, index:right,} in dependencies"
+      ],
+      "mutants": [
+        {
+          "name": "crates/genui-core/src/patch.rs:424:16: delete ! in Tree::diff",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:444:53: replace || with && in Tree::diff",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:442:55: replace == with != in Tree::diff",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:444:25: replace != with == in Tree::diff",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:444:45: replace != with == in Tree::diff",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:444:65: replace != with == in Tree::diff",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:444:35: replace || with && in Tree::diff",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:461:44: replace == with != in Tree::diff",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:465:63: replace match guard new.starts_with(old) with true in Tree::diff",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:481:29: delete ! in Tree::diff",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:465:63: replace match guard new.starts_with(old) with false in Tree::diff",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:484:16: delete ! in Tree::diff",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:484:35: delete ! in Tree::diff",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:484:32: replace || with && in Tree::diff",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:492:32: replace != with == in Tree::diff",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:502:9: replace Tree::snapshot_ops -> Vec<Op> with vec![Default::default()]",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:502:9: replace Tree::snapshot_ops -> Vec<Op> with vec![]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:517:5: replace strip_invisibles -> String with String::new()",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:517:5: replace strip_invisibles -> String with \"xyzzy\".into()",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:520:5: replace wire_value -> J with Default::default()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:517:28: delete ! in strip_invisibles",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:522:9: delete match arm Value::List(items) in wire_value",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:523:9: delete match arm Value::Map(items) in wire_value",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:521:26: replace match guard s.prov == Provenance::Model with true in wire_value",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:521:26: replace match guard s.prov == Provenance::Model with false in wire_value",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:41:9: replace SessionOptions::program -> Self with Default::default()",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/patch.rs:521:33: replace == with != in wire_value",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:42:13: delete field input from struct Self expression in SessionOptions::program",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:113:58: replace += with -= in DirtyTracking::change",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:96:9: replace DirtyTracking::change with ()",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:113:58: replace += with *= in DirtyTracking::change",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:122:9: replace DirtyTracking::instance -> Revision with Default::default()",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:209:9: replace Session::push -> Update with Default::default()",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:126:16: delete ! in DirtyTracking::instance",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:235:32: replace += with -= in Session::feed_program",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:225:9: replace Session::feed_program with ()",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:242:9: replace Session::finish -> Update with Default::default()",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:260:9: replace Session::reset -> Update with Default::default()",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:271:9: replace Session::snapshot -> Update with Default::default()",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:274:9: replace Session::ir -> &Ir with Box::leak(Box::new(Default::default()))",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:235:32: replace += with *= in Session::feed_program",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:277:9: replace Session::tree -> &Tree with Box::leak(Box::new(Default::default()))",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:280:9: replace Session::diagnostics -> &[Diagnostic] with Vec::leak(vec![Default::default()])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:283:9: replace Session::parser_work -> crate::syntax::streaming::ScanWork with Default::default()",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:286:9: replace Session::seals -> &[Seal] with Vec::leak(Vec::new())",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:280:9: replace Session::diagnostics -> &[Diagnostic] with Vec::leak(Vec::new())",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:286:9: replace Session::seals -> &[Seal] with Vec::leak(vec![Default::default()])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:289:9: replace Session::provisional_origins -> &BTreeSet<String> with Box::leak(Box::new(BTreeSet::new()))",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:289:9: replace Session::provisional_origins -> &BTreeSet<String> with Box::leak(Box::new(BTreeSet::from_iter([String::new()])))",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:289:9: replace Session::provisional_origins -> &BTreeSet<String> with Box::leak(Box::new(BTreeSet::from_iter([\"xyzzy\".into()])))",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:292:9: replace Session::reused_instances -> usize with 0",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:292:9: replace Session::reused_instances -> usize with 1",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:295:9: replace Session::dirty -> &DirtyTracking with Box::leak(Box::new(Default::default()))",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:298:9: replace Session::segments -> &[Segment] with Vec::leak(vec![Default::default()])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:303:9: replace Session::phase -> SessionPhase with Default::default()",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:298:9: replace Session::segments -> &[Segment] with Vec::leak(Vec::new())",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:304:13: replace || with && in Session::phase",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:308:56: replace && with || in Session::phase",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:308:37: replace == with != in Session::phase",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:308:59: delete ! in Session::phase",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:313:50: replace || with && in Session::phase",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:320:9: replace Session::empty_update -> Update with Default::default()",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:330:9: replace Session::rebuild with ()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:313:53: delete ! in Session::phase",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:330:51: replace != with == in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:338:22: replace || with && in Session::rebuild",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:338:32: replace || with && in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:354:39: replace += with -= in Session::rebuild",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:338:35: delete ! in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:354:39: replace += with *= in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:361:32: replace == with != in Session::rebuild",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:364:13: replace || with && in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:363:43: replace != with == in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:365:17: delete match arm (Some(a), Some(b)) in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:365:39: delete ! in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:375:53: replace || with && in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:375:43: replace || with && in Session::rebuild",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:375:22: replace || with && in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:403:39: replace += with -= in Session::rebuild",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:375:56: delete ! in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:403:39: replace += with *= in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:408:16: delete ! in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:414:37: replace == with != in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:419:48: delete ! in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:442:29: replace && with || in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:446:59: replace == with != in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:483:41: replace == with != in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:494:17: replace && with || in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:494:20: delete ! in Session::rebuild",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:499:12: delete ! in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:504:25: replace || with && in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:503:28: replace != with == in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:504:28: delete ! in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:507:45: replace == with != in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:522:52: replace && with || in Session::rebuild",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:522:70: replace && with || in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:522:33: replace == with != in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:522:55: delete ! in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:529:9: replace Session::update -> Update with Default::default()",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:522:80: replace == with != in Session::rebuild",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:529:50: replace || with && in Session::update",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:529:38: replace || with && in Session::update",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:531:35: replace || with && in Session::update",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:531:38: delete ! in Session::update",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:529:53: delete ! in Session::update",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:542:37: replace || with && in Session::update",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:542:40: delete ! in Session::update",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:567:21: replace && with || in Session::update",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:567:24: delete ! in Session::update",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:581:65: replace == with != in Session::update",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:599:5: replace key -> String with String::new()",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:599:5: replace key -> String with \"xyzzy\".into()",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:599:15: replace == with != in key",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:606:5: replace dependencies with ()",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:607:9: delete match arm Expr::Name{name} in dependencies",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:610:9: delete match arm Expr::State{name} in dependencies",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:613:9: delete match arm Expr::List{items} in dependencies",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:618:9: delete match arm Expr::Map{entries} in dependencies",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:623:9: delete match arm Expr::Call{args, ..} in dependencies",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:628:9: delete match arm Expr::Unary{expr, ..} | Expr::Member{base:expr, ..} in dependencies",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:629:9: delete match arm Expr::Binary{left, right, ..} | Expr::Index{base:left, index:right,} in dependencies",
+          "summary": "MissedMutant"
+        }
+      ]
+    },
+    {
+      "shard": "syntax-ir-mutations-2",
+      "outcomes_sha256": "4fc9f824b0e509f0d4467fe6b80c6b1f47289dac2c0c7b5506819174d60dce89",
+      "counts": {
+        "Success": 1,
+        "Timeout": 95,
+        "Unviable": 11,
+        "CaughtMutant": 15
+      },
+      "errors": [],
+      "mutants": [
+        {
+          "name": "crates/genui-core/src/session.rs:637:9: delete match arm Expr::Lambda{params, body} in dependencies",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/session.rs:640:52: delete ! in dependencies",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/ast.rs:131:9: replace Expr::null -> Self with Default::default()",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/ast.rs:136:9: replace Expr::recovered_null -> Self with Default::default()",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/ast.rs:126:9: replace <impl PartialEq for NullOrigin>::eq -> bool with false",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/ast.rs:145:9: replace Expr::recovery_metadata_eq -> bool with true",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/ast.rs:145:9: replace Expr::recovery_metadata_eq -> bool with false",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/ast.rs:146:13: delete match arm (Self::Null{origin:a}, Self::Null{origin:b}) in Expr::recovery_metadata_eq",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/ast.rs:147:13: delete match arm (Self::List{items:a}, Self::List{items:b}) in Expr::recovery_metadata_eq",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/ast.rs:150:13: delete match arm (Self::Map{entries:a}, Self::Map{entries:b}) in Expr::recovery_metadata_eq",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/ast.rs:154:13: delete match arm (Self::Call{args:a, ..}, Self::Call{args:b, ..}) in Expr::recovery_metadata_eq",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/ast.rs:158:13: delete match arm (Self::Unary{expr:a, ..}, Self::Unary{expr:b, ..}) |(Self::Member{base:a, ..}, Self::Member{base:b, ..}) |(Self::Lambda{body:a, ..}, Self::Lambda{body:b, ..}) in Expr::recovery_metadata_eq",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/ast.rs:163:13: delete match arm (Self::Binary{left:a, right:b, ..}, Self::Binary{left:c, right:d, ..},) |(Self::Index{base:a, index:b}, Self::Index{base:c, index:d}) in Expr::recovery_metadata_eq",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/ast.rs:146:81: replace == with != in Expr::recovery_metadata_eq",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/ast.rs:172:43: replace && with || in Expr::recovery_metadata_eq",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:82:9: replace Extractor::push with ()",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:89:9: replace Extractor::program_raw -> &[u8] with Vec::leak(Vec::new())",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:89:9: replace Extractor::program_raw -> &[u8] with Vec::leak(vec![0])",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:89:9: replace Extractor::program_raw -> &[u8] with Vec::leak(vec![1])",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:92:9: replace Extractor::program_ended -> bool with true",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:92:9: replace Extractor::program_ended -> bool with false",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:95:9: replace Extractor::rejected -> bool with true",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:95:9: replace Extractor::rejected -> bool with false",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:98:9: replace Extractor::diagnostics -> &[Diagnostic] with Vec::leak(vec![Default::default()])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:98:9: replace Extractor::diagnostics -> &[Diagnostic] with Vec::leak(Vec::new())",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:101:9: replace Extractor::segments -> &[Segment] with Vec::leak(vec![Default::default()])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:101:9: replace Extractor::segments -> &[Segment] with Vec::leak(Vec::new())",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:104:9: replace Extractor::finish -> ExtractResult with Default::default()",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:107:12: delete ! in Extractor::finish",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:120:9: replace Extractor::scan with ()",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:127:27: replace != with == in Extractor::scan",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:129:29: delete match arm Mode::Unfenced in Extractor::scan",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:131:36: replace match guard self.line.as_bytes().first() != Some(&fence.marker) with true in Extractor::scan",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:131:36: replace match guard self.line.as_bytes().first() != Some(&fence.marker) with false in Extractor::scan",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:135:44: replace match guard !self.seen with true in Extractor::scan",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:135:44: replace match guard !self.seen with false in Extractor::scan",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:131:65: replace != with == in Extractor::scan",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:135:44: delete ! in Extractor::scan",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:136:36: delete ! in Extractor::scan",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:138:41: replace || with && in Extractor::scan",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:141:43: delete ! in Extractor::scan",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:162:41: replace || with && in Extractor::scan",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:159:41: replace || with && in Extractor::scan",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:158:65: replace >= with < in Extractor::scan",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:160:67: replace && with || in Extractor::scan",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:160:45: delete ! in Extractor::scan",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:160:83: replace != with == in Extractor::scan",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:163:45: replace && with || in Extractor::scan",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:162:63: replace == with != in Extractor::scan",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:166:79: replace != with == in Extractor::scan",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:188:19: replace == with != in Extractor::scan",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:201:9: replace Extractor::markdown with ()",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:213:23: replace += with -= in Extractor::compact_raw",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:208:9: replace Extractor::compact_raw with ()",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:213:23: replace += with *= in Extractor::compact_raw",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:216:9: replace Extractor::program with ()",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:229:9: replace Extractor::line with ()",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:249:37: replace == with != in Extractor::line",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:262:75: replace && with || in Extractor::line",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:262:83: replace != with == in Extractor::line",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:279:38: replace && with || in Extractor::line",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:279:27: delete ! in Extractor::line",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:293:5: replace extract -> ExtractResult with Default::default()",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:299:5: replace starts_program -> bool with true",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:299:5: replace starts_program -> bool with false",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:299:8: delete ! in starts_program",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:302:49: replace || with && in starts_program",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:316:5: replace fence -> Option<(Fence, &str)> with Some((Default::default(), \"\"))",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:316:5: replace fence -> Option<(Fence, &str)> with None",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:316:5: replace fence -> Option<(Fence, &str)> with Some((Default::default(), \"xyzzy\"))",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:317:8: delete ! in fence",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:320:48: replace == with != in fence",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:321:14: replace < with == in fence",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:321:14: replace < with > in fence",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:321:14: replace < with <= in fence",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:325:23: replace && with || in fence",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:325:15: replace == with != in fence",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:331:5: replace closes -> bool with true",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:331:5: replace closes -> bool with false",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:332:76: replace && with || in closes",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:332:42: replace && with || in closes",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:332:23: replace == with != in closes",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:66:9: replace Lexer::push with ()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/extract.rs:332:58: replace >= with < in closes",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:71:9: replace Lexer::normalized_source -> &str with \"\"",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:71:9: replace Lexer::normalized_source -> &str with \"xyzzy\"",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:77:9: replace Lexer::pending_colon -> bool with true",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:77:9: replace Lexer::pending_colon -> bool with false",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:80:9: replace Lexer::provisional_events -> Vec<LexEvent> with vec![Default::default()]",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:80:9: replace Lexer::provisional_events -> Vec<LexEvent> with vec![]",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:82:13: delete field cursor from struct Self expression in Lexer::provisional_events",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:81:13: delete field start from struct Self expression in Lexer::provisional_events",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:86:13: delete match arm Mode::String(value, _) in Lexer::provisional_events",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:92:13: delete match arm Mode::Number(text, stage) in Lexer::provisional_events",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:114:9: replace Lexer::take_events -> Vec<LexEvent> with vec![]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:114:9: replace Lexer::take_events -> Vec<LexEvent> with vec![Default::default()]",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:118:9: replace Lexer::finish_events -> (String, Vec<LexEvent>) with (String::new(), vec![Default::default()])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:118:9: replace Lexer::finish_events -> (String, Vec<LexEvent>) with (String::new(), vec![])",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:118:9: replace Lexer::finish_events -> (String, Vec<LexEvent>) with (\"xyzzy\".into(), vec![Default::default()])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:131:9: replace Lexer::finish -> LexResult with Default::default()",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:118:9: replace Lexer::finish_events -> (String, Vec<LexEvent>) with (\"xyzzy\".into(), vec![])",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:151:9: replace Lexer::scan with ()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:154:31: replace += with -= in Lexer::scan",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:154:31: replace += with *= in Lexer::scan",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:153:19: delete ! in Lexer::scan",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:157:34: replace += with -= in Lexer::scan",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:156:19: replace == with != in Lexer::scan",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:160:36: replace += with -= in Lexer::scan",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:160:36: replace += with *= in Lexer::scan",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:157:34: replace += with *= in Lexer::scan",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:166:9: replace Lexer::emit with ()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:168:26: delete field end from struct Span expression in Lexer::emit",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:172:9: replace Lexer::diagnose with ()",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:174:25: delete field end from struct Span expression in Lexer::diagnose",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:178:9: replace Lexer::end -> usize with 0",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:178:27: replace + with - in Lexer::end",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:178:9: replace Lexer::end -> usize with 1",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:183:9: replace Lexer::character -> bool with true",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:178:27: replace + with * in Lexer::end",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:183:9: replace Lexer::character -> bool with false",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:188:21: delete match arm ' ' | '\\t' in Lexer::character",
+          "summary": "CaughtMutant"
+        }
+      ]
+    },
+    {
+      "shard": "syntax-ir-mutations-3",
+      "outcomes_sha256": "e0f25c7f2477db7a1ad5906019b1228c226533c3f345a5ecd95a745b19c6e5a8",
+      "counts": {
+        "Success": 1,
+        "CaughtMutant": 114,
+        "Timeout": 3,
+        "MissedMutant": 2,
+        "Unviable": 2
+      },
+      "errors": [],
+      "mutants": [
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:189:21: delete match arm '\\n' in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:192:21: delete match arm '$' in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:191:21: delete match arm '\"' in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:197:21: delete match arm ':' | '=' | '!' | '<' | '>' | '&' | '|' | '/' in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:190:28: replace match guard self.cursor.column == 1 with true in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:193:26: replace match guard c.is_ascii_alphabetic() || c == '_' with true in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:193:26: replace match guard c.is_ascii_alphabetic() || c == '_' with false in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:196:26: replace match guard c.is_ascii_digit() with true in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:196:26: replace match guard c.is_ascii_digit() with false in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:190:28: replace match guard self.cursor.column == 1 with false in Lexer::character",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:193:50: replace || with && in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:193:55: replace == with != in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:209:47: replace || with && in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:190:47: replace == with != in Lexer::character",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:209:53: replace == with != in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:219:44: replace || with && in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:219:50: replace == with != in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:228:23: replace == with != in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:236:33: replace && with || in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:236:26: replace == with != in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:236:39: replace == with != in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:241:21: delete match arm (':', '=') in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:242:21: delete match arm ('=', '=') in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:243:21: delete match arm ('!', '=') in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:244:21: delete match arm ('<', '=') in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:245:21: delete match arm ('>', '=') in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:246:21: delete match arm ('&', '&') in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:247:21: delete match arm ('|', '|') in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:266:21: delete match arm (Int, '0'..= '9' | '_') in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:267:21: delete match arm (Int, '.') in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:268:21: delete match arm (Dot | Fraction, '0'..= '9') in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:269:21: delete match arm (Int | Fraction, 'e' | 'E') in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:270:21: delete match arm (E, '+' | '-') in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:286:25: delete match arm '\"' in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:271:21: delete match arm (E | Sign | Exponent, '0'..= '9') in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:287:25: delete match arm '\\n' in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:291:25: delete match arm '\\\\' in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:301:31: replace == with != in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:306:29: delete match arm 'u' in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:310:29: delete match arm '\"' | '\\\\' in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:311:29: delete match arm 'n' in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:312:29: delete match arm 'r' in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:313:29: delete match arm 't' in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:326:31: replace == with != in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:340:51: replace || with && in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:340:38: replace || with && in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:340:31: replace == with != in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:340:44: replace == with != in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:340:57: replace == with != in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:343:33: replace && with || in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:342:33: replace && with || in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:341:49: replace == with != in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:358:43: replace == with != in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:366:39: replace == with != in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:369:41: replace <= with > in Lexer::character",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:390:9: replace Lexer::word with ()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:381:9: replace Lexer::unterminated with ()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:390:23: replace > with < in Lexer::word",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:390:23: replace > with == in Lexer::word",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:398:17: delete match arm \"true\" in Lexer::word",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:390:23: replace > with >= in Lexer::word",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:400:17: delete match arm \"null\" in Lexer::word",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:408:9: replace Lexer::number with ()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:399:17: delete match arm \"false\" in Lexer::word",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:409:13: delete match arm NumberStage::Dot | NumberStage::E in Lexer::number",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:413:48: replace - with + in Lexer::number",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:413:48: replace - with / in Lexer::number",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:410:13: delete match arm NumberStage::Sign in Lexer::number",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:414:37: replace - with / in Lexer::number",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:414:37: replace - with + in Lexer::number",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:419:26: replace match guard v.is_finite() with true in Lexer::number",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:438:12: delete ! in Lexer::number",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:419:26: replace match guard v.is_finite() with false in Lexer::number",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:442:44: replace - with + in Lexer::number",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:442:44: replace - with / in Lexer::number",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:445:23: replace == with != in Lexer::number",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:447:34: replace == with != in Lexer::number",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:450:80: replace + with - in Lexer::number",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:450:80: replace + with * in Lexer::number",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:457:32: replace + with - in Lexer::number",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:457:32: replace + with * in Lexer::number",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:458:30: replace + with - in Lexer::number",
+          "summary": "MissedMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:458:30: replace + with * in Lexer::number",
+          "summary": "MissedMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:459:47: replace + with - in Lexer::number",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:468:9: replace Lexer::symbol with ()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:459:47: replace + with * in Lexer::number",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:476:9: replace Lexer::flush with ()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:477:13: delete match arm Mode::Word(text, state) in Lexer::flush",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:478:13: delete match arm Mode::Number(text, stage) in Lexer::flush",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:484:13: delete match arm Mode::Symbol(ch) in Lexer::flush",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:485:13: delete match arm Mode::Dollar in Lexer::flush",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:486:13: delete match arm Mode::String(mut value, escape) in Lexer::flush",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:488:21: delete match arm Escape::U in Lexer::flush",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:514:5: replace single -> Option<K> with None",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:514:5: replace single -> Option<K> with Some(Default::default())",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:496:21: delete match arm Escape::Hex(_) in Lexer::flush",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:515:9: delete match arm '=' in single",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:516:9: delete match arm '<' in single",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:517:9: delete match arm '>' in single",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:518:9: delete match arm '+' in single",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:519:9: delete match arm '-' in single",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:521:9: delete match arm '/' in single",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:520:9: delete match arm '*' in single",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:522:9: delete match arm '%' in single",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:523:9: delete match arm '!' in single",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:525:9: delete match arm ':' in single",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:524:9: delete match arm '|' in single",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:527:9: delete match arm ',' in single",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:526:9: delete match arm '.' in single",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:528:9: delete match arm '(' in single",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:529:9: delete match arm ')' in single",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:530:9: delete match arm '[' in single",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:531:9: delete match arm ']' in single",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:533:9: delete match arm '}' in single",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:532:9: delete match arm '{' in single",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/lexer.rs:539:5: replace lex -> LexResult with Default::default()",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:37:9: replace BatchParser::push with ()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:40:23: replace += with -= in BatchParser::push",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:40:23: replace += with *= in BatchParser::push",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:41:24: replace |= with &= in BatchParser::push",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:41:33: replace < with == in BatchParser::push",
+          "summary": "CaughtMutant"
+        }
+      ]
+    },
+    {
+      "shard": "syntax-ir-mutations-5",
+      "outcomes_sha256": "5e498910894b7383ea9110e6e5e86459c6991d50808e8451dcc859dcdf17842b",
+      "counts": {
+        "Success": 1,
+        "CaughtMutant": 30,
+        "Timeout": 60,
+        "Unviable": 31
+      },
+      "errors": [],
+      "mutants": [
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:330:29: replace == with != in ExpressionParser<'_>::primary",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:352:53: replace + with - in ExpressionParser<'_>::primary",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:330:42: delete ! in ExpressionParser<'_>::primary",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:352:53: replace + with * in ExpressionParser<'_>::primary",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:363:54: replace + with - in ExpressionParser<'_>::primary",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:354:45: replace == with != in ExpressionParser<'_>::primary",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:368:40: replace + with - in ExpressionParser<'_>::primary",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:363:54: replace + with * in ExpressionParser<'_>::primary",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:371:41: replace + with - in ExpressionParser<'_>::primary",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:368:40: replace + with * in ExpressionParser<'_>::primary",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:371:41: replace + with * in ExpressionParser<'_>::primary",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:373:49: replace + with - in ExpressionParser<'_>::primary",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:373:49: replace + with * in ExpressionParser<'_>::primary",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:377:57: replace >= with < in ExpressionParser<'_>::primary",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:394:54: replace + with - in ExpressionParser<'_>::primary",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:386:20: delete ! in ExpressionParser<'_>::primary",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:407:9: replace ExpressionParser<'_>::list -> Parsed<Vec<Expr>> with Parsed::new()",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:407:9: replace ExpressionParser<'_>::list -> Parsed<Vec<Expr>> with Parsed::from_iter([vec![]])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:407:9: replace ExpressionParser<'_>::list -> Parsed<Vec<Expr>> with Parsed::new(vec![])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:407:9: replace ExpressionParser<'_>::list -> Parsed<Vec<Expr>> with Parsed::from(vec![])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:407:9: replace ExpressionParser<'_>::list -> Parsed<Vec<Expr>> with Parsed::from_iter([vec![Default::default()]])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:407:9: replace ExpressionParser<'_>::list -> Parsed<Vec<Expr>> with Parsed::new(vec![Default::default()])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:407:9: replace ExpressionParser<'_>::list -> Parsed<Vec<Expr>> with Parsed::from(vec![Default::default()])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:408:27: replace != with == in ExpressionParser<'_>::list",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:416:9: replace ExpressionParser<'_>::map -> Parsed<Vec<Entry>> with Parsed::new()",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:394:54: replace + with * in ExpressionParser<'_>::primary",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:416:9: replace ExpressionParser<'_>::map -> Parsed<Vec<Entry>> with Parsed::from_iter([vec![]])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:416:9: replace ExpressionParser<'_>::map -> Parsed<Vec<Entry>> with Parsed::new(vec![])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:416:9: replace ExpressionParser<'_>::map -> Parsed<Vec<Entry>> with Parsed::from(vec![])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:416:9: replace ExpressionParser<'_>::map -> Parsed<Vec<Entry>> with Parsed::from_iter([vec![Default::default()]])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:416:9: replace ExpressionParser<'_>::map -> Parsed<Vec<Entry>> with Parsed::new(vec![Default::default()])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:416:9: replace ExpressionParser<'_>::map -> Parsed<Vec<Entry>> with Parsed::from(vec![Default::default()])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:418:27: replace != with == in ExpressionParser<'_>::map",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:420:38: replace && with || in ExpressionParser<'_>::map",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:420:16: delete ! in ExpressionParser<'_>::map",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:439:9: replace ExpressionParser<'_>::arguments -> Parsed<Vec<Argument>> with Parsed::new()",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:439:9: replace ExpressionParser<'_>::arguments -> Parsed<Vec<Argument>> with Parsed::from_iter([vec![]])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:439:9: replace ExpressionParser<'_>::arguments -> Parsed<Vec<Argument>> with Parsed::new(vec![])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:439:9: replace ExpressionParser<'_>::arguments -> Parsed<Vec<Argument>> with Parsed::from(vec![])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:439:9: replace ExpressionParser<'_>::arguments -> Parsed<Vec<Argument>> with Parsed::from_iter([vec![Default::default()]])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:439:9: replace ExpressionParser<'_>::arguments -> Parsed<Vec<Argument>> with Parsed::new(vec![Default::default()])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:439:9: replace ExpressionParser<'_>::arguments -> Parsed<Vec<Argument>> with Parsed::from(vec![Default::default()])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:441:27: replace != with == in ExpressionParser<'_>::arguments",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:420:56: replace != with == in ExpressionParser<'_>::map",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:443:17: replace && with || in ExpressionParser<'_>::arguments",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:446:35: replace + with - in ExpressionParser<'_>::arguments",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:446:35: replace + with * in ExpressionParser<'_>::arguments",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:447:51: replace == with != in ExpressionParser<'_>::arguments",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:450:26: replace += with -= in ExpressionParser<'_>::arguments",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:450:26: replace += with *= in ExpressionParser<'_>::arguments",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:456:22: replace && with || in ExpressionParser<'_>::arguments",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:468:9: replace ExpressionParser<'_>::separator -> Parsed<()> with Parsed::new()",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:468:9: replace ExpressionParser<'_>::separator -> Parsed<()> with Parsed::from_iter([()])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:468:9: replace ExpressionParser<'_>::separator -> Parsed<()> with Parsed::new(())",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:468:9: replace ExpressionParser<'_>::separator -> Parsed<()> with Parsed::from(())",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:468:31: replace || with && in ExpressionParser<'_>::separator",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:468:46: replace == with != in ExpressionParser<'_>::separator",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:478:9: replace ExpressionParser<'_>::lambda -> Parsed<Expr> with Parsed::new()",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:459:23: replace |= with &= in ExpressionParser<'_>::arguments",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:478:9: replace ExpressionParser<'_>::lambda -> Parsed<Expr> with Parsed::from_iter([Default::default()])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:478:9: replace ExpressionParser<'_>::lambda -> Parsed<Expr> with Parsed::new(Default::default())",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:478:9: replace ExpressionParser<'_>::lambda -> Parsed<Expr> with Parsed::from(Default::default())",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:482:12: delete ! in ExpressionParser<'_>::lambda",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:486:29: replace && with || in ExpressionParser<'_>::lambda",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:487:27: replace += with -= in ExpressionParser<'_>::lambda",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:487:27: replace += with *= in ExpressionParser<'_>::lambda",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:486:50: replace == with != in ExpressionParser<'_>::lambda",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:489:27: replace -= with += in ExpressionParser<'_>::lambda",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:489:27: replace -= with /= in ExpressionParser<'_>::lambda",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:491:12: delete ! in ExpressionParser<'_>::lambda",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:503:5: replace word -> bool with false",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:503:5: replace word -> bool with true",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:506:5: replace starts_expression -> bool with true",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:506:5: replace starts_expression -> bool with false",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:525:5: replace operator -> Option<(BinaryOp, u8)> with Some((Default::default(), 0))",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:525:5: replace operator -> Option<(BinaryOp, u8)> with Some((Default::default(), 1))",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:525:5: replace operator -> Option<(BinaryOp, u8)> with None",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:527:9: delete match arm K::Or in operator",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:528:9: delete match arm K::And in operator",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:529:9: delete match arm K::Eq in operator",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:530:9: delete match arm K::Ne in operator",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:531:9: delete match arm K::Lt in operator",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:532:9: delete match arm K::Le in operator",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:533:9: delete match arm K::Gt in operator",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:534:9: delete match arm K::Ge in operator",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:535:9: delete match arm K::Plus in operator",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:536:9: delete match arm K::Minus in operator",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:537:9: delete match arm K::Star in operator",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:538:9: delete match arm K::Slash in operator",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:539:9: delete match arm K::Percent in operator",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:544:5: replace tree_depth -> usize with 0",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:544:5: replace tree_depth -> usize with 1",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:544:7: replace + with - in tree_depth",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:544:7: replace + with * in tree_depth",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:545:9: delete match arm Expr::Unary{expr, ..} | Expr::Member{base:expr, ..} | Expr::Lambda{body:expr, ..} in tree_depth",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:548:9: delete match arm Expr::Binary{left, right, ..} | Expr::Index{base:left, index:right,} in tree_depth",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:553:9: delete match arm Expr::List{items} in tree_depth",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:554:9: delete match arm Expr::Map{entries} in tree_depth",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:6:5: replace print -> String with String::new()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:6:5: replace print -> String with \"xyzzy\".into()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/parser.rs:559:9: delete match arm Expr::Call{args, ..} in tree_depth",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:9:13: delete match arm StatementKind::State in print",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:10:13: delete match arm StatementKind::Query in print",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:22:5: replace quoted with ()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:37:5: replace expression with ()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:46:16: delete ! in expression",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:59:22: replace > with == in expression",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:59:22: replace > with >= in expression",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:59:22: replace > with < in expression",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:69:22: replace > with == in expression",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:69:22: replace > with < in expression",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:82:22: replace > with == in expression",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:82:22: replace > with < in expression",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:82:22: replace > with >= in expression",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:69:22: replace > with >= in expression",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:102:51: replace + with - in expression",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:102:51: replace + with * in expression",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:106:28: replace + with - in expression",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:106:28: replace + with * in expression",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:128:5: replace binary -> &'static str with \"\"",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:128:5: replace binary -> &'static str with \"xyzzy\"",
+          "summary": "Timeout"
+        }
+      ]
+    },
+    {
+      "shard": "syntax-ir-mutations-6",
+      "outcomes_sha256": "04f0368d2f1c3c2c13e1a07f6feec53f936faebdcd60c7e99635bdae00bfb191",
+      "counts": {
+        "Success": 1,
+        "CaughtMutant": 84,
+        "Timeout": 6,
+        "MissedMutant": 23,
+        "Unviable": 8
+      },
+      "errors": [
+        "unreviewed or stale survivor: crates/genui-core/src/syntax/source.rs:67:56: replace + with - in Source::push",
+        "unreviewed or stale survivor: crates/genui-core/src/syntax/source.rs:67:56: replace + with * in Source::push",
+        "unreviewed or stale survivor: crates/genui-core/src/syntax/source.rs:95:46: replace == with != in Source::push",
+        "unreviewed or stale survivor: crates/genui-core/src/syntax/splitter.rs:97:9: replace Splitter::source -> &str with \"\"",
+        "unreviewed or stale survivor: crates/genui-core/src/syntax/splitter.rs:97:9: replace Splitter::source -> &str with \"xyzzy\"",
+        "unreviewed or stale survivor: crates/genui-core/src/syntax/splitter.rs:114:33: replace > with >= in Splitter::diagnostics",
+        "unreviewed or stale survivor: crates/genui-core/src/syntax/splitter.rs:149:16: delete ! in Splitter::provisional",
+        "unreviewed or stale survivor: crates/genui-core/src/syntax/splitter.rs:149:34: replace + with - in Splitter::provisional",
+        "unreviewed or stale survivor: crates/genui-core/src/syntax/splitter.rs:149:34: replace + with * in Splitter::provisional",
+        "unreviewed or stale survivor: crates/genui-core/src/syntax/splitter.rs:151:26: delete ! in Splitter::provisional",
+        "unreviewed or stale survivor: crates/genui-core/src/syntax/splitter.rs:156:34: replace <= with > in Splitter::provisional",
+        "unreviewed or stale survivor: crates/genui-core/src/syntax/splitter.rs:163:21: replace && with || in Splitter::provisional",
+        "unreviewed or stale survivor: crates/genui-core/src/syntax/splitter.rs:162:21: replace && with || in Splitter::provisional",
+        "unreviewed or stale survivor: crates/genui-core/src/syntax/splitter.rs:161:50: replace == with != in Splitter::provisional",
+        "unreviewed or stale survivor: crates/genui-core/src/syntax/splitter.rs:162:26: replace >= with < in Splitter::provisional",
+        "unreviewed or stale survivor: crates/genui-core/src/syntax/splitter.rs:162:34: replace + with - in Splitter::provisional",
+        "unreviewed or stale survivor: crates/genui-core/src/syntax/splitter.rs:162:34: replace + with * in Splitter::provisional",
+        "unreviewed or stale survivor: crates/genui-core/src/syntax/splitter.rs:168:44: replace - with / in Splitter::provisional",
+        "unreviewed or stale survivor: crates/genui-core/src/syntax/splitter.rs:258:66: replace && with || in ScanState::suppressed",
+        "unreviewed or stale survivor: crates/genui-core/src/syntax/splitter.rs:258:53: replace < with == in ScanState::suppressed",
+        "unreviewed or stale survivor: crates/genui-core/src/syntax/splitter.rs:258:53: replace < with > in ScanState::suppressed"
+      ],
+      "mutants": [
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:146:5: replace child with ()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:147:9: delete match arm Expr::Binary{op, ..} in child",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:148:9: delete match arm Expr::Unary{..} in child",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:149:9: delete match arm Expr::Lambda{..} in child",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:152:12: replace < with == in child",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:152:12: replace < with > in child",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:152:12: replace < with <= in child",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:156:12: replace < with == in child",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:156:12: replace < with > in child",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:156:12: replace < with <= in child",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:161:5: replace precedence -> u8 with 0",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:161:5: replace precedence -> u8 with 1",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:162:9: delete match arm BinaryOp::Or in precedence",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:163:9: delete match arm BinaryOp::And in precedence",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:164:9: delete match arm BinaryOp::Eq | BinaryOp::Ne in precedence",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:165:9: delete match arm BinaryOp::Lt | BinaryOp::Le | BinaryOp::Gt | BinaryOp::Ge in precedence",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/printer.rs:166:9: delete match arm BinaryOp::Add | BinaryOp::Sub in precedence",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:16:9: replace Source::tracked -> Self with Default::default()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:17:13: delete field tracking from struct Self expression in Source::tracked",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:22:9: replace Source::take_raw_ends -> Vec<usize> with vec![]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:22:9: replace Source::take_raw_ends -> Vec<usize> with vec![0]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:25:9: replace Source::push -> String with String::new()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:22:9: replace Source::take_raw_ends -> Vec<usize> with vec![1]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:25:9: replace Source::push -> String with \"xyzzy\".into()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:29:22: replace < with == in Source::push",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:29:22: replace < with > in Source::push",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:34:59: replace + with - in Source::push",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:34:59: replace + with * in Source::push",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:29:22: replace < with <= in Source::push",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:36:36: replace += with -= in Source::push",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:43:38: replace + with - in Source::push",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:43:38: replace + with * in Source::push",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:47:63: replace + with - in Source::push",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:36:36: replace += with *= in Source::push",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:49:40: replace += with -= in Source::push",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:47:63: replace + with * in Source::push",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:49:40: replace += with *= in Source::push",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:58:32: replace += with -= in Source::push",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:60:56: replace + with - in Source::push",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:58:32: replace += with *= in Source::push",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:60:56: replace + with * in Source::push",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:67:56: replace + with - in Source::push",
+          "summary": "MissedMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:75:26: replace += with -= in Source::push",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:67:56: replace + with * in Source::push",
+          "summary": "MissedMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:75:26: replace += with *= in Source::push",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:88:23: replace == with != in Source::push",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:86:16: delete ! in Source::push",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:95:46: replace == with != in Source::push",
+          "summary": "MissedMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:101:19: replace == with != in Source::push",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:110:19: replace && with || in Source::push",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:16:5: replace statement_start -> Option<Header> with None",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:16:5: replace statement_start -> Option<Header> with Some(Default::default())",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/source.rs:97:23: replace == with != in Source::push",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:19:40: replace == with != in statement_start",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:35:9: replace && with || in statement_start",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:34:9: replace && with || in statement_start",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:33:9: replace && with || in statement_start",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:32:25: replace == with != in statement_start",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:33:29: replace == with != in statement_start",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:48:5: replace lower_name -> bool with true",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:48:5: replace lower_name -> bool with false",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:48:16: replace == with != in lower_name",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:53:53: replace || with && in lower_name",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:49:9: replace && with || in lower_name",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:80:9: replace Splitter::push with ()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:53:59: replace == with != in lower_name",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:91:9: replace Splitter::sealed -> &[SplitStatement] with Vec::leak(vec![Default::default()])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:94:9: replace Splitter::take_sealed -> Vec<SplitStatement> with vec![]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:94:9: replace Splitter::take_sealed -> Vec<SplitStatement> with vec![Default::default()]",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:91:9: replace Splitter::sealed -> &[SplitStatement] with Vec::leak(Vec::new())",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:97:9: replace Splitter::source -> &str with \"\"",
+          "summary": "MissedMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:97:9: replace Splitter::source -> &str with \"xyzzy\"",
+          "summary": "MissedMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:100:9: replace Splitter::diagnostics -> Vec<Diagnostic> with vec![Default::default()]",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:100:9: replace Splitter::diagnostics -> Vec<Diagnostic> with vec![]",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:105:25: delete ! in Splitter::diagnostics",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:114:33: replace > with == in Splitter::diagnostics",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:114:33: replace > with < in Splitter::diagnostics",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:114:33: replace > with >= in Splitter::diagnostics",
+          "summary": "MissedMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:124:9: replace Splitter::provisional -> Option<(SplitStatement, Vec<Diagnostic>)> with Some((Default::default(), vec![]))",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:124:9: replace Splitter::provisional -> Option<(SplitStatement, Vec<Diagnostic>)> with Some((Default::default(), vec![Default::default()]))",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:124:9: replace Splitter::provisional -> Option<(SplitStatement, Vec<Diagnostic>)> with None",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:140:13: replace && with || in Splitter::provisional",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:149:13: replace && with || in Splitter::provisional",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:139:13: replace && with || in Splitter::provisional",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:148:75: replace == with != in Splitter::provisional",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:149:16: delete ! in Splitter::provisional",
+          "summary": "MissedMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:149:34: replace + with - in Splitter::provisional",
+          "summary": "MissedMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:149:34: replace + with * in Splitter::provisional",
+          "summary": "MissedMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:151:26: delete ! in Splitter::provisional",
+          "summary": "MissedMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:156:34: replace <= with > in Splitter::provisional",
+          "summary": "MissedMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:163:21: replace && with || in Splitter::provisional",
+          "summary": "MissedMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:162:21: replace && with || in Splitter::provisional",
+          "summary": "MissedMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:161:34: replace - with + in Splitter::provisional",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:161:34: replace - with / in Splitter::provisional",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:161:50: replace == with != in Splitter::provisional",
+          "summary": "MissedMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:162:26: replace >= with < in Splitter::provisional",
+          "summary": "MissedMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:162:34: replace + with - in Splitter::provisional",
+          "summary": "MissedMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:162:34: replace + with * in Splitter::provisional",
+          "summary": "MissedMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:168:44: replace - with + in Splitter::provisional",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:168:44: replace - with / in Splitter::provisional",
+          "summary": "MissedMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:192:9: replace Splitter::finish -> SplitResult with Default::default()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:177:16: delete ! in Splitter::provisional",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:195:9: replace Splitter::finish_with_source -> (SplitResult, String) with (Default::default(), String::new())",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:195:9: replace Splitter::finish_with_source -> (SplitResult, String) with (Default::default(), \"xyzzy\".into())",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:207:25: delete ! in Splitter::finish_with_source",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:219:5: replace split -> SplitResult with Default::default()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:245:9: replace ScanState::suppressed -> bool with true",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:245:9: replace ScanState::suppressed -> bool with false",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:252:11: replace && with || in ScanState::suppressed",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:256:17: replace || with && in ScanState::suppressed",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:255:55: replace && with || in ScanState::suppressed",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:255:48: replace < with == in ScanState::suppressed",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:255:48: replace < with > in ScanState::suppressed",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:255:48: replace < with <= in ScanState::suppressed",
+          "summary": "MissedMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:255:67: replace > with == in ScanState::suppressed",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:255:67: replace > with < in ScanState::suppressed",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:255:67: replace > with >= in ScanState::suppressed",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:258:66: replace && with || in ScanState::suppressed",
+          "summary": "MissedMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:258:53: replace < with == in ScanState::suppressed",
+          "summary": "MissedMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:258:53: replace < with > in ScanState::suppressed",
+          "summary": "MissedMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:258:53: replace < with <= in ScanState::suppressed",
+          "summary": "MissedMutant"
+        }
+      ]
+    },
+    {
+      "shard": "syntax-ir-mutations-7",
+      "outcomes_sha256": "e356b5721935c92194f41b71a8e5618f582b8168463c888454f595c6d6f7ab46",
+      "counts": {
+        "Success": 1,
+        "Timeout": 66,
+        "CaughtMutant": 45,
+        "Unviable": 9
+      },
+      "errors": [],
+      "mutants": [
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:258:78: replace > with == in ScanState::suppressed",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:258:78: replace > with < in ScanState::suppressed",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:275:9: replace ScanState::events with ()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:258:78: replace > with >= in ScanState::suppressed",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:278:39: replace match guard t.token.kind == K::Nl with true in ScanState::events",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:278:39: replace match guard t.token.kind == K::Nl with false in ScanState::events",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:278:52: replace == with != in ScanState::events",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:286:32: delete ! in ScanState::events",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:286:29: replace && with || in ScanState::events",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:303:29: replace || with && in ScanState::events",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:301:29: replace || with && in ScanState::events",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:300:50: replace >= with < in ScanState::events",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:302:72: replace && with || in ScanState::events",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:300:29: replace || with && in ScanState::events",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:302:88: replace != with == in ScanState::events",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:302:50: delete ! in ScanState::events",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:304:33: replace && with || in ScanState::events",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:303:51: replace == with != in ScanState::events",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:314:9: replace ScanState::begin_line with ()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:304:71: replace != with == in ScanState::events",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:322:77: replace == with != in ScanState::begin_line",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:336:13: replace && with || in ScanState::begin_line",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:323:24: replace && with || in ScanState::begin_line",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:354:9: replace ScanState::name -> Option<String> with None",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:354:9: replace ScanState::name -> Option<String> with Some(String::new())",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:354:9: replace ScanState::name -> Option<String> with Some(\"xyzzy\".into())",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:365:9: replace ScanState::token with ()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:359:9: replace ScanState::diagnostic with ()",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:374:9: replace ScanState::repair with ()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:380:44: replace >= with < in ScanState::repair",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:381:21: replace && with || in ScanState::repair",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:381:24: delete ! in ScanState::repair",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:382:20: delete ! in ScanState::repair",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:395:16: delete ! in ScanState::repair",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:399:77: replace == with != in ScanState::repair",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:400:43: replace > with == in ScanState::repair",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:400:43: replace > with >= in ScanState::repair",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:400:51: replace + with - in ScanState::repair",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:400:43: replace > with < in ScanState::repair",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:402:25: replace && with || in ScanState::repair",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:400:51: replace + with * in ScanState::repair",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:402:28: delete ! in ScanState::repair",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:406:28: delete ! in ScanState::repair",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:416:21: replace && with || in ScanState::repair",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:416:24: delete ! in ScanState::repair",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:420:33: replace && with || in ScanState::repair",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:420:23: delete ! in ScanState::repair",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:427:19: delete ! in ScanState::repair",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:432:9: replace ScanState::check_size -> bool with true",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:420:36: delete ! in ScanState::repair",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:435:48: replace <= with > in ScanState::check_size",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:432:9: replace ScanState::check_size -> bool with false",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:440:30: replace + with - in ScanState::check_size",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:440:30: replace + with * in ScanState::check_size",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:441:15: delete ! in ScanState::check_size",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:447:17: delete field end from struct Span expression in ScanState::check_size",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:457:27: replace == with != in ScanState::check_size",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:460:23: replace += with -= in ScanState::check_size",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:460:23: replace += with *= in ScanState::check_size",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:460:37: replace - with + in ScanState::check_size",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:460:37: replace - with / in ScanState::check_size",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:461:24: replace += with -= in ScanState::check_size",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:461:24: replace += with *= in ScanState::check_size",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:462:22: replace += with -= in ScanState::check_size",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:471:9: replace ScanState::seal with ()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:462:22: replace += with *= in ScanState::check_size",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:476:16: delete ! in ScanState::seal",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:486:17: replace && with || in ScanState::seal",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:485:37: replace > with == in ScanState::seal",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:485:37: replace > with < in ScanState::seal",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:485:37: replace > with >= in ScanState::seal",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:492:16: delete ! in ScanState::seal",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:512:5: replace synthetic -> LocatedToken with Default::default()",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:521:5: replace closing -> Option<K> with None",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:521:5: replace closing -> Option<K> with Some(Default::default())",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:522:9: delete match arm K::LParen in closing",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:495:20: delete ! in ScanState::seal",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:523:9: delete match arm K::LBracket in closing",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:524:9: delete match arm K::LBrace in closing",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:529:5: replace spelling -> &'static str with \"\"",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:529:5: replace spelling -> &'static str with \"xyzzy\"",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:530:9: delete match arm K::RParen in spelling",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:531:9: delete match arm K::RBracket in spelling",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:537:5: replace dangling -> bool with true",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:532:9: delete match arm K::RBrace in spelling",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:60:9: replace StreamingParser::push with ()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/splitter.rs:537:5: replace dangling -> bool with false",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:66:23: replace += with -= in StreamingParser::push",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:66:23: replace += with *= in StreamingParser::push",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:67:24: replace |= with &= in StreamingParser::push",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:67:29: replace < with == in StreamingParser::push",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:67:29: replace < with <= in StreamingParser::push",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:67:29: replace < with > in StreamingParser::push",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:88:34: replace += with -= in StreamingParser::push",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:83:40: replace == with != in StreamingParser::push",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:100:9: replace StreamingParser::parse_one -> super::ParseResult with Default::default()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:111:9: replace StreamingParser::seal with ()",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:88:34: replace += with *= in StreamingParser::push",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:121:24: replace += with -= in StreamingParser::seal",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:121:24: replace += with *= in StreamingParser::seal",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:122:27: replace > with == in StreamingParser::seal",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:122:27: replace > with < in StreamingParser::seal",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:126:23: delete ! in StreamingParser::seal",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:122:27: replace > with >= in StreamingParser::seal",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:128:33: replace == with != in StreamingParser::seal",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:148:64: replace && with || in StreamingParser::seal",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:148:50: replace >= with < in StreamingParser::seal",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:156:31: replace += with -= in StreamingParser::seal",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:148:75: replace <= with > in StreamingParser::seal",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:156:31: replace += with *= in StreamingParser::seal",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:159:76: replace == with != in StreamingParser::seal",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:191:9: replace StreamingParser::work -> ScanWork with Default::default()",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:200:9: replace StreamingParser::seals -> &[Seal] with Vec::leak(Vec::new())",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:200:9: replace StreamingParser::seals -> &[Seal] with Vec::leak(vec![Default::default()])",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:176:9: replace StreamingParser::finish with ()",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:203:9: replace StreamingParser::program -> &Program with Box::leak(Box::new(Default::default()))",
+          "summary": "CaughtMutant"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:206:9: replace StreamingParser::provisional -> Option<&Statement> with Some(Box::leak(Box::new(Default::default())))",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:206:9: replace StreamingParser::provisional -> Option<&Statement> with None",
+          "summary": "Timeout"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:209:9: replace StreamingParser::diagnostics -> Vec<Diagnostic> with vec![Default::default()]",
+          "summary": "Unviable"
+        },
+        {
+          "name": "crates/genui-core/src/syntax/streaming.rs:209:9: replace StreamingParser::diagnostics -> Vec<Diagnostic> with vec![]",
+          "summary": "Timeout"
+        }
+      ]
+    }
+  ]
+}

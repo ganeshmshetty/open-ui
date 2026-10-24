@@ -1,0 +1,10 @@
+{
+  "notes": "SPEC §§3.5–3.6,5.5,6.5: source-owner references survive insertion before an existing action. Runtime epoch handles remain M4.",
+  "tags": [
+    "I7",
+    "arenas",
+    "forward"
+  ],
+  "tier": "core",
+  "title": "Earlier action insertion preserves a retained plan reference"
+}

@@ -1,0 +1,3 @@
+rows=[1]
+items=each(rows, |x, i|Text("Done"))
+root=Text("Done")

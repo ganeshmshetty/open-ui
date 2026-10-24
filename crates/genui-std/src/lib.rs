@@ -438,9 +438,7 @@ mod tests {
         assert_eq!(lib.components().len(), 29);
         assert_eq!(lib.hash(), "d19a769bd510997ce786ade4d60db23d");
         let want = include_str!("../../../conformance/libs/std.json");
-        let actual = serde_json::to_string_pretty(&serde_json::to_value(lib.spec()).unwrap())
-            .unwrap()
-            + "\n";
+        let actual = genui_core::canonical::serialize(lib.spec()).unwrap() + "\n";
         assert_eq!(actual, want);
     }
     #[test]
@@ -502,7 +500,7 @@ mod tests {
         let r=validate(b"$s=\"\"\nroot=Form([Input(\"Name\",bind:$s),Button(\"Save\",submit:true)],on_submit:say(\"Save\",{name:$s}))",&lib,&Options::default());
         assert!(r.diagnostics.is_empty());
         assert_eq!(r.ir.actions.len(), 1);
-        let plan = &r.ir.actions[0];
+        let plan = r.ir.actions.iter().next().unwrap();
         assert_eq!(plan.submit_scope, r.ir.root);
         assert!(matches!(plan.steps.as_slice(), [Step::Say { .. }]));
         assert!(

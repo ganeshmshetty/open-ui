@@ -1,0 +1,36 @@
+[
+  {
+    "chunk": 0,
+    "id": "root/children:@check",
+    "prop": "bind",
+    "equals": {
+      "bind": "$x"
+    }
+  },
+  {
+    "chunk": 1,
+    "id": "root/children:@check",
+    "prop": "bind",
+    "equals": {
+      "bind": "$x"
+    }
+  },
+  {
+    "chunk": 1,
+    "id": "root/children:@draft",
+    "absent_prop": "bind"
+  },
+  {
+    "chunk": 2,
+    "id": "root/children:@draft",
+    "prop": "bind",
+    "equals": {
+      "bind": "$x"
+    }
+  },
+  {
+    "chunk": 2,
+    "id": "root/children:@check",
+    "absent_prop": "bind"
+  }
+]

@@ -1,5 +1,99 @@
 # Spec changelog
 
+## 2026-10-24 — Mutation campaign sharding adjustment (§12.8)
+
+- Split the complete mutation campaign over thirty-two disjoint CI shards. With
+  thirty-two shards the repeated runner shutdown on the `syntax/source.rs` heavy
+  shard is avoided by halving each job's mutant count; the inventory, per-mutant
+  timeout and review rules are unchanged.
+
+## 2026-10-23 — Mutation campaign sharding (§12.8)
+
+- Split the complete mutation campaign over sixteen disjoint CI shards instead of
+  eight and raise the per-shard job timeout to 240 minutes. The retained-source
+  task/validator expansion pushed an eight-shard campaign past the old 180-minute
+  limit before all mutants finished; the inventory and per-mutant timeout are
+  unchanged.
+
+## 2026-10-23 — Static cycle ownership (§2.10)
+
+- Specify canonical ownership for cycles among static value/action definitions,
+  which have no node-instantiation path. The previous DFS accidentally moved an
+  existing cycle diagnostic when an earlier acyclic user arrived. One diagnostic
+  per cyclic component, at its smallest name, is deterministic and retainable;
+  node/path cycle recovery is unchanged. Resolve fixture 019 covers the change.
+
+## 2026-10-23 — Budget recovery scope (§2.10)
+
+- Clarify that a budget failure stops its immediate slot, independently of
+  diagnostic deduplication. A dropped component reclaims allocation before its
+  ancestor continues. New limits 023–024 reproduce inconsistent repeated-instance
+  recovery and lost siblings after min_items rollback.
+
+## 2026-10-23 — Provisional scanner work (§3.7–3.8)
+
+- Clarify provisional lexer errors on possible resync headers, diagnostic dirty
+  entries, held-back prefix accounting and explicit snapshot materialization.
+  Streaming fixtures 031–032 catch premature cutoff suppression and history scans.
+
+## 2026-10-22 — Stable live arena identities (§3.5–3.8, §5.5, §6.5)
+
+- Separate opaque live expression identity from dense canonical snapshot indices.
+  An earlier forward reference exposed the conflict: dense live indices forced
+  writes to otherwise unchanged siblings, violating I7. Snapshot indices retain
+  canonical first-use order; owners release obsolete expression bodies.
+- Static action-plan references now use their owning node path and argument,
+  instead of arena position. The action tag carries an opaque string, preventing
+  unrelated insertion/rehash from changing a retained plan reference. M4 must
+  still issue epoch-bound runtime handles; no dispatch or evaluator is added.
+- Add focused earlier-expression/action fixtures and update the four existing
+  static action-reference goldens and the provisional-action checkpoint by the
+  documented source-owner formula. Host argument escaping has its own fixture.
+
+
+## 2026-10-22 — M3 review regressions (§3.4–3.5, §12.2)
+
+- Add exact streaming checkpoints for dropped drafts invalidating their consumers,
+  draft bindings retaining sealed state types, and statement-count limits applying
+  to previews. Greptile Plus identified these three implementation bugs; the
+  existing provisional-isolation and limit rules remain unchanged.
+- Clarify fixture comparison of empty slots: IR includes validated empty slot
+  arrays, while retained patch trees normalize them because inserts do not carry
+  empty slot declarations. A new statement-budget fixture exposed this distinction.
+
+
+## 2026-10-22 — M3 mutation regression assertions (§12.8)
+
+- Require direct assertions for binary/index dependency edges, repaired raw-byte
+  endpoints, provisional closed-copy tails and active cutoff suppression. Two
+  mutation shards exposed missing assertions despite final stream/batch equality.
+  No DSL, recovery or production core behavior changes in this follow-up.
+- Optimize mutation test builds and omit debug symbols to reduce full live-harness
+  timeouts and disk use; preserve every workspace test and the complete inventory.
+  A separate shard was interrupted by a runner shutdown and has no acceptance.
+
+## 2026-10-22 — M3 streaming and wire clarifications (§3, §5.5, §6, §12.7, §13)
+
+- Preserve selected raw program bytes alongside normalized extraction segments and seal at a completed closing fence. A CRLF budget fixture exposed M2 counting normalized message bytes, contrary to §2.5.
+- Extend the I6 action-handle guard through reverse dependencies: a sealed consumer must not expose a handle from an unsealed action alias. An explicit live checkpoint caught this before acceptance.
+- Scope G9 evaluation to M4 and carry stable structural deferred expressions in
+  M3 wire props. The old text simultaneously required M3 patches and M4 evaluation.
+- Encode typed maps as ordered tagged pairs: sorted JSON keys cannot preserve
+  map entry order, and untagged maps collide with int/ref/handle tags. Metadata
+  and Library Spec defaults stay ordinary JSON; no std hash change is intended.
+- Add strict live checkpoints/session-script fixtures and expand the milestone mutation inventory to the M3 protocol, Session and canonical encoder.
+- Specify root attachment, deterministic diff/coalescing order, empty push and
+  idempotent finish behavior, snapshot Update/sequence consumption, replay output
+  and authoritative provisional diagnostic withdrawal. Allow conservative semantic
+  provisional diagnostics and hold cutoff-sensitive lexer errors until sealing.
+
+## 2026-10-22 — M3 canonical golden bytes (§6.5, §8.2, §12.2)
+
+- Apply the approved core-owned canonical encoder to Library Spec bytes/hash and
+  IR fixtures. Goldens use sorted compact JSON plus a file-terminating LF; the
+  LF is outside the hashed document. This replaces pretty fixture whitespace
+  without changing the Library Spec hash or expected tree values.
+
 ## 2026-10-22 — GPUI spike findings (§6.5, §10.1, §10.3, §10.6, §12.7, DESIGN §10)
 
 Approves the six proposals in docs/spikes/gpui.md:

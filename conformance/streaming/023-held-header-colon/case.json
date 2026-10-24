@@ -1,0 +1,1 @@
+{"notes":"SPEC \u00a7\u00a72.4,3.3: lexer lookahead belongs to the held line until its header is decidable.","tags":[],"tier":"core","title":"an undecided next-line colon cannot edit the previous tail"}

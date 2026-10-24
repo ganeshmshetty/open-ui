@@ -1,0 +1,1 @@
+[{"epoch":1,"ops":[{"op":"reset"},{"index":0,"node":{"id":"root","kind":"Input","props":{"kind":"text","label":"Name","required":false},"role":"text_input","status":"sealed"},"op":"insert","parent":null,"slot":"root"}],"seq":0},{"epoch":1,"ops":[{"id":"root","op":"set_props","set":{"bind":{"bind":"$x"}},"unset":[]}],"seq":1}]

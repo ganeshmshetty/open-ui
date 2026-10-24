@@ -1,0 +1,3 @@
+body=Text("Fixed")
+root=card
+card=Card(body,title:"AB")

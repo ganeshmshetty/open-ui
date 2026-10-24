@@ -1,0 +1,1 @@
+{"limits":{"max_nodes":2},"notes":"SPEC \u00a72.10: limit recovery stops the directly affected slot; diagnostic deduplication never controls recovery.","tags":["M3","budget","recovery"],"tier":"core","title":"024-rollback-scope"}

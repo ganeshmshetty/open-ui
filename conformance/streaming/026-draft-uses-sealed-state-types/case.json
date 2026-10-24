@@ -1,0 +1,9 @@
+{
+  "title": "draft-uses-sealed-state-types",
+  "tier": "core",
+  "tags": [
+    "review",
+    "regression"
+  ],
+  "notes": "Greptile Plus regression; SPEC \u00a7\u00a72.5,3.3\u20133.7,12.3. Expected behavior written before the fix."
+}

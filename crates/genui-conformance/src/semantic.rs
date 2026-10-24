@@ -25,11 +25,8 @@ impl Runner {
         let library =
             genui_std::std_library().map_err(|e| format!("standard library build: {e:?}"))?;
         let golden = fs::read_to_string(root.join("libs/std.json")).map_err(|e| e.to_string())?;
-        let actual = serde_json::to_string_pretty(
-            &serde_json::to_value(library.spec()).map_err(|e| e.to_string())?,
-        )
-        .map_err(|e| e.to_string())?
-            + "\n";
+        let actual =
+            genui_core::canonical::serialize(library.spec()).map_err(|e| e.to_string())? + "\n";
         if actual != golden {
             return Err("Library Spec byte mismatch against libs/std.json".into());
         }
@@ -130,6 +127,11 @@ impl Runner {
             {
                 let input = fs::read(path.join("input.ui")).map_err(|e| e.to_string())?;
                 let want: Value = checked_json(&path.join("want.ir.json"), &self.ir)?;
+                let bytes =
+                    fs::read_to_string(path.join("want.ir.json")).map_err(|e| e.to_string())?;
+                if bytes != genui_core::canonical::encode(&want) + "\n" {
+                    return Err("IR golden is not canonical bytes".into());
+                }
                 let mut diags: Vec<DiagnosticKey> =
                     checked_json(&path.join("want.diag.json"), &schemas.diagnostics)?;
                 diags.sort();
@@ -142,7 +144,14 @@ impl Runner {
                         actual.ir.canonical_tree(&library)
                     ));
                 }
+                let oracle = crate::streaming::Oracle::new(
+                    &input,
+                    std::sync::Arc::new(library.clone()),
+                    Options::default(),
+                    false,
+                );
                 chunks::for_each(&input, None, |label, parts| {
+                    oracle.check(parts).map_err(|e| format!("{label}: {e}"))?;
                     let mut parser = BatchParser::default();
                     for p in parts {
                         parser.push(p)
@@ -183,6 +192,10 @@ impl Runner {
                 .map_err(|e| e.to_string())?;
         let input = fs::read(path.join("input.ui")).map_err(|e| e.to_string())?;
         let want: Value = checked_json(&path.join("want.ir.json"), &self.ir)?;
+        let bytes = fs::read_to_string(path.join("want.ir.json")).map_err(|e| e.to_string())?;
+        if bytes != genui_core::canonical::encode(&want) + "\n" {
+            return Err("IR golden is not canonical bytes".into());
+        }
         let mut want_diags: Vec<DiagnosticKey> =
             checked_json(&path.join("want.diag.json"), &schemas.diagnostics)?;
         want_diags.sort();
@@ -204,7 +217,14 @@ impl Runner {
             None
         };
         let mut count = 0;
+        let oracle = crate::streaming::Oracle::new(
+            &input,
+            std::sync::Arc::new(self.library.clone()),
+            options.clone(),
+            false,
+        );
         chunks::for_each(&input, explicit.as_deref(), |label, parts| {
+            oracle.check(parts).map_err(|e| format!("{label}: {e}"))?;
             let mut parser = BatchParser::new(options.limits.syntax.clone());
             for p in parts {
                 parser.push(p)

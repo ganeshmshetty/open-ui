@@ -1,0 +1,7 @@
+    Checking genui-core v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-core)
+    Checking genui-std v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-std)
+    Checking genui-prompt v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-prompt)
+    Checking genui-conformance v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-conformance)
+    Checking genui-gpui v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-gpui)
+    Checking genui-cli v0.1.0 (/Users/ganesh/dev/open-ui/crates/genui-cli)
+    Finished `dev` profile [unoptimized] target(s) in 2.50s

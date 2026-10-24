@@ -1,0 +1,4 @@
+a=Divider()
+root=Column([
+ a
+next:=Text("x")

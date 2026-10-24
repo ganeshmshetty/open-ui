@@ -1,0 +1,1 @@
+{"notes":"SPEC \u00a7\u00a72.15,3.5: failed instances remain invalidation targets even when no node was emitted.","tags":["I7","query","recovery"],"tier":"core","title":"Late query replaces a failed consumer diagnostic"}

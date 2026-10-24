@@ -65,3 +65,22 @@ code table and require all conditional static recovery variants. Runtime-only
 limits remain M4 work; every limit's hard ceiling is checked in the core tests.
 The runner reports chunkings and permutations separately from direct builder/
 allocator fixture checks. `spec-check` also checks all 24 exemplar programs.
+
+M3 implements `streaming` and `patches`. Their IR and diagnostic goldens use the
+same batch oracle; patch fixtures also require canonical `want.patches.json`.
+An optional `checkpoints.json` asserts exact live props/absence/status after
+selected explicit chunks. A patch `script.json` can interleave push, finish,
+snapshot and reset, with exact batches including epoch and sequence values.
+Unknown checkpoint/script fields fail deserialization.
+
+Every category now also runs the live Session harness: immutable ordered seals,
+final IR/diagnostic equality, no provisional state/queries/action handles, prose
+reconstruction, checked patch replay and contiguous sequence numbers. Parser work
+counters verify parse-once seals and bounded tail reparsing; they do not prove
+the unresolved dirty-only IR/patch complexity requirement (see M3 report).
+Canonical JSON goldens are compact sorted bytes plus one file LF, independently
+encoded by the core. Typed semantic maps retain entry order as tagged pairs.
+
+`mutations/m3/` holds the frozen M3 inventory and source-matched equivalent-mutant
+reviews; historical M2 acceptance stays in `mutations/`. Mutation metadata is not
+a fixture category and does not contribute to the fixture count.

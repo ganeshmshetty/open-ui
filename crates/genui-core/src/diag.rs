@@ -165,7 +165,7 @@ pub enum Recovery {
     ProgramRejected,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 pub enum Severity {
     Info,
     Warning,
@@ -173,7 +173,7 @@ pub enum Severity {
     Fatal,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 pub enum DiagPhase {
     State,
     Query,
@@ -188,7 +188,7 @@ pub enum DiagPhase {
 }
 
 /// Byte offsets refer to the normalized UTF-8 source; lines and columns are one-based.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Span {
     pub start: usize,
@@ -197,7 +197,7 @@ pub struct Span {
     pub column: usize,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Diagnostic {
     pub code: Code,

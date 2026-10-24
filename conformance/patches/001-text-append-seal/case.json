@@ -1,0 +1,6 @@
+{
+  "title": "partial Text appends then seals",
+  "tier": "core",
+  "tags": [],
+  "notes": "SPEC \u00a7\u00a73.3,6.3\u20136.5: expected batches on explicit stream only; replay on all chunkings."
+}

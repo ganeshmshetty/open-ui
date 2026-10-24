@@ -9,7 +9,7 @@ A milestone is complete only after its acceptance checks pass and CI is green.
 | M0 — Workspace and verification scaffolding | Complete | 21 lex fixtures / 4,743 chunkings; 7 spec examples; Linux and macOS CI green. |
 | M1 — Batch syntax | Complete | 124 fixtures / 28,225 chunkings; 23 tests including 2,048 generated round trips; four clean 600-second fuzz campaigns; Linux/macOS CI green. |
 | M2 — Library, validation, IR and limits | Complete, including tree and quality gates | 295 fixtures / 66,772 chunkings / 400 permutations; 66 Rust + 10 gate tests; 8 CLI fixtures; 24 exemplars; renewed parser/validator ASan 601s each; 609 mutations audited; Linux/macOS/quality and mutation CI green. |
-| M3 — Streaming and patches | In progress on milestone/m3 | Fixtures first; canonical encoder, live invariants, replay, 100k property, fuzz and mutation acceptance pending. |
+| M3 — Streaming and patches | Complete (mutation advisory) | CI green; fresh 601 s fuzz; 100k property; fixtures/replay. Mutation survivors recorded as backlog per the 2026-10-24 gate change. |
 | M4 — Runtime | Not started | Evaluation and interactive fixture categories. |
 | M5 — Prompt, feedback and messages | Not started | Golden output and cross-platform determinism. |
 | M6 — GPUI skeleton | Not started | Live streaming demo and recorded performance. |
@@ -1137,3 +1137,14 @@ core tests and 128 source-hashed equivalent rationales in
 has a regression. A small number of mutants remain unclassified and will be
 rechecked by the next campaign. Full workspace tests, fixtures, fmt and Clippy
 (1.94 and 1.99) pass after merging the groups; no want.* golden was weakened.
+
+### Gate change — mutation becomes advisory, demos become mandatory (2026-10-24)
+
+Owner decision: mutation testing no longer blocks merges or milestones. SPEC §12.8
+item 7 now defines it as a nightly/advisory report with a complete-inventory review
+kept as backlog evidence; M3's done-when requires CI plus fresh fuzz, not a clean
+mutation campaign. M3 is marked complete on that basis. AGENTS self-merge now says
+mutation never blocks, and adds a demo-first rule: each milestone must end with a
+runnable user-visible demo. ROADMAP items 19–20 add the chess vertical slice and the
+scheduled mutation workflow. The 32-shard run was cancelled once the new contract
+was recorded; its survivor data remains in the repository for later triage.

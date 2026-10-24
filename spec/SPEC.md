@@ -1997,7 +1997,7 @@ These run in CI and fail the build. They turn the AGENTS.md rules into checks.
    codes to actual diagnostic fixtures and `conformance/deferred.json` contains
    only `{milestone, reason}` records. The table/audit tests reject unknown codes,
    missing fixtures and empty reasons.
-7. **Mutation testing:** `cargo-mutants` on `syntax`, `ir` and (from M3) `patch`/Session/canonical encoding runs before a milestone is marked done; surviving mutants are fixed or justified in PROGRESS.md. (Not on every push.)
+7. **Mutation testing (advisory):** `cargo-mutants` runs nightly and on demand over `syntax`, `ir`, `patch`, Session and canonical encoding. Its report must cover a complete inventory and review surviving mutants, but it does **not** block a merge or milestone. Fix or record survivors when they protect a behavior on the current critical path; otherwise they stay in the backlog. A small per-PR subset may be run for changes to these modules.
 
 The source scanner checks project Rust files under `crates/` and `fuzz/`, including
 untracked files locally. It recognizes comments, literals and conditional ignore
@@ -2009,14 +2009,13 @@ transitive core graph across targets and optional features, including dev-only
 edges. New UI/async families must be added to this policy when introduced.
 Fixture protection checks each commit independently, including additions,
 deletions and renames; a later spec edit cannot excuse an earlier golden change.
-The milestone-only mutation workflow runs manually or on an explicit
-`[mutation-gate]` push, and checks all milestone syntax/IR/patch/Session/canonical mutants with workspace
-tests in an isolated project-only copy. Results, source hashes, tool version and
-any survivor rationale are retained in milestone metadata. Thirty-two CI shards must
-cover the frozen inventory exactly once and use identical current source hashes;
-each baseline must pass, and every survivor needs a source-matched rationale.
-Build timeouts fail the gate; test timeouts are killed mutants under the mutation
-tool's model. Direct public API contracts and nested
+The advisory mutation workflow runs nightly or manually, and checks all
+syntax/IR/patch/Session/canonical mutants with workspace tests in an isolated
+project-only copy. Results, source hashes, tool version and survivor rationales are
+retained as backlog evidence. Shards should cover the inventory exactly once and use
+identical source hashes, but an incomplete or failed run is a report to triage, not
+a merge blocker. Build timeouts are defects worth fixing; test timeouts are killed
+mutants under the mutation tool's model. Direct public API contracts and nested
 recovery metadata need assertions as well as end-to-end fixtures. Streaming
 assertions include both operands of binary/index dependencies, raw byte endpoints
 after UTF-8 repair and CRLF normalization, exact closed-copy lambda/named-argument
@@ -2103,7 +2102,7 @@ pub fn render_event(ev: &ModelEvent) -> String;
 | M0 | Workspace, CI, conformance runner skeleton, fixture schemas, fuzz stubs, `spec-check` | CI green; `lex` fixtures pass; every ```` ```ui ```` block in this spec at least lexes. |
 | M1 | Lexer, splitter, extractor, batch parser, AST | `lex`, `grammar`, `statements` and `extract` pass; round-trip property passes; 10 minutes of fuzzing is clean. |
 | M2 | Library model, builder, `<name>-std` (8.8), Library Spec JSON; resolver, validator, recovery ladder, IR with path IDs, limits | `library`, `resolve`, `schema`, `ir` and `limits` pass, including permutations; one fixture per diagnostic code; `spec-check` passes on every example. |
-| M3 | Streaming parser: tail closing, sealing, held-back bytes, provisional diagnostics, dirty tracking, patches | `streaming` and `patches` pass under every chunking; stream equals batch on 100k generated programs. |
+| M3 | Streaming parser: tail closing, sealing, held-back bytes, provisional diagnostics, dirty tracking, patches | `streaming` and `patches` pass under every chunking; stream equals batch on 100k generated programs; CI and a fresh 601-second fuzz campaign are green. Mutation survivors are advisory and recorded. |
 | M4 | Runtime: values, builtins, provenance, state, forms, actions, queries, refs | `numbers`, `expr`, `iteration`, `state`, `forms`, `actions`, `queries`, `refs` and `provenance` pass in both tiers. |
 | M5 | Prompt generator, feedback, stored messages, events | `prompt`, `feedback` and `message` pass; prompt bytes identical on macOS and Linux CI. |
 | M6 | GPUI skeleton: pins, `UiView` queue, retained tree, cached child views, layout and text components, theming | A fixture streams live in a demo window; recorded patch streams replay without panic; frame and memory numbers recorded; the gallery app (12.7) renders every implemented component's examples in light and dark, and the screenshot set has been reviewed against DESIGN.md with every finding fixed or logged in PROGRESS.md. |

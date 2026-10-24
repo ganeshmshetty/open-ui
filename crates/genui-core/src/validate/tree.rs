@@ -1523,9 +1523,45 @@ mod tests {
                 ComponentDef::new("Frame", Role::Group)
                     .group("G")
                     .doc("A frame with an optional header.")
+                    .to_text("{children}")
                     .req("children", T::nodes())
                     .opt_none("header", T::nodes())
                     .example("Frame([])"),
+            )
+            .component(
+                ComponentDef::new("Show", Role::Paragraph)
+                    .group("G")
+                    .doc("A text binding sink.")
+                    .req("value", T::binding(T::text())),
+            )
+            .component(
+                ComponentDef::new("ShowList", Role::Paragraph)
+                    .group("G")
+                    .doc("A list binding sink.")
+                    .req("items", T::binding(T::list(T::text()))),
+            )
+            .component(
+                ComponentDef::new("Rich", Role::Group)
+                    .group("G")
+                    .doc("A capability-gated container.")
+                    .to_text("Rich {title}: {children}")
+                    .requires("markdown")
+                    .req("title", T::text())
+                    .req("children", T::nodes()),
+            )
+            .component(
+                ComponentDef::new("Text", Role::Paragraph)
+                    .group("G")
+                    .doc("A text fallback.")
+                    .to_text("{text}")
+                    .req("text", T::text()),
+            )
+            .component(
+                ComponentDef::new("Markdown", Role::Paragraph)
+                    .group("G")
+                    .doc("A markdown fallback.")
+                    .to_text("{text}")
+                    .req("text", T::text()),
             )
             .build()
             .unwrap()
@@ -1605,6 +1641,479 @@ mod tests {
                 .component(&new, (kind, def), &new_args, &ctx, path, 1)
                 .is_some(),
             "equal present and absent slot bounds must preserve the instance"
+        );
+    }
+
+    // --- retained subtree reuse (SPEC §3.6) -------------------------------
+
+    const NESTED: &str = "root=Frame([child])\nchild=Leaf(\"a\")\n";
+
+    fn validate_source(lib: &Library, options: &Options, source: &str) -> Validation {
+        validate(source.as_bytes(), lib, options)
+    }
+
+    fn root_id(lib: &Library, options: &Options, path: &NodePath) -> crate::ir::NodeId {
+        let mut probe = Validator::new(&Program::default(), Vec::new(), lib, options);
+        probe.ids.allocate(path)
+    }
+
+    fn reuse(
+        lib: &Library,
+        options: &Options,
+        previous: &Validation,
+        dirty: &BTreeSet<String>,
+        path: &NodePath,
+        depth: usize,
+    ) -> (Option<crate::ir::NodeId>, usize, u64) {
+        let count = std::cell::Cell::new(0usize);
+        let mut validator = Validator::new(&Program::default(), Vec::new(), lib, options);
+        validator.reuse = Some(Reuse {
+            previous,
+            dirty,
+            count: &count,
+        });
+        let (id, _) = lib.component("Frame").expect("Frame");
+        let ctx = Context::at("root", Some(path.clone()));
+        let out = validator.reuse_subtree(id, &ctx, path, depth);
+        (out, count.get(), validator.work.instances_examined)
+    }
+
+    #[test]
+    fn clean_retained_subtree_is_reused_and_charged_exactly() {
+        let lib = library();
+        let options = Options::default();
+        let path = NodePath("root".into());
+        let previous = validate_source(&lib, &options, NESTED);
+        assert_eq!(previous.ir.nodes.len(), 2);
+        let (out, count, examined) = reuse(&lib, &options, &previous, &BTreeSet::new(), &path, 1);
+        assert!(out.is_some(), "a clean sealed subtree must be reused");
+        assert_eq!(count, 2, "both retained nodes must be counted as reused");
+        assert_eq!(examined, 2, "each reused node is examined exactly once");
+        let mut probe = Validator::new(&Program::default(), Vec::new(), &lib, &options);
+        let probe_count = std::cell::Cell::new(0usize);
+        let probe_dirty = BTreeSet::new();
+        probe.reuse = Some(Reuse {
+            previous: &previous,
+            dirty: &probe_dirty,
+            count: &probe_count,
+        });
+        let (id, _) = lib.component("Frame").expect("Frame");
+        let ctx = Context::at("root", Some(path.clone()));
+        assert!(probe.reuse_subtree(id, &ctx, &path, 1).is_some());
+        assert_eq!(probe.allocated, 2, "reuse must charge the node budget");
+    }
+
+    #[test]
+    fn reuse_is_disabled_for_templates_orphans_and_retained_tasks() {
+        let lib = library();
+        let options = Options::default();
+        let path = NodePath("root".into());
+        let previous = validate_source(&lib, &options, NESTED);
+        let dirty = BTreeSet::new();
+        for (orphan, template, tasks) in [
+            (true, false, false),
+            (false, true, false),
+            (false, false, true),
+            (true, true, false),
+            (false, true, true),
+        ] {
+            let count = std::cell::Cell::new(0usize);
+            let mut validator = Validator::new(&Program::default(), Vec::new(), &lib, &options);
+            validator.checking_orphan = orphan;
+            validator.checking_template = template;
+            if tasks {
+                validator.tasks = Some(crate::validate::tasks::Machine::default());
+            }
+            validator.reuse = Some(Reuse {
+                previous: &previous,
+                dirty: &dirty,
+                count: &count,
+            });
+            let (id, _) = lib.component("Frame").expect("Frame");
+            let ctx = Context::at("root", Some(path.clone()));
+            assert!(
+                validator.reuse_subtree(id, &ctx, &path, 1).is_none(),
+                "orphan={orphan} template={template} tasks={tasks} must not reuse"
+            );
+            assert_eq!(count.get(), 0);
+        }
+    }
+
+    #[test]
+    fn reuse_requires_matching_root_identity_and_sealed_status() {
+        let lib = library();
+        let options = Options::default();
+        let path = NodePath("root".into());
+        let old_id = root_id(&lib, &options, &path);
+        for edit in ["path", "kind", "origin", "status"] {
+            let mut previous = validate_source(&lib, &options, NESTED);
+            let node = previous.ir.nodes.get_mut(&old_id).expect("retained root");
+            match edit {
+                "path" => node.path = NodePath("elsewhere".into()),
+                "kind" => node.kind = ComponentId(999),
+                "origin" => node.origin = "elsewhere".into(),
+                "status" => node.status = NodeStatus::Partial,
+                _ => unreachable!(),
+            }
+            let (out, _, _) = reuse(&lib, &options, &previous, &BTreeSet::new(), &path, 1);
+            assert!(out.is_none(), "a mismatched {edit} must reject reuse");
+        }
+    }
+
+    #[test]
+    fn reuse_requires_a_clean_path_prefix_and_no_capacity_diagnostics() {
+        let lib = library();
+        let options = Options::default();
+        let path = NodePath("root".into());
+        for (target, accepted) in [
+            ("root", false),
+            ("root/children:@child", false),
+            ("other", true),
+            ("rooted", true),
+        ] {
+            let mut previous = validate_source(&lib, &options, NESTED);
+            let mut diagnostic = Diagnostic::new(Code::Nodes, Some("root".into()), None);
+            diagnostic.path = Some(target.into());
+            previous.diagnostics.extend_raw([diagnostic]);
+            let (out, _, _) = reuse(&lib, &options, &previous, &BTreeSet::new(), &path, 1);
+            assert_eq!(
+                out.is_some(),
+                accepted,
+                "diagnostic at {target} must {} reuse",
+                if accepted { "allow" } else { "reject" }
+            );
+        }
+        let mut previous = validate_source(&lib, &options, NESTED);
+        let mut unrelated = Diagnostic::new(Code::DuplicateArg, Some("root".into()), None);
+        unrelated.path = Some("root".into());
+        previous.diagnostics.extend_raw([unrelated]);
+        let (out, _, _) = reuse(&lib, &options, &previous, &BTreeSet::new(), &path, 1);
+        assert!(
+            out.is_some(),
+            "diagnostics outside the node/depth budgets must not block reuse"
+        );
+    }
+
+    #[test]
+    fn reuse_charges_depth_from_the_new_position_and_rejects_overflow() {
+        let lib = library();
+        let mut options = Options::default();
+        let max = options.limits.max_ir_depth;
+        let path = NodePath("root".into());
+        let previous = validate_source(&lib, &options, NESTED);
+        let (out, _, _) = reuse(&lib, &options, &previous, &BTreeSet::new(), &path, max - 1);
+        assert!(
+            out.is_some(),
+            "a subtree whose deepest child lands on the ceiling still fits"
+        );
+        let (out, _, _) = reuse(&lib, &options, &previous, &BTreeSet::new(), &path, max);
+        assert!(
+            out.is_none(),
+            "a child beyond the depth ceiling must be rejected"
+        );
+        options.limits.max_ir_depth = 1;
+        let previous = validate_source(&lib, &options, NESTED);
+        let (out, _, _) = reuse(&lib, &options, &previous, &BTreeSet::new(), &path, 1);
+        assert!(
+            out.is_none(),
+            "a nested child beyond the reduced depth ceiling must be rejected"
+        );
+    }
+
+    #[test]
+    fn reuse_rejects_dirty_or_unsealed_descendants() {
+        let lib = library();
+        let options = Options::default();
+        let path = NodePath("root".into());
+        let dirty: BTreeSet<String> = ["child".to_string()].into_iter().collect();
+        let previous = validate_source(&lib, &options, NESTED);
+        let (out, _, _) = reuse(&lib, &options, &previous, &dirty, &path, 1);
+        assert!(out.is_none(), "a dirty descendant origin must reject reuse");
+
+        let child = {
+            let mut probe = Validator::new(&Program::default(), Vec::new(), &lib, &options);
+            probe.ids.allocate(&NodePath("root/children:@child".into()))
+        };
+        for edit in ["status", "props", "plans"] {
+            let mut previous = validate_source(&lib, &options, NESTED);
+            let node = previous.ir.nodes.get_mut(&child).expect("retained child");
+            match edit {
+                "status" => node.status = NodeStatus::Partial,
+                "props" => {
+                    node.props.insert(
+                        PropId(0),
+                        Prop::Static(PropValue::Binding("violated".into())),
+                    );
+                }
+                "plans" => node.slots.push(crate::ir::IrSlot {
+                    name: "children".into(),
+                    children: Default::default(),
+                    plans: vec![crate::ir::SlotPlan {
+                        base: node.path.clone(),
+                        expression: ExprId {
+                            hash: 0,
+                            key: "unused".into(),
+                        },
+                        accepts: Vec::new(),
+                    }]
+                    .into(),
+                }),
+                _ => unreachable!(),
+            }
+            let (out, _, _) = reuse(&lib, &options, &previous, &BTreeSet::new(), &path, 1);
+            assert!(
+                out.is_none(),
+                "a descendant with changed {edit} must not reuse"
+            );
+        }
+    }
+
+    #[test]
+    fn reuse_respects_the_new_node_budget_exactly() {
+        let lib = library();
+        let path = NodePath("root".into());
+        let mut options = Options::default();
+        let previous = validate_source(&lib, &options, NESTED);
+        options.limits.max_nodes = 2;
+        let (out, _, _) = reuse(&lib, &options, &previous, &BTreeSet::new(), &path, 1);
+        assert!(out.is_some(), "a subtree that exactly fits must reuse");
+        options.limits.max_nodes = 1;
+        let (out, _, _) = reuse(&lib, &options, &previous, &BTreeSet::new(), &path, 1);
+        assert!(
+            out.is_none(),
+            "a subtree above the node ceiling must reject reuse"
+        );
+    }
+
+    // --- live prop inference, templates and fallback (SPEC §§2.10, 7.1, 8.6) ---
+
+    fn state(default: Value) -> crate::ir::StateDef {
+        crate::ir::StateDef {
+            ty: T::infer(&default),
+            default,
+        }
+    }
+
+    #[test]
+    fn binding_props_widen_ambiguous_state_types() {
+        let lib = library();
+        let options = Options::default();
+        let (_, def) = lib.component("Show").expect("Show");
+        let (_, args) = call("root=Show(value:$s)");
+        let expr = args[0].value.clone();
+        let ctx = Context::at("root", None);
+
+        let mut validator = Validator::new(&Program::default(), Vec::new(), &lib, &options);
+        validator.ir.states.insert("s".into(), state(Value::Null));
+        let prop = validator.prop(&expr, &def.args[0], &ctx, 0);
+        assert!(
+            matches!(prop, Some(Prop::Static(PropValue::Binding(ref name))) if name == "s"),
+            "a null state must widen to the binding target: {prop:?}"
+        );
+        assert_eq!(validator.ir.states["s"].ty, T::Text);
+
+        let mut validator = Validator::new(&Program::default(), Vec::new(), &lib, &options);
+        validator
+            .ir
+            .states
+            .insert("s".into(), state(Value::List(Vec::new().into())));
+        let (_, list_def) = lib.component("ShowList").expect("ShowList");
+        let prop = validator.prop(&expr, &list_def.args[0], &ctx, 0);
+        assert!(
+            matches!(prop, Some(Prop::Static(PropValue::Binding(ref name))) if name == "s"),
+            "an empty-list state must widen to the list binding target: {prop:?}"
+        );
+        assert_eq!(validator.ir.states["s"].ty, T::list(T::text()));
+    }
+
+    #[test]
+    fn template_checks_publish_state_widening_but_orphan_checks_do_not() {
+        let lib = library();
+        let options = Options::default();
+        let (_, args) = call("root=Show(value:$s)");
+        let body = args[0].value.clone();
+        let body = Expr::Call {
+            name: "Show".into(),
+            args: vec![crate::syntax::ast::Argument {
+                name: Some("value".into()),
+                value: body,
+            }],
+        };
+        for (orphan, expected) in [(false, T::Text), (true, T::Any)] {
+            let mut validator = Validator::new(&Program::default(), Vec::new(), &lib, &options);
+            validator.ir.states.insert("s".into(), state(Value::Null));
+            validator.checking_orphan = orphan;
+            validator.check_template(
+                &body,
+                &Context::at("root", None),
+                NodePath("root".into()),
+                1,
+                None,
+            );
+            assert_eq!(
+                validator.ir.states["s"].ty, expected,
+                "orphan={orphan} state publication"
+            );
+        }
+    }
+
+    #[test]
+    fn fallback_stays_static_when_descendants_only_have_empty_slots() {
+        let lib = library();
+        let mut options = Options::default();
+        options.capabilities.remove("markdown");
+        let result = validate(
+            b"root=Rich(\"Title\", [Frame([Leaf(\"a\")])])\n",
+            &lib,
+            &options,
+        );
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.code == Code::CapFallback),
+            "the capability fallback must run"
+        );
+        assert!(
+            result.ir.fallbacks.is_empty(),
+            "a descendant with no dynamic slot plans must keep the fallback static"
+        );
+        assert!(
+            result.ir.nodes.values().any(|node| node.props.values().any(
+                |prop| matches!(prop, Prop::Static(PropValue::Value(Value::Str(s)))
+                    if s.text.as_ref().starts_with("Rich Title:"))
+            )),
+            "the fallback must render a static text value"
+        );
+    }
+
+    #[test]
+    fn display_uses_canonical_scalar_text() {
+        assert_eq!(display(&Value::Float(1.0)), "1");
+        assert_eq!(display(&Value::Float(1.5)), "1.5");
+        assert_eq!(display(&Value::Int(-3)), "-3");
+        assert_eq!(display(&Value::Bool(true)), "true");
+    }
+
+    #[test]
+    fn numeric_types_are_compatible_in_both_directions() {
+        assert!(type_compatible(&T::Number, &T::Int));
+        assert!(type_compatible(&T::Number, &T::Float));
+        assert!(type_compatible(&T::Any, &T::Text));
+        assert!(!type_compatible(&T::Text, &T::Int));
+    }
+
+    // --- failed state inference (SPEC §2.10) ------------------------------
+
+    fn infer(
+        lib: &Library,
+        source: &str,
+        states: &[(&str, Value)],
+    ) -> crate::SharedMap<String, crate::ir::StateDef> {
+        let options = Options::default();
+        let parsed = parse_batch(source.as_bytes(), options.limits.clone().syntax);
+        let mut validator = Validator::new(&parsed.program, parsed.diagnostics, lib, &options);
+        for statement in &parsed.program.statements {
+            let kind = validator.classify(&statement.value);
+            validator
+                .table
+                .insert(statement.name.clone(), statement.clone());
+            validator.kinds.insert(statement.name.clone(), kind);
+        }
+        for (name, default) in states {
+            validator
+                .ir
+                .states
+                .insert((*name).into(), state(default.clone()));
+        }
+        validator.infer_binding_defaults();
+        validator.ir.states.clone()
+    }
+
+    #[test]
+    fn inference_follows_nodes_but_skips_values_and_shadowed_locals() {
+        let lib = library();
+        let states = infer(
+            &lib,
+            "root=Frame([child])\nchild=Show(value:$s)\n",
+            &[("s", Value::Null)],
+        );
+        assert_eq!(states["s"].ty, T::Text);
+
+        let states = infer(
+            &lib,
+            "root=Frame([alias])\nalias=Show(value:$s)\n",
+            &[("s", Value::Null)],
+        );
+        assert_eq!(states["s"].ty, T::Text);
+
+        let options = Options::default();
+        let parsed = parse_batch(
+            b"root=Frame([each([1], |child| Frame([child]))])\nchild=Show(value:$s)\n",
+            options.limits.clone().syntax,
+        );
+        let mut validator = Validator::new(&parsed.program, parsed.diagnostics, &lib, &options);
+        for statement in &parsed.program.statements {
+            let kind = validator.classify(&statement.value);
+            validator
+                .table
+                .insert(statement.name.clone(), statement.clone());
+            validator.kinds.insert(statement.name.clone(), kind);
+        }
+        // A value statement named like a shadowed local must not be traversed.
+        validator.kinds.insert("child".into(), Kind::Value);
+        validator.ir.states.insert("s".into(), state(Value::Null));
+        validator.infer_binding_defaults();
+        assert_eq!(validator.ir.states["s"].ty, T::Any);
+    }
+
+    #[test]
+    fn inference_reads_named_bindings_and_empty_list_targets() {
+        let lib = library();
+        let states = infer(&lib, "root=Show(value:$n)\n", &[("n", Value::Null)]);
+        assert_eq!(states["n"].ty, T::Text);
+
+        let states = infer(
+            &lib,
+            "root=ShowList(items:$xs)\n",
+            &[("xs", Value::List(Vec::new().into()))],
+        );
+        assert_eq!(states["xs"].ty, T::list(T::text()));
+    }
+
+    #[test]
+    fn inference_descends_into_each_if_and_coalesce_templates() {
+        let lib = library();
+        let states = infer(
+            &lib,
+            "root=Frame([each([1], |x| Show(value:$e))])\n",
+            &[("e", Value::Null)],
+        );
+        assert_eq!(states["e"].ty, T::Text);
+
+        let states = infer(
+            &lib,
+            "root=Frame([if(true, Show(value:$i), Leaf(\"x\"))])\n",
+            &[("i", Value::Null)],
+        );
+        assert_eq!(states["i"].ty, T::Text);
+
+        let states = infer(
+            &lib,
+            "root=Frame([coalesce(Show(value:$c), Leaf(\"y\"))])\n",
+            &[("c", Value::Null)],
+        );
+        assert_eq!(states["c"].ty, T::Text);
+
+        let states = infer(
+            &lib,
+            "root=Frame([if(Show(value:$v), Leaf(\"a\"), Leaf(\"b\"))])\n",
+            &[("v", Value::Null)],
+        );
+        assert_eq!(
+            states["v"].ty,
+            T::Any,
+            "the condition of if is not a binding position"
         );
     }
 }

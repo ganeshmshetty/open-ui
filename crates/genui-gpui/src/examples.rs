@@ -23,8 +23,10 @@ pub struct LoadedProgram {
     pub seals: Vec<Seal>,
     /// Implemented component kinds present in the final tree.
     pub kinds: Vec<String>,
-    /// Kinds that render as M7/M8 placeholders, sorted and unique.
+    /// Kinds that render as M8 placeholders, sorted and unique.
     pub deferred: Vec<String>,
+    /// Final `$state` values for bound inputs (SPEC §10.4).
+    pub state: std::collections::BTreeMap<String, genui_core::runtime::StateValue>,
 }
 
 impl LoadedProgram {
@@ -39,7 +41,7 @@ impl LoadedProgram {
 pub fn session(source: &[u8], options: &Options) -> Result<LoadedProgram, String> {
     let library = genui_std::std_library().map_err(|errors| format!("std library: {errors:?}"))?;
     let mut options = options.clone();
-    options.capabilities = Capabilities::m6().names();
+    options.capabilities = Capabilities::m7().names();
     let mut session = Session::new(SessionOptions {
         library: Arc::new(library),
         validation: options,
@@ -83,6 +85,7 @@ pub fn session(source: &[u8], options: &Options) -> Result<LoadedProgram, String
         seals: session.seals().to_vec(),
         kinds,
         deferred,
+        state: session.state_values(),
     })
 }
 

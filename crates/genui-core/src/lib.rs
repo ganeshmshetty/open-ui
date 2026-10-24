@@ -43,7 +43,7 @@ pub mod session;
 pub use maintenance::MaintenanceWork;
 mod persistent;
 pub use persistent::{SharedMap, SharedVector};
-pub use session::{Session, SessionOptions, Update};
+pub use session::{FrozenMessage, Session, SessionOptions, Update};
 
 mod diagnostics;
 pub use diagnostics::Diagnostics;

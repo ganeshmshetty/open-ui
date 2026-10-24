@@ -500,7 +500,13 @@ impl Session {
         &self.runtime_diagnostics
     }
     /// Look up the current handle for a node's action prop by its wire name.
+    ///
+    /// `prop: "submit"` returns the form's `on_submit` handle for a
+    /// `Button(submit: true)` that has no `on_click` (SPEC §§2.14,10.4).
     pub fn action_handle(&self, path: &crate::ir::NodePath, prop: &str) -> Option<ActionHandle> {
+        if prop == "submit" {
+            return self.submit_handle(path);
+        }
         let node = self
             .live_ir()
             .nodes
@@ -522,6 +528,25 @@ impl Session {
             }),
             _ => None,
         }
+    }
+    /// Handle for a `Button(submit: true)` without its own action: the nearest
+    /// enclosing form's `on_submit` plan. Returns `None` outside a form with an
+    /// `on_submit`, or when the node is not a submit button (SPEC §2.14).
+    pub fn submit_handle(&self, path: &crate::ir::NodePath) -> Option<ActionHandle> {
+        let node = self
+            .live_ir()
+            .nodes
+            .values()
+            .find(|node| node.path == *path)?;
+        if !self.is_submit_button(node.id) {
+            return None;
+        }
+        let form = self.nearest_form(node.id)?;
+        let plan = self.form_submit_plan_id(form)?;
+        Some(ActionHandle {
+            plan,
+            epoch: self.epoch,
+        })
     }
     /// Explicit action entry point. Events are gated while streaming and stale
     /// epoch/plan handles are inert. Host effects become requests/model events.
@@ -579,14 +604,19 @@ impl Session {
         let Some(plan) = self.live_ir().actions.get(&handle.plan).cloned() else {
             return self.empty_update();
         };
+        let button_submit = self.is_submit_button(node);
         if plan.origin != node {
-            return self.empty_update();
+            let form_plan = self
+                .nearest_form(node)
+                .and_then(|form| self.form_submit_plan_id(form));
+            if !(button_submit && form_plan.as_ref() == Some(&handle.plan)) {
+                return self.empty_update();
+            }
         }
         if !self.live_ir().nodes.contains_key(&node) {
             return self.empty_update();
         }
         self.action_diagnostics.clear();
-        let button_submit = self.is_submit_button(node);
         let gate = if let Some(scope) = plan.submit_scope {
             Some(Some(scope))
         } else if button_submit {
@@ -888,6 +918,18 @@ impl Session {
             self.resolved_arg(node, component, "submit"),
             Some(crate::ir::PropValue::Value(crate::value::Value::Bool(true)))
         )
+    }
+    fn form_submit_plan_id(&self, form: crate::ir::NodeId) -> Option<crate::ir::ActionPlanId> {
+        let node = self.live_ir().nodes.get(&form)?;
+        let component = self
+            .options
+            .library
+            .components()
+            .get(node.kind.0 as usize)?;
+        match self.resolved_arg(node, component, "on_submit") {
+            Some(crate::ir::PropValue::Action(id)) => Some(id),
+            _ => None,
+        }
     }
     fn form_submit_plan(&self, form: crate::ir::NodeId) -> Option<crate::ir::ActionPlan> {
         let node = self.live_ir().nodes.get(&form)?;

@@ -1,0 +1,7 @@
+[
+  {
+    "op": "activate",
+    "node": "root/children:@finder/children:@go",
+    "prop": "submit"
+  }
+]

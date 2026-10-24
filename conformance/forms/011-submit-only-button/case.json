@@ -1,0 +1,8 @@
+{
+  "title": "Submit-only button runs the form action",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC §2.14: Button(submit: true) without on_click validates its form and runs on_submit."
+}

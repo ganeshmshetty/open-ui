@@ -49,6 +49,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - name: Linux renderer dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libfontconfig1-dev libwayland-dev libxkbcommon-dev libxkbcommon-x11-dev libx11-xcb-dev libssl-dev libzstd-dev libgit2-dev libvulkan-dev
       - name: Format
         run: cargo fmt --all -- --check
       - name: Clippy
@@ -75,5 +80,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Linux renderer dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libfontconfig1-dev libwayland-dev libxkbcommon-dev libxkbcommon-x11-dev libx11-xcb-dev libssl-dev libzstd-dev libgit2-dev libvulkan-dev
       - name: Identical core and conformance goldens under feature unification
         run: cargo test --locked --workspace --features serde_json/preserve_order

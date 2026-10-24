@@ -3,6 +3,7 @@
 
 mod prompt;
 mod replay;
+mod transcripts;
 mod tree;
 
 use genui_conformance::{run_suite, spec_check};
@@ -12,12 +13,15 @@ fn run(args: Vec<String>) -> Result<bool, String> {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let Some(command) = args.first() else {
         return Err(
-            "usage: genui-cli <fixtures [directory] | spec-check [SPEC.md] | tree <file.ui> | replay <file.ui> [--chunk N] | prompt [options.json] | feedback <file.ui> | message <file.ui> [digest] [--cut] [--replay]>"
+            "usage: genui-cli <fixtures [directory] | spec-check [SPEC.md] | tree <file.ui> | replay <file.ui> [--chunk N] | prompt [options.json] | feedback <file.ui> | message <file.ui> [digest] [--cut] [--replay] | transcripts [directory] [--record|--verify]>"
                 .into(),
         );
     };
     if command == "replay" {
         return replay::run(&args[1..]);
+    }
+    if command == "transcripts" {
+        return transcripts::run(&args[1..]);
     }
     if command == "prompt" {
         let mut path = None;
@@ -115,7 +119,7 @@ fn run(args: Vec<String>) -> Result<bool, String> {
         }
         _ => {
             return Err(format!(
-                "unknown command {command:?}; M5 supports fixtures, spec-check, tree, replay, prompt, feedback and message"
+                "unknown command {command:?}; M8 supports fixtures, spec-check, tree, replay, prompt, feedback, message and transcripts"
             ));
         }
     }

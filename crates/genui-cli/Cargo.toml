@@ -9,4 +9,5 @@ genui-core.workspace = true
 genui-std.workspace = true
 genui-prompt.workspace = true
 genui-conformance.workspace = true
+serde.workspace = true
 serde_json.workspace = true

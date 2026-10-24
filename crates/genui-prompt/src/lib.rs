@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub use genui_core::feedback::render as render_feedback;
+pub mod transcript;
 
 /// Identifies the template prose below; bump when its wording changes.
 pub const PROMPT_TEMPLATE_VERSION: u32 = 1;

@@ -2150,6 +2150,7 @@ dependencies = [
  "genui-core",
  "genui-prompt",
  "genui-std",
+ "serde",
  "serde_json",
 ]
 
@@ -2183,6 +2184,7 @@ name = "genui-gpui"
 version = "0.1.0"
 dependencies = [
  "genui-core",
+ "genui-prompt",
  "genui-std",
  "gpui-base",
  "gpui-component",

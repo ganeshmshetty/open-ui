@@ -1,0 +1,20 @@
+{
+  "t4.orders": [
+    {"id": "ORD-1042", "customer": "Ada Lovelace", "total": 128.5, "status": "Paid"},
+    {"id": "ORD-1041", "customer": "Grace Hopper", "total": 64.0, "status": "Pending"},
+    {"id": "ORD-1040", "customer": "Alan Turing", "total": 212.25, "status": "Refunded"},
+    {"id": "ORD-1039", "customer": "Katherine Johnson", "total": 18.0, "status": "Paid"},
+    {"id": "ORD-1038", "customer": "Margaret Hamilton", "total": 96.4, "status": "Shipped"}
+  ],
+  "t4.people": [
+    {"id": "p1", "name": "Ada Lovelace", "location": "London"},
+    {"id": "p2", "name": "Grace Hopper", "location": "New York"},
+    {"id": "p3", "name": "Alan Turing", "location": "Manchester"},
+    {"id": "p4", "name": "Katherine Johnson", "location": "Hampton"}
+  ],
+  "t4.places": [
+    {"id": "pl1", "name": "Ramen Lab", "photo": "https://example.com/ramen.png", "address": "12 Market Street"},
+    {"id": "pl2", "name": "The Reading Room", "photo": "https://example.com/reading.png", "address": "8 College Lane"},
+    {"id": "pl3", "name": "Harbor Kitchen", "photo": "https://example.com/harbor.png", "address": "3 Quay Road"}
+  ]
+}

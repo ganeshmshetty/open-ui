@@ -14,8 +14,8 @@
   marker gutters but no virtualization in phase 1; chart hover tooltips and
   motion.
 - §10.6 adds the 50,000-row measurement: 12 visible rows at every offset, steady
-  app work p99 0.05 ms, one 293 ms construction frame (99 ms parse + 147 ms
-  snapshot apply) and 786 MB process RSS. The construction-cost and memory
+  app work p99 0.05 ms, one 290 ms construction frame (99 ms parse + 147 ms
+  snapshot apply) and 773 MB process RSS. The construction-cost and memory
   targets are reported as misses, not waived.
 - §10.8 records the implemented builder containment, one `render.panic`
   diagnostic per node revision, three-panic quarantine and props-change

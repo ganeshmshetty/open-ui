@@ -1556,8 +1556,8 @@ PR or tag was made. Full report: `docs/milestones/M8.md`.
 
 ### Performance and memory (reported misses)
 
-- 50k table: one 293 ms construction frame (99 ms parse + 147 ms snapshot apply)
-  and 786 MB process RSS (54 MB baseline). The "construction independent of rows"
+- 50k table: one 290 ms construction frame (99 ms parse + 131 ms snapshot apply)
+  and 773 MB process RSS (54 MB baseline). The "construction independent of rows"
   target is missed for parsing; the memory number is reported rather than waived.
 - Steady table frames: p50 0.04 ms, p99 0.05 ms (inside 8 ms).
 - M6's 2,000-node stream p99 11.6 ms and 40 MB memory misses are unchanged.

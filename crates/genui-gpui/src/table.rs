@@ -14,7 +14,7 @@ use crate::{
 };
 use gpui_kit::{
     AnyView, App, AppContext, Context, FontWeight, InteractiveElement, IntoElement, ParentElement,
-    Pixels, SharedString, StatefulInteractiveElement, Styled, TextAlign, Window,
+    SharedString, StatefulInteractiveElement, Styled, TextAlign, Window,
     component::{
         Sizable, Size,
         table::{Column, ColumnSort, DataTable, TableDelegate, TableState},

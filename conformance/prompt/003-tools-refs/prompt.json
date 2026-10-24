@@ -5,8 +5,8 @@
       "name": "search_orders",
       "description": "Find orders for a customer.",
       "args": [
-        {"name": "query", "ty": {"kind": "text"}, "kind": "plain"},
-        {"name": "region", "ty": {"kind": "text"}, "kind": "plain"}
+        {"name": "query", "type": {"kind": "text"}, "kind": "plain"},
+        {"name": "region", "type": {"kind": "text"}, "kind": "plain"}
       ],
       "result_shape": "list of {id: str, total: num}",
       "auto_run": false
@@ -15,8 +15,8 @@
       "name": "open_ticket",
       "description": "Open a support ticket.",
       "args": [
-        {"name": "subject", "ty": {"kind": "text"}, "kind": "free_text"},
-        {"name": "url", "ty": {"kind": "url"}, "kind": "url"}
+        {"name": "subject", "type": {"kind": "text"}, "kind": "free_text"},
+        {"name": "url", "type": {"kind": "url"}, "kind": "url"}
       ],
       "result_shape": "ticket",
       "auto_run": true

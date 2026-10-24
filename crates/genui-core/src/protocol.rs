@@ -20,6 +20,7 @@ pub enum ToolArgKind {
 #[serde(deny_unknown_fields)]
 pub struct ToolArg {
     pub name: String,
+    #[serde(rename = "type")]
     pub ty: TypeExpr,
     #[serde(default)]
     pub kind: ToolArgKind,

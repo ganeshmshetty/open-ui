@@ -193,9 +193,15 @@ fn quoted(text: &str) -> String {
 }
 
 fn single_line(text: &str) -> String {
-    text.chars()
-        .map(|c| if c == '\n' || c == '\r' { ' ' } else { c })
-        .collect()
+    let mut out = String::new();
+    for c in text.chars() {
+        match c {
+            '\n' | '\r' => out.push(' '),
+            c if c.is_ascii() => out.push(c),
+            c => out.extend(c.escape_default()),
+        }
+    }
+    out
 }
 
 fn code_name(code: Code) -> &'static str {

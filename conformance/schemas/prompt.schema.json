@@ -21,10 +21,10 @@
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["name", "ty"],
+              "required": ["name", "type"],
               "properties": {
                 "name": { "type": "string" },
-                "ty": { "type": "object" },
+                "type": { "type": "object" },
                 "kind": { "enum": ["plain", "free_text", "url"] }
               }
             }

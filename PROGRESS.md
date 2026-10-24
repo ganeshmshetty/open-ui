@@ -1512,3 +1512,64 @@ Remaining logged gaps: `Image` capability still claims a loader until M8 lands i
 and the prose-segment renderer stays M7/M8. Gate run after the fixes: 452 fixtures
 / 106,634 chunkings, 456 workspace tests, spec-check clean, Clippy clean.
 
+## M8 — Data components, panic containment, host loop, transcripts and v0.1 readiness
+
+Branch `milestone/m8`, rebased onto `main` (`8d82617`) after the M6 tip. **M7 is not implemented on this
+branch**, so this milestone adds the M8 data/host surface without claiming typed
+inputs, forms, focus/accessibility or M7's scripted input tests. No push, merge,
+PR or tag was made. Full report: `docs/milestones/M8.md`.
+
+### Built
+
+- `List`, kit-`DataTable` `Table` (sticky header, virtualization, selection,
+  sorting, resizable columns, empty/loading/error), renderer-built `Tabs`/`Tab`
+  with keyboard switching, host image loader, chart hover tooltips, insert
+  fades/skeleton pulse/reduced motion.
+- Per-builder `catch_unwind`, one `render.panic` per node revision, 3-panic
+  quarantine and props-change recovery; `gallery --self-test-panic`.
+- Path-addressed `RendererEvent` bridge (`activate_at`/`edit_at`/`blur_at`) for
+  buttons and bound Tabs; core `preload_ref`, `state_snapshot`, `freeze` and
+  restored-snapshot round-trip.
+- `genui-gpui::host` deny-by-default reference policy; `sample-host` with
+  scripted replies, 25/50/75/100% screenshots, freeze/restore/regenerate and
+  `--replay-all`.
+- 20 `eval/transcripts/*.json` (`scripted-fixture`) and
+  `genui-cli transcripts [--record|--verify]` with exact patch/state/event
+  comparison.
+- `table-stress --rows 50000` with visible-range, frame, parse/apply and RSS
+  metrics.
+- README quickstart, host guide, security review, v0.1 checklist, DESIGN 0.4,
+  SPEC/CHANGELOG/ROADMAP updates, DECISIONS conflict resolution.
+
+### Gates
+
+| Gate | Result |
+| --- | --- |
+| fmt / clippy (default + screenshot) | pass, `-D warnings` |
+| Workspace tests | pass: 341 core, 49 conformance, 70 renderer unit, 1 patch replay, 10 prompt, 5 std, 4 CLI + 3 integration, screenshot freshness/panic/replay |
+| Fixtures | 449 fixtures / 105,726 chunkings / 430 seeded permutations |
+| Spec-check | 3 programs, 4 fragments, 24 exemplars |
+| Transcripts | 20/20 exact replays |
+| Gallery | 50 PNGs, reviewed; 0 Warning+ diagnostics |
+| Sample host | restore state+tree equal, regenerate identical |
+| Table stress | 50k rows, 12 visible at every offset, steady p99 0.05 ms |
+
+### Performance and memory (reported misses)
+
+- 50k table: one 293 ms construction frame (99 ms parse + 147 ms snapshot apply)
+  and 786 MB process RSS (54 MB baseline). The "construction independent of rows"
+  target is missed for parsing; the memory number is reported rather than waived.
+- Steady table frames: p50 0.04 ms, p99 0.05 ms (inside 8 ms).
+- M6's 2,000-node stream p99 11.6 ms and 40 MB memory misses are unchanged.
+
+### Open issues / next
+
+- M7 inputs/forms/focus/accessibility/scripted input tests.
+- Real-model recording (≥20 live replies) and mid-stream review; the checked-in
+  transcripts are scripted and must not be presented as model evidence.
+- v0.1 tag and license/name decision belong to the owner/integrator; no LICENSE
+  file was added.
+- List is not virtualized; GPUI paint-phase panics and host image decode remain
+  residual risks. Mutation/fuzz campaigns were not run for this slice.
+- Rebase onto main's new core fixes (nested refs, state snapshots, fallback
+  evaluation, inert links, data status visuals) before integration.

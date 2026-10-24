@@ -1,6 +1,6 @@
 # Design Language
 
-Status: **draft 0.3**. Companion to `SPEC.md`. M6 implemented this document in `genui-gpui::theme`; the 0.3 revision fixes the danger text contrast and records the M6 implementation review. It defines how the phase-1 standard library (SPEC §8.8) looks and behaves on screen. The GPUI renderer MUST implement it, and later renderers map it to their own medium (§6.1 covers terminals).
+Status: **draft 0.4**. Companion to `SPEC.md`. M6 implemented this document in `genui-gpui::theme`; 0.3 fixed the danger text contrast, and 0.4 records the M8 data-component review: virtualized tables with a 480 px viewport cap, chart hover tooltips, insert fades/skeleton pulses with reduced motion, list marker anatomy, and local Tabs selection. It defines how the phase-1 standard library (SPEC §8.8) looks and behaves on screen. The GPUI renderer MUST implement it, and later renderers map it to their own medium (§6.1 covers terminals).
 
 Sources: three observation reports in `research/design/`:
 
@@ -255,8 +255,8 @@ Shared state styles:
 | CheckboxGroup / RadioGroup | The group label uses the Form label style. Options stack vertically with an 8 px gap. They switch to a wrapping row when there are 4 or fewer options and every label is under 16 characters. | |
 | Switch | A 32×18 `full`-radius track: `input` color when off, `accent` when on, with a white knob. Label on the right. | |
 | Card | §6.6 | |
-| List | Items are 8 px apart. Unordered items have a 4 px `muted_foreground` dot, and ordered items have a `muted_foreground` number, both in a 16 px gutter. Lists inside Cards get no extra border. | |
-| Table | §5 and §6.10. Outer `xl` radius and border when it is not inside a Card. Rows virtualize above 100. | |
+| List | Items are 8 px apart. Unordered items have a 4 px `muted_foreground` dot, and ordered items have a `muted_foreground` number, both in a 16 px gutter. Lists inside Cards get no extra border. Phase 1 renders all list children; it does not virtualize List. | |
+| Table | §5 and §6.10. Outer `xl` radius and border when it is not inside a Card. Rows virtualize above 100; the viewport caps at 480 px once the table has more than 12 rows, and the header stays sticky. | |
 | Chart | §6.11 | |
 | Stat | Label in `caption` `muted_foreground`; 4 px below it the value in 24/32 weight 600 `foreground`, tabular figures; the delta as a Badge to the right of the value (arrow ↑ or ↓, the formatted number, tone `success` when the direction matches `good`, `danger` when it doesn't, `neutral` at zero); optional `caption` line 4 px below in `muted_foreground`. No border of its own: put it in a Card or Grid. | One Stat per Card cell; a Grid of 2–4 Stats is the standard KPI row. |
 | Facts | Rows of label and value: label in `small` `muted_foreground` (fixed 40% width), value in `body` `foreground`, 8 px between rows, no dividers. With `columns: 2`, two fact columns side by side, 24 px apart. | Values are truncated with a tooltip like table cells. |

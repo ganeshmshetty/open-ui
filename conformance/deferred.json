@@ -1,6 +1,6 @@
 {
   "render.panic": {
     "milestone": "M8",
-    "reason": "Requires the renderer subtree panic boundary and quarantine owned by M8 (SPEC §10.8, §14.1)."
+    "reason": "Renderer-only boundary (SPEC §10.8); covered by the GPUI panic-injection self-test (`gallery --self-test-panic`) rather than a core conformance fixture, because the parser and validator cannot emit a render-phase code."
   }
 }

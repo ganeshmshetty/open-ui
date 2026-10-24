@@ -1,3 +1,37 @@
+## 2026-10-24 — M8 data components, panic containment, host loop and stress (DESIGN §7; SPEC §§7.9,10.1,10.3,10.6,10.8,12.6–12.7)
+
+- §10.1 adds the M8 path-addressed `RendererEvent` bridge. M8 starts from the M6
+  tip and M7's input wiring is not present, so the renderer reports
+  `{ path, prop/value }` and the host resolves it with
+  `Session::activate_at` / `edit_at` / `blur_at`. The core `UiEvent` and patch
+  wire are unchanged.
+- §10.1/§10.3 define the host image loader: `request_image`, `deliver_image` and
+  `fail_image`, with 8 MiB / 4096 px / 16 MP / 256-source caps and a 10 s host
+  deadline. The renderer still performs no I/O.
+- §10.3 records the implemented mapping: kit `DataTable` for Table with sticky
+  header, row virtualization, sorting, selection and resizable columns; a
+  renderer-built Tabs bar with local selection and keyboard switching; List with
+  marker gutters but no virtualization in phase 1; chart hover tooltips and
+  motion.
+- §10.6 adds the 50,000-row measurement: 12 visible rows at every offset, steady
+  app work p99 0.05 ms, one 293 ms construction frame (99 ms parse + 147 ms
+  snapshot apply) and 786 MB process RSS. The construction-cost and memory
+  targets are reported as misses, not waived.
+- §10.8 records the implemented builder containment, one `render.panic`
+  diagnostic per node revision, three-panic quarantine and props-change
+  recovery, with the `--self-test-panic` evidence and the `panic = "unwind"`
+  build requirement exposed by `CONTAINMENT_ENABLED`.
+- §12.6 clarifies that `render.panic` is renderer-only and covered by that
+  self-test rather than a core fixture; `conformance/deferred.json` records the
+  reason.
+- §12.7 adds `genui-cli transcripts`, the scripted sample host, the 25/50/75/100%
+  screenshots, restore/regenerate checks and `table-stress`. The 20 checked-in
+  conversations are labelled `scripted-fixture`; no live model run is claimed.
+- §7.9 keeps undeclared values from a restored state snapshot so a host
+  round-trips its data, while declared slots always reflect live state.
+- DESIGN 0.4 records the 480 px table viewport cap, sticky header, list
+  non-virtualization and the M8 motion/tooltip review.
+
 # Spec changelog
 
 ## 2026-10-24 — M6 review integration: inert links, status visuals (§§10.7,10.12)

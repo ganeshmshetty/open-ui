@@ -14,10 +14,10 @@
   the plain column at or below 100 children and the kit virtual list above 100;
   chart hover tooltips and motion.
 - §10.3/§10.6 add the 10,000-item List measurement: 77 created item entities,
-  at most 22 rows built per frame, p99 2.34 ms app work, 775 ms construction,
-  198 MB RSS. Ordered numbering widens the 16 px gutter for four-digit lists.
+  at most 22 rows built per frame, p99 2.22 ms app work, 1431 ms construction,
+  408 MB RSS. Ordered numbering widens the 16 px gutter for four-digit lists.
 - §10.6 adds the 50,000-row measurement: 12 visible rows at every offset, steady
-  app work p99 0.05 ms, one 323 ms construction frame (111 ms parse + 147 ms
+  app work p99 0.05 ms, one 323 ms construction frame (111 ms parse + 136 ms
   snapshot apply) and 772 MB process RSS. The construction-cost and memory
   targets are reported as misses, not waived.
 - §10.8 records the implemented builder containment, one `render.panic`

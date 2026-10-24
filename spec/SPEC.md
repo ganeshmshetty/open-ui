@@ -1795,7 +1795,7 @@ These names were checked on docs.rs for `gpui-component 0.8.0` and `gpui-pre 0.3
 | `Checkbox`, `CheckboxGroup` | `checkbox::Checkbox` (one per option for the group) | |
 | `RadioGroup` | `radio::RadioGroup`, `radio::Radio` | |
 | `Switch` | `switch::Switch` | Not `button::Toggle`, which is a toggle button. |
-| `List` | A `v_flex` of children at or below 100 items; above 100, `list::List` over `ListState<GenuiListDelegate>` | The kit virtual list builds only visible item entities (leaf `NodeView`s on demand) and preserves the DESIGN marker gutter, ordered numbering, 8 px item gap, loading skeleton and empty behavior. Kit list rows share one measured height; heterogeneous tall children should stay below 100. A 10,000-item stress created 77 entities total and built at most 22 rows in one frame. |
+| `List` | A `v_flex` of children at or below 100 items; above 100, `list::List` over `ListState<GenuiListDelegate>` | The kit virtual list builds only visible item entities (leaf `NodeView`s on demand) and preserves the DESIGN marker gutter, ordered numbering, 8 px item gap, loading skeleton and empty behavior. Kit list rows share one measured height; heterogeneous tall children should stay below 100. A 10,000-item stress created 77 entities total and built at most 22 rows in one frame, including Row/Badge item containers. |
 | `Table` | `table::DataTable` over `Entity<TableState<GenuiTableDelegate>>` | The kit supplies the sticky header, row virtualization, selection, sorting and resizable columns. Cells use §6.12 formatting. Rows are parsed once and the duplicate wire prop is dropped. |
 | `Stat` | `v_flex` of a caption label, a tabular value, and a custom tone `Tag` for the delta | Layout and number formats per DESIGN.md §6.12 and §7. |
 | `Facts` | `div().grid()` with two columns per fact (label, value) | Label `muted_foreground`, value `foreground`. |
@@ -1854,8 +1854,8 @@ These targets are reported, not gating, in phase 1.
 **M8 10,000-item List measurement** (`list-stress --rows 10000`):
 
 - above 100 children the kit virtual list is used; 77 item entities were created in total and at most 22 rows were built in one frame;
-- frame app work p50 0.91 ms, p99 2.34 ms; snapshot apply 35 ms; construction 775 ms;
-- process RSS 198 MB with a 54 MB baseline;
+- frame app work p50 0.82 ms, p99 2.22 ms; snapshot apply 127 ms; construction 1431 ms;
+- process RSS 408 MB with a 54 MB baseline;
 - ordered numbering widens the 16 px gutter only when the widest number needs it (four digits for 10,000 items).
 
 ### 10.7 Interaction with the host

@@ -103,7 +103,7 @@ fn session(count: usize) -> Result<Session, String> {
         return Err("the list stress ref was rejected by the preload caps".into());
     }
     session.push(
-        b"root=List(each(ref(\"stress.list\"),|item| Text(item.label),key:\"id\"),ordered:true)",
+        b"root=List(each(ref(\"stress.list\"),|item| Row([Text(item.label),Badge(fmt(\"#{}\",item.id))]),key:\"id\"),ordered:true)",
     );
     session.finish();
     Ok(session)

@@ -72,6 +72,13 @@ impl NodeEntry {
         self.children_in(self.primary_slot())
     }
 
+    /// The number of children in the primary slot without cloning the ids.
+    pub fn primary_len(&self) -> usize {
+        self.children
+            .get(self.primary_slot())
+            .map_or(0, |children| children.len())
+    }
+
     pub fn is_container(&self) -> bool {
         matches!(
             self.kind.as_str(),

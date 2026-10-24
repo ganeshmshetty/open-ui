@@ -132,6 +132,7 @@ pub struct GenuiListDelegate {
     factory: crate::view::NodeFactory,
     created: Rc<Cell<usize>>,
     frame_rendered: Rc<Cell<usize>>,
+    item_width: gpui_kit::Pixels,
     selected: Option<usize>,
 }
 
@@ -143,12 +144,14 @@ impl GenuiListDelegate {
         created: Rc<Cell<usize>>,
         frame_rendered: Rc<Cell<usize>>,
     ) -> Self {
+        let item_width = theme.message_max_width();
         Self {
             model,
             theme,
             factory,
             created,
             frame_rendered,
+            item_width,
             selected: None,
         }
     }
@@ -172,6 +175,7 @@ impl ListDelegate for GenuiListDelegate {
         cx: &mut Context<ListState<Self>>,
     ) -> Option<Self::Item> {
         let id = self.model.items.get(ix.row)?.clone();
+        self.factory.widths.set(&id, self.item_width);
         let existed = self.factory.containers.borrow().contains_key(&id);
         let entity = self.factory.entity(&id, cx)?;
         if !existed {
@@ -243,6 +247,7 @@ pub struct ListView {
     pub created: Rc<Cell<usize>>,
     pub frame_rendered: Rc<Cell<usize>>,
     pub last_rev: u64,
+    model: ListModel,
 }
 
 impl ListView {
@@ -260,7 +265,7 @@ impl ListView {
         let created = Rc::new(Cell::new(0));
         let frame_rendered = Rc::new(Cell::new(0));
         let delegate = GenuiListDelegate::new(
-            model,
+            model.clone(),
             theme.clone(),
             factory,
             created.clone(),
@@ -276,6 +281,7 @@ impl ListView {
             created,
             frame_rendered,
             last_rev: rev,
+            model,
         }
     }
 
@@ -315,16 +321,33 @@ fn read_list_model(tree: &Rc<RefCell<RetainedTree>>, id: &str) -> (ListModel, u6
 
 impl Render for ListView {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let (model, rev) = read_list_model(&self.tree, &self.id);
+        let rev = self
+            .tree
+            .borrow()
+            .get(&self.id)
+            .map(|entry| entry.rev)
+            .unwrap_or(0);
         if rev != self.last_rev {
-            self.last_rev = rev;
+            let (model, current_rev) = read_list_model(&self.tree, &self.id);
+            self.last_rev = current_rev;
             self.state.update(cx, |state, _| {
                 state.delegate_mut().update(model.clone());
             });
+            self.model = model;
             cx.notify();
         }
+        let model = &self.model;
         self.frame_rendered.set(0);
         let width = self.widths.get(&self.id, self.theme.message_max_width());
+        let item_width = gpui_kit::px(
+            (width.as_f32()
+                - self.theme.list_number_gutter(model.items.len()).as_f32()
+                - self.theme.space(1).as_f32())
+            .max(0.0),
+        );
+        self.state.update(cx, |state, _| {
+            state.delegate_mut().item_width = item_width;
+        });
         let loading = matches!(model.status.as_deref(), Some("requested") | Some("loading"));
         let refreshing = matches!(model.status.as_deref(), Some("refreshing"));
         let failed = matches!(model.status.as_deref(), Some("failed") | Some("denied"));

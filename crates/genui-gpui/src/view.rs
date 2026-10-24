@@ -430,6 +430,11 @@ impl UiView {
             return;
         };
         let is_root = self.tree.borrow().root.as_deref() == Some(id);
+        if !is_root && under_virtual_list(&self.tree.borrow(), id) {
+            // A >100-item List creates item entities on demand in `NodeFactory`.
+            // Creating one per IR child here would defeat virtualization.
+            return;
+        }
         if is_root || entry.is_container() {
             let mut containers = self.containers.borrow_mut();
             if containers.contains_key(id) {
@@ -571,6 +576,25 @@ impl UiView {
         let message = self.theme.message_max_width().as_f32();
         px(available.min(host_cap.unwrap_or(message)))
     }
+}
+
+fn under_virtual_list(tree: &RetainedTree, id: &str) -> bool {
+    let mut current = tree.get(id).and_then(|entry| entry.parent.clone());
+    let mut guard = 0usize;
+    while let Some(parent) = current {
+        guard += 1;
+        if guard > tree.len() + 1 {
+            return false;
+        }
+        let Some(entry) = tree.get(&parent) else {
+            return false;
+        };
+        if entry.kind == "List" && crate::data::should_virtualize(entry.primary_len()) {
+            return true;
+        }
+        current = entry.parent.clone();
+    }
+    false
 }
 
 fn collect_ids(tree: &RetainedTree, id: &str, out: &mut Vec<String>) {
@@ -953,7 +977,7 @@ impl NodeView {
                     _ => components::deferred(&self.theme, &entry.kind),
                 }
             }
-            "List" if crate::data::should_virtualize(entry.primary_children().len()) => {
+            "List" if crate::data::should_virtualize(entry.primary_len()) => {
                 self.virtual_list_element(entry, window, cx)
             }
             "List" => {

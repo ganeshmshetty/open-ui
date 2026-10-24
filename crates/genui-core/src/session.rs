@@ -1182,6 +1182,38 @@ mod session_contract_tests {
         );
     }
     #[test]
+    fn a_visible_draft_change_advances_its_instance_revision_once() {
+        let mut session = session();
+        session.push(b"root=Stack([draft])\ndraft=Leaf(\"a");
+        let path = "root/children:@draft";
+        let first = session.dirty().revisions["draft"];
+        session.push(b"b");
+        let second = session.dirty().revisions["draft"];
+        assert_eq!(
+            second - first,
+            1,
+            "a retained candidate edit is one change, not remove plus change"
+        );
+        assert!(session.dirty().instances.contains_key(path));
+    }
+    #[test]
+    fn sealing_a_late_definition_revalidates_the_preview_without_losing_it() {
+        let mut session = session();
+        session.push(b"root=Stack([a,b])\na=Leaf(\"x\")\n");
+        session.push(b"b=Leaf(\"y\")\nc=Leaf(\"z");
+        let paths: Vec<_> = session
+            .ir()
+            .nodes
+            .values()
+            .map(|node| node.path.0.as_str())
+            .collect();
+        assert!(
+            paths.contains(&"root/children:@b"),
+            "the newly sealed definition must join the preview: {paths:?}"
+        );
+        assert!(session.provisional_origins().contains("c"), "{paths:?}");
+    }
+    #[test]
     fn a_visible_draft_text_edits_one_node_and_then_seals_in_place() {
         let mut session = session();
         session.push(b"root=Stack([a,draft])\na=Leaf(\"x\")\ndraft=Leaf(\"a");

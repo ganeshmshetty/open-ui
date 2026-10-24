@@ -295,6 +295,92 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_provisional_statement_whose_name_is_already_sealed_is_discarded() {
+        let mut parser = StreamingParser::new(SyntaxLimits::default());
+        parser.push(b"x=1\n");
+        assert_eq!(parser.seals().len(), 1);
+        assert!(parser.seals()[0].statement.is_some());
+        assert!(parser.provisional().is_none());
+
+        parser.push(b"x=Leaf(\"a");
+        assert!(
+            parser.provisional().is_none(),
+            "a provisional statement never claims an already sealed name: {:?}",
+            parser.provisional()
+        );
+        parser.finish();
+        assert!(
+            parser
+                .diagnostics()
+                .iter()
+                .any(|d| d.code == Code::DuplicateName)
+        );
+    }
+    #[test]
+    fn the_statement_budget_allows_exactly_the_configured_count() {
+        let mut limits = SyntaxLimits::default();
+        limits.max_stmt_count = 1;
+        let mut parser = StreamingParser::new(limits);
+        parser.push(b"a=1\n");
+        assert!(
+            parser.seals()[0].statement.is_some(),
+            "the first statement is within the budget: {:?}",
+            parser.diagnostics()
+        );
+        assert!(
+            parser
+                .diagnostics()
+                .iter()
+                .all(|d| d.code != Code::StmtCount)
+        );
+    }
+    #[test]
+    fn the_parser_exposes_sealed_programs_and_ordered_diagnostics() {
+        let mut parser = StreamingParser::new(SyntaxLimits::default());
+        parser.push(b"a=1\nb=2\n");
+        parser.finish();
+        assert_eq!(
+            parser
+                .program()
+                .statements
+                .iter()
+                .map(|statement| statement.name.as_str())
+                .collect::<Vec<_>>(),
+            ["a", "b"]
+        );
+
+        let mut parser = StreamingParser::new(SyntaxLimits::default());
+        parser.push(b"root=999999999999999999999999\n");
+        let diagnostics = parser.diagnostics();
+        assert!(
+            diagnostics.iter().any(|d| d.code == Code::Overflow),
+            "{diagnostics:?}"
+        );
+        let mut ordered = diagnostics.clone();
+        order_diagnostics(&mut ordered);
+        assert_eq!(diagnostics, ordered);
+    }
+    #[test]
+    fn scanner_and_parser_depth_diagnostics_both_survive_sealing() {
+        let mut limits = SyntaxLimits::default();
+        limits.max_bracket_depth = 1;
+        limits.max_expr_depth = 1;
+        let mut parser = StreamingParser::new(limits);
+        parser.push(b"root=[[a]]\n");
+        parser.finish();
+        let depths: Vec<_> = parser
+            .diagnostics()
+            .into_iter()
+            .filter(|d| d.code == Code::Depth)
+            .collect();
+        assert_eq!(
+            depths.len(),
+            2,
+            "the scanner and the parser each report the truncated bracket: {depths:?}"
+        );
+        assert_eq!(depths[0].span, depths[1].span);
+    }
+    #[test]
     fn sealing_charges_each_relevant_scanner_diagnostic() {
         let mut parser = StreamingParser::new(SyntaxLimits::default());
         parser.push(b"root=999999999999999999999999\n");

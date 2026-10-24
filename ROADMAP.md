@@ -4,7 +4,7 @@ Each item has a "due by" milestone. When starting a milestone, pick up every ite
 
 | # | Item | Due by | Output |
 | --- | --- | --- | --- |
-| 1 | Design language: tokens, layout rules, component anatomy and states, streaming visuals | M6 — done | `spec/DESIGN.md` draft 0.3; gallery state sheet renders the implemented states in light and dark |
+| 1 | Design language: tokens, layout rules, component anatomy and states, streaming visuals | M6 — tokens/layout/anatomy done; motion remains | `spec/DESIGN.md` draft 0.3; gallery state sheet in light/dark. Streaming fades/reduced motion are logged for M7/M8. |
 | 2 | Exemplar programs: 20–30 hand-written ideal DSL programs (dashboards, forms, lists, data by ref) used as prompt examples, fixtures and GPUI demos | M2 — done | 24 complete `examples/*.ui`, checked by full `spec-check`; dashboards, Stat/Facts, forms, refs, tables, charts and tabs |
 | 3 | Prompt text: the actual wording of sections S1–S11 (§9.1) | M5 — done | `crates/*-prompt` templates + golden |
 | 4 | Model evaluation set: tasks, scoring (valid-program rate, diagnostics per program, tokens vs JSON baseline), recorded transcripts; answers open questions 2 and 3 | M5 | `eval/` + report |

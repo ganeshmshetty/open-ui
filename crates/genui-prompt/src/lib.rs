@@ -3,7 +3,7 @@
 
 use genui_core::{
     canonical,
-    r#lib::{BUILTINS, ComponentDef, LibrarySpec, TypeExpr},
+    r#lib::{ComponentDef, LibrarySpec, TypeExpr},
     message::{ModelEvent, StoredMessage},
     protocol::{RefCatalog, ToolDescriptor},
     syntax::{
@@ -99,8 +99,8 @@ pub fn generate(spec: &LibrarySpec, options: &PromptOptions) -> Prompt {
     if !components.is_empty() {
         sections.push(components_section(spec, &components));
     }
-    sections.push(expressions_section());
-    sections.push(state_forms_actions_section(options));
+    sections.push(expressions_section(spec));
+    sections.push(state_forms_actions_section(spec, options));
     if options.features.queries || options.features.refs {
         sections.push(data_section(spec, options));
     }
@@ -204,7 +204,7 @@ fn components_section(spec: &LibrarySpec, components: &[&ComponentDef]) -> Strin
     text
 }
 
-fn expressions_section() -> String {
+fn expressions_section(spec: &LibrarySpec) -> String {
     let mut text = String::from(
         "## S5 Expressions and functions\n\nLiterals: \"text\", numbers, true, false, null, [a, b], {key: value}.\nOperators: + - * / % == != < <= > >= && || !. + joins strings; do not mix other types.\nConditional and iteration: if(condition, then, else), each(list, |item, index| node, key: \"field\").\nBuiltins:",
     );
@@ -214,14 +214,21 @@ fn expressions_section() -> String {
         text.push_str(" - ");
         text.push_str(doc);
     }
-    if BUILTIN_DOCS.len() != BUILTINS.len()
-        || BUILTINS.iter().any(|name| {
-            !BUILTIN_DOCS
+    if !spec.functions.is_empty() {
+        text.push_str("\nLibrary functions:");
+        for function in &spec.functions {
+            let params = function
+                .params
                 .iter()
-                .any(|(signature, _)| signature.starts_with(name))
-        })
-    {
-        text.push_str("\n- (builtin documentation is incomplete)");
+                .map(|ty| genui_core::r#lib::format_type(spec, ty))
+                .collect::<Vec<_>>()
+                .join(", ");
+            text.push_str(&format!(
+                "\n- {}({params}) -> {}",
+                function.name,
+                genui_core::r#lib::format_type(spec, &function.result)
+            ));
+        }
     }
     text
 }
@@ -308,7 +315,7 @@ const BUILTIN_DOCS: &[(&str, &str)] = &[
     ),
 ];
 
-fn state_forms_actions_section(options: &PromptOptions) -> String {
+fn state_forms_actions_section(spec: &LibrarySpec, options: &PromptOptions) -> String {
     let mut text = String::from("## S6 State, forms and actions");
     let mut paragraphs = Vec::new();
     if options.features.state {
@@ -329,6 +336,23 @@ fn state_forms_actions_section(options: &PromptOptions) -> String {
     );
     paragraphs
         .push("Use say(text, ctx) when a click should ask the model for a new turn.".to_string());
+    if !spec.actions.is_empty() {
+        let mut actions = String::from("Library actions:");
+        for action in &spec.actions {
+            let params = action
+                .params
+                .iter()
+                .map(|ty| genui_core::r#lib::format_type(spec, ty))
+                .collect::<Vec<_>>()
+                .join(", ");
+            actions.push_str(&format!("\n- {}({params})", action.name));
+            if !action.doc.is_empty() {
+                actions.push_str(" - ");
+                actions.push_str(&action.doc);
+            }
+        }
+        paragraphs.push(actions);
+    }
     for paragraph in paragraphs {
         text.push_str("\n\n");
         text.push_str(&paragraph);
@@ -584,6 +608,7 @@ fn json_string(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use genui_core::r#lib::BUILTINS;
 
     fn library() -> LibrarySpec {
         genui_std::std_library()

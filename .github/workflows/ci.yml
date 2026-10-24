@@ -53,6 +53,8 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: GPUI renderer with screenshot support
+        run: cargo check -p genui-gpui --features screenshot --locked
       - name: Unit tests, live conformance and seeded streaming property
         env:
           GENUI_STREAM_CASES: "2000"

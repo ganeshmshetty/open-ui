@@ -9,28 +9,191 @@ use crate::{
     capabilities::Capabilities,
     chart::{self, ChartModel, ChartView},
     components,
+    controls::{self, FieldDisplay},
+    extensions::{ExtensionNode, ExtensionRegistry},
     layout::{
         StateOverrides, VisualState, Widths, data_state, inset_width, row_cell_width, state_of,
     },
     metrics::{Metrics, PatchSummary},
-    props::Props,
+    props::{self, Props},
     theme::{Radius, TextRole, UiTheme},
     tree::{ApplyReport, NodeEntry, RetainedTree},
 };
 use genui_core::{
     diag::Diagnostic,
+    ir::{ActionPlanId, NodePath},
     patch::{Op, PatchBatch},
+    runtime::{StateOrigin, StateValue},
+    session::{ActionHandle, UiEvent},
+    value::{PStr, Provenance, Value},
+};
+use gpui_component::FocusableExt as _;
+use gpui_component::{
+    input::{Input, InputContentType, InputEvent, InputState, Textarea, TextareaState},
+    searchable_list::SearchableVec,
+    select::{Select, SelectEvent, SelectState},
 };
 use gpui_kit::{
-    AnyElement, AnyView, AppContext, Context, Entity, IntoElement, ParentElement, Pixels, Render,
-    Styled, Window, div, px,
+    AnyElement, AnyView, App, AppContext, Context, ElementId, Entity, EventEmitter, FocusHandle,
+    Focusable, InteractiveElement, IntoElement, ParentElement, Pixels, Render, SharedString,
+    StatefulInteractiveElement, Styled, Subscription, TestSupportExt as _, WeakEntity, Window, div,
+    px,
 };
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     collections::{BTreeMap, VecDeque},
     rc::Rc,
+    sync::Arc,
     time::Instant,
 };
+
+/// Renderer-visible `$state` values, shared with every input entity (§10.4).
+type StateMap = Rc<RefCell<BTreeMap<String, StateValue>>>;
+
+/// Focus handles owned by nodes, used to name the field that gained focus and
+/// to emit `Blur` when Tab, a pointer or Escape moves it (§10.4).
+type FocusIndex = Rc<RefCell<Vec<(FocusHandle, String)>>>;
+
+fn register_focus(index: &FocusIndex, handle: &FocusHandle, id: &str) {
+    let mut index = index.borrow_mut();
+    if !index.iter().any(|(_, path)| path == id) {
+        index.push((handle.clone(), id.to_string()));
+    }
+}
+
+fn lookup_focus(index: &FocusIndex, handle: &FocusHandle) -> Option<String> {
+    index
+        .borrow()
+        .iter()
+        .find(|(candidate, _)| candidate == handle)
+        .map(|(_, path)| path.clone())
+}
+
+/// Make `id` the focused field, emitting a blur for the field it left.
+fn focus_node(focused: &Rc<RefCell<Option<String>>>, sink: &EventSink, id: &str, cx: &mut App) {
+    let previous = focused.borrow().clone();
+    if previous.as_deref() == Some(id) {
+        return;
+    }
+    if let Some(previous) = previous {
+        sink.blur(&previous, cx);
+    }
+    *focused.borrow_mut() = Some(id.to_string());
+}
+
+fn clear_focus(focused: &Rc<RefCell<Option<String>>>, sink: &EventSink, cx: &mut App) {
+    if let Some(previous) = focused.borrow_mut().take() {
+        sink.blur(&previous, cx);
+    }
+}
+
+/// Forwards a renderer event to `UiView`'s `EventEmitter` and applies the
+/// epoch/frozen gate before the host sees anything. Built by `UiView`, cloned by
+/// child closures.
+#[derive(Clone)]
+pub struct EventSink {
+    view: WeakEntity<UiView>,
+    epoch: Rc<Cell<u32>>,
+    frozen: Rc<Cell<bool>>,
+}
+
+impl EventSink {
+    fn emit(&self, event: UiEvent, cx: &mut App) {
+        if self.frozen.get() {
+            return;
+        }
+        let _ = self.view.update(cx, |_, cx| cx.emit(event));
+    }
+
+    fn activate(&self, node: &str, plan: &str, cx: &mut App) {
+        self.emit(
+            UiEvent::Activate {
+                node: NodePath(node.to_string()),
+                action: ActionHandle {
+                    plan: ActionPlanId(Arc::from(plan)),
+                    epoch: self.epoch.get(),
+                },
+            },
+            cx,
+        );
+    }
+
+    fn edit(&self, node: &str, value: Value, cx: &mut App) {
+        self.emit(
+            UiEvent::Edit {
+                node: NodePath(node.to_string()),
+                value,
+            },
+            cx,
+        );
+    }
+
+    fn blur(&self, node: &str, cx: &mut App) {
+        self.emit(
+            UiEvent::Blur {
+                node: NodePath(node.to_string()),
+            },
+            cx,
+        );
+    }
+
+    fn frozen(&self) -> bool {
+        self.frozen.get()
+    }
+}
+
+/// One text widget. `InputState` and `TextareaState` are separate pinned types.
+pub enum TextWidget {
+    Input(Entity<InputState>),
+    Area(Entity<TextareaState>),
+}
+
+impl TextWidget {
+    fn value(&self, cx: &App) -> String {
+        match self {
+            Self::Input(state) => state.read(cx).value().to_string(),
+            Self::Area(state) => state.read(cx).value().to_string(),
+        }
+    }
+
+    fn focus_handle(&self, cx: &App) -> FocusHandle {
+        match self {
+            Self::Input(state) => state.read(cx).focus_handle(cx),
+            Self::Area(state) => state.read(cx).focus_handle(cx),
+        }
+    }
+
+    fn set_value(&self, text: &str, window: &mut Window, cx: &mut App) {
+        match self {
+            Self::Input(state) => state.update(cx, |state, cx| state.set_value(text, window, cx)),
+            Self::Area(state) => state.update(cx, |state, cx| state.set_value(text, window, cx)),
+        }
+    }
+
+    fn set_disabled(&self, disabled: bool, cx: &mut App) {
+        match self {
+            Self::Input(state) => {
+                state.update(cx, |state, cx| state.set_disabled(disabled, cx));
+            }
+            Self::Area(state) => {
+                state.update(cx, |state, cx| state.set_disabled(disabled, cx));
+            }
+        }
+    }
+}
+
+pub struct SelectWidget {
+    state: Entity<SelectState<SearchableVec<String>>>,
+    focus: FocusHandle,
+    values: Vec<String>,
+}
+
+/// Per-input widget state, created lazily with a `Window` on first render.
+#[derive(Default)]
+pub struct ControlState {
+    text: Option<TextWidget>,
+    select: Option<SelectWidget>,
+}
 
 pub struct UiView {
     theme: UiTheme,
@@ -45,13 +208,21 @@ pub struct UiView {
     diagnostics: Vec<Diagnostic>,
     needs_snapshot: bool,
     max_width: Option<Pixels>,
+    state: StateMap,
+    epoch: Rc<Cell<u32>>,
+    frozen: Rc<Cell<bool>>,
+    focused: Rc<RefCell<Option<String>>>,
+    focus_index: FocusIndex,
+    extensions: ExtensionRegistry,
+    root_focus: FocusHandle,
 }
 
 impl UiView {
-    /// SPEC §10.1. `window` is accepted for signature parity with later input
-    /// state construction; M6 creates no kit input state.
+    /// SPEC §10.1. Input widget state is created on the first apply/render that
+    /// has a `Window` available.
     pub fn new(theme: UiTheme, _window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let _ = cx;
+        install_key_bindings(cx);
+        let root_focus = cx.focus_handle();
         Self {
             theme,
             tree: Rc::new(RefCell::new(RetainedTree::default())),
@@ -65,6 +236,76 @@ impl UiView {
             diagnostics: Vec::new(),
             needs_snapshot: false,
             max_width: None,
+            state: Rc::new(RefCell::new(BTreeMap::new())),
+            epoch: Rc::new(Cell::new(0)),
+            frozen: Rc::new(Cell::new(false)),
+            focused: Rc::new(RefCell::new(None)),
+            focus_index: Rc::new(RefCell::new(Vec::new())),
+            extensions: ExtensionRegistry::default(),
+            root_focus,
+        }
+    }
+
+    /// Focus the view's tab group. Hosts call this when a message receives
+    /// keyboard focus; pressing Tab then enters the first control.
+    pub fn focus_root(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.root_focus.focus(window, cx);
+    }
+
+    /// Push the session's current `$state` into the view (§10.4). Hosts call
+    /// this after applying the patches from a `Session` update.
+    pub fn sync_state(
+        &mut self,
+        values: BTreeMap<String, StateValue>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        *self.state.borrow_mut() = values;
+        let ids: Vec<String> = self
+            .tree
+            .borrow()
+            .nodes
+            .values()
+            .filter(|node| props::binding(&node.props, "bind").is_some())
+            .map(|node| node.id.clone())
+            .collect();
+        for id in ids {
+            if let Some(entity) = self.containers.borrow().get(&id).cloned() {
+                entity.update(cx, |view, cx| {
+                    view.sync_widget(window, cx);
+                    cx.notify();
+                });
+            }
+        }
+        cx.notify();
+    }
+
+    /// The session's state values this view currently renders.
+    pub fn state_values(&self) -> BTreeMap<String, StateValue> {
+        self.state.borrow().clone()
+    }
+
+    /// SPEC §7.9 `Frozen`: the view keeps its tree, but inputs and buttons are
+    /// disabled and emit no events.
+    pub fn freeze(&mut self, cx: &mut Context<Self>) {
+        self.frozen.set(true);
+        cx.notify();
+    }
+
+    pub fn thaw(&mut self, cx: &mut Context<Self>) {
+        self.frozen.set(false);
+        cx.notify();
+    }
+
+    pub fn is_frozen(&self) -> bool {
+        self.frozen.get()
+    }
+
+    fn sink(&self, cx: &mut Context<Self>) -> EventSink {
+        EventSink {
+            view: cx.entity().downgrade(),
+            epoch: self.epoch.clone(),
+            frozen: self.frozen.clone(),
         }
     }
 
@@ -78,8 +319,34 @@ impl UiView {
         self
     }
 
+    /// Register a host builder for a custom component kind (§10.14). Register
+    /// before the program's first batch so inserted nodes find the builder.
+    pub fn with_extension(
+        self,
+        kind: impl Into<String>,
+        builder: impl Fn(&ExtensionNode, &mut Window, &mut App) -> AnyElement + 'static,
+    ) -> Self {
+        self.extensions.register(kind, builder);
+        self
+    }
+
+    /// Register an extension on a live view.
+    pub fn register_extension(
+        &mut self,
+        kind: impl Into<String>,
+        builder: impl Fn(&ExtensionNode, &mut Window, &mut App) -> AnyElement + 'static,
+        cx: &mut Context<Self>,
+    ) {
+        self.extensions.register(kind, builder);
+        cx.notify();
+    }
+
+    pub fn extensions(&self) -> &ExtensionRegistry {
+        &self.extensions
+    }
+
     pub fn capabilities() -> Capabilities {
-        Capabilities::m6()
+        Capabilities::m7()
     }
 
     pub fn theme(&self) -> &UiTheme {
@@ -106,6 +373,15 @@ impl UiView {
         &self.diagnostics
     }
 
+    /// The focus handle owned by a focusable node, when it exists. Hosts use
+    /// this for focus assertions; the renderer owns creation and lifetime.
+    pub fn focus_handle_for(&self, path: &str, cx: &App) -> Option<FocusHandle> {
+        self.containers
+            .borrow()
+            .get(path)?
+            .read_with(cx, |view, cx| view.focus_handle(cx))
+    }
+
     pub fn set_diagnostics(&mut self, diagnostics: Vec<Diagnostic>, cx: &mut Context<Self>) {
         self.diagnostics = diagnostics;
         cx.notify();
@@ -128,8 +404,8 @@ impl UiView {
     }
 
     /// Applies a batch now, before the next frame, then notifies affected views.
-    pub fn apply(&mut self, batch: PatchBatch, _window: &mut Window, cx: &mut Context<Self>) {
-        self.apply_batch(batch, cx);
+    pub fn apply(&mut self, batch: PatchBatch, window: &mut Window, cx: &mut Context<Self>) {
+        self.apply_batch(batch, window, cx);
     }
 
     /// Fallback for callers without a window. Drained once at the next render.
@@ -139,7 +415,7 @@ impl UiView {
         cx.notify();
     }
 
-    fn apply_batch(&mut self, batch: PatchBatch, cx: &mut Context<Self>) {
+    fn apply_batch(&mut self, batch: PatchBatch, window: &mut Window, cx: &mut Context<Self>) {
         let started = Instant::now();
         let before = self.tree.borrow().clone();
         let report = {
@@ -182,7 +458,10 @@ impl UiView {
         if report.discarded {
             return;
         }
-        self.sync_views(&batch, &before, &report, cx);
+        if report.applied {
+            self.epoch.set(batch.epoch);
+        }
+        self.sync_views(&batch, &before, &report, window, cx);
     }
 
     fn sync_views(
@@ -190,6 +469,7 @@ impl UiView {
         batch: &PatchBatch,
         before: &RetainedTree,
         report: &ApplyReport,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         for op in &batch.ops {
@@ -199,13 +479,15 @@ impl UiView {
                     self.charts.borrow_mut().clear();
                     self.images.borrow_mut().clear();
                     self.widths.clear();
+                    self.focused.borrow_mut().take();
+                    window.blur(cx);
                     cx.notify();
                 }
                 Op::Insert {
                     node, parent, slot, ..
                 } => {
                     let _ = slot;
-                    self.ensure_entity(&node.id, cx);
+                    self.ensure_entity(&node.id, window, cx);
                     if let Some(parent) = parent {
                         self.notify_for(parent, cx);
                     } else {
@@ -213,10 +495,12 @@ impl UiView {
                     }
                 }
                 Op::SetProps { id, .. } | Op::AppendText { id, .. } | Op::SetStatus { id, .. } => {
+                    self.ensure_entity(id, window, cx);
                     self.notify_for(id, cx);
                 }
                 Op::Remove { id } => {
                     let parent = before.get(id).and_then(|entry| entry.parent.clone());
+                    self.recover_focus(id, before, window, cx);
                     self.prune_entities(id, before);
                     if let Some(parent) = parent {
                         self.notify_for(&parent, cx);
@@ -240,25 +524,80 @@ impl UiView {
         // A kind change is remove + insert in one batch; make sure every dirty
         // node that remains has the entity its kind needs.
         for id in &report.dirty {
-            self.ensure_entity(id, cx);
+            self.ensure_entity(id, window, cx);
+        }
+        for id in &report.dirty {
+            if let Some(entity) = self.containers.borrow().get(id).cloned() {
+                entity.update(cx, |view, cx| {
+                    view.sync_widget(window, cx);
+                    cx.notify();
+                });
+            }
         }
         if report.needs_snapshot {
             cx.notify();
         }
     }
 
-    fn ensure_entity(&mut self, id: &str, cx: &mut Context<Self>) {
+    /// SPEC §10.4: removing a focused node moves focus to the nearest remaining
+    /// focusable ancestor, or clears it.
+    fn recover_focus(
+        &mut self,
+        removed: &str,
+        before: &RetainedTree,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let focused = self.focused.borrow().clone();
+        let Some(focused) = focused else {
+            return;
+        };
+        let removed_ids: Vec<String> = std::iter::once(removed.to_string())
+            .chain(
+                before
+                    .get(removed)
+                    .map(|entry| entry.descendants(before))
+                    .unwrap_or_default(),
+            )
+            .collect();
+        if !removed_ids.iter().any(|id| id == &focused) {
+            return;
+        }
+        let mut parent = before.get(removed).and_then(|entry| entry.parent.clone());
+        while let Some(id) = parent {
+            let entity = self.containers.borrow().get(&id).cloned();
+            if let Some(entity) = entity {
+                let focus = entity.read_with(cx, |view, cx| view.focus_handle(cx));
+                if let Some(focus) = focus {
+                    focus.focus(window, cx);
+                    *self.focused.borrow_mut() = Some(id);
+                    return;
+                }
+            }
+            parent = before.get(&id).and_then(|entry| entry.parent.clone());
+        }
+        *self.focused.borrow_mut() = None;
+        window.blur(cx);
+    }
+
+    fn ensure_entity(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(entry) = self.tree.borrow().get(id).cloned() else {
             return;
         };
         let is_root = self.tree.borrow().root.as_deref() == Some(id);
-        if is_root || entry.is_container() {
+        if is_root || entry.is_container() || entry.is_focusable() {
             let mut containers = self.containers.borrow_mut();
             if containers.contains_key(id) {
                 return;
             }
+            let sink = self.sink(cx);
+            let state = self.state.clone();
+            let focused = self.focused.clone();
+            let focus_index = self.focus_index.clone();
+            let extensions = self.extensions.clone();
             let view = cx.new(|_| NodeView {
                 id: id.to_string(),
+                kind: entry.kind.clone(),
                 theme: self.theme.clone(),
                 tree: self.tree.clone(),
                 containers: self.containers.clone(),
@@ -267,7 +606,21 @@ impl UiView {
                 widths: self.widths.clone(),
                 overrides: self.overrides.clone(),
                 metrics: self.metrics.clone(),
+                state,
+                sink,
+                focused,
+                focus_index,
+                extensions,
+                control: ControlState::default(),
+                local: Rc::new(RefCell::new(Value::Null)),
+                focus_handles: Vec::new(),
+                subscriptions: Vec::new(),
+                last_rev: None,
+                pending: None,
+                attached: false,
+                watched_handles: 0,
             });
+            view.update(cx, |view, cx| view.attach(window, cx));
             containers.insert(id.to_string(), view);
             return;
         }
@@ -387,15 +740,64 @@ fn collect_ids(tree: &RetainedTree, id: &str, out: &mut Vec<String>) {
     }
 }
 
+impl EventEmitter<UiEvent> for UiView {}
+
+/// GPUI has no built-in Tab traversal; multi-line inputs indent on Tab. In a
+/// generative UI form, Tab is focus traversal (SPEC §10.4), so remove the
+/// input-local indent binding and let `UiView`'s root key handler move focus.
+fn install_key_bindings(cx: &mut App) {
+    use gpui_component::input::{IndentInline, OutdentInline};
+    use gpui_kit::{Action as _, KeyBinding, Unbind};
+    cx.bind_keys([
+        // The kit Root owns global Tab traversal and consumes the key before
+        // the view sees it. Unbind that pair so this view can emit `Blur`
+        // before it advances focus.
+        KeyBinding::new("tab", Unbind(SharedString::from("root::Tab")), None),
+        KeyBinding::new(
+            "shift-tab",
+            Unbind(SharedString::from("root::TabPrev")),
+            None,
+        ),
+        KeyBinding::new("tab", Unbind(IndentInline.name().into()), Some("Input")),
+        KeyBinding::new(
+            "shift-tab",
+            Unbind(OutdentInline.name().into()),
+            Some("Input"),
+        ),
+    ]);
+}
+
+fn value_text(value: &Value) -> Option<String> {
+    match value {
+        Value::Str(text) => Some(text.text.to_string()),
+        Value::Int(value) => Some(value.to_string()),
+        Value::Float(value) => Some(value.to_string()),
+        Value::Bool(value) => Some(value.to_string()),
+        _ => None,
+    }
+}
+
+/// User-entered strings carry `User` provenance (SPEC §7.6).
+fn user_text(text: &str) -> Value {
+    Value::Str(PStr {
+        text: Arc::from(text),
+        prov: Provenance::User,
+    })
+}
+
 impl Render for UiView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let started = Instant::now();
         if !self.queue.is_empty() {
             self.metrics.borrow_mut().queue_drains += 1;
             while let Some(batch) = self.queue.pop_front() {
-                self.apply_batch(batch, cx);
+                self.apply_batch(batch, window, cx);
             }
         }
+        let root_key = ElementId::Name(SharedString::from("genui-root"));
+        let focused = self.focused.clone();
+        let focus_index = self.focus_index.clone();
+        let sink = self.sink(cx);
         let width = self.content_width(window);
         let root_id = self.tree.borrow().root.clone();
         if let Some(root_id) = &root_id {
@@ -420,8 +822,35 @@ impl Render for UiView {
             }
         };
         let element = div()
+            .id(root_key)
+            .track_focus(&self.root_focus)
+            .tab_group()
             .size_full()
             .bg(self.theme.background())
+            .on_key_down(
+                move |event, window, cx| match event.keystroke.key.as_str() {
+                    "tab" => {
+                        clear_focus(&focused, &sink, cx);
+                        if event.keystroke.modifiers.shift {
+                            window.focus_prev(cx);
+                        } else {
+                            window.focus_next(cx);
+                        }
+                        if let Some(handle) = window.focused(cx)
+                            && let Some(path) = lookup_focus(&focus_index, &handle)
+                        {
+                            *focused.borrow_mut() = Some(path);
+                        }
+                        cx.stop_propagation();
+                    }
+                    "escape" => {
+                        clear_focus(&focused, &sink, cx);
+                        window.blur(cx);
+                        cx.stop_propagation();
+                    }
+                    _ => {}
+                },
+            )
             .child(div().w(width).h_full().child(program));
         {
             let mut metrics = self.metrics.borrow_mut();
@@ -441,6 +870,7 @@ impl Render for UiView {
 /// built by their parent; this view also serves the root when the root is a leaf.
 pub struct NodeView {
     pub id: String,
+    pub kind: String,
     pub theme: UiTheme,
     pub tree: Rc<RefCell<RetainedTree>>,
     pub containers: Rc<RefCell<BTreeMap<String, Entity<NodeView>>>>,
@@ -449,14 +879,423 @@ pub struct NodeView {
     pub widths: Widths,
     pub overrides: Rc<StateOverrides>,
     pub metrics: Rc<RefCell<Metrics>>,
+    pub state: StateMap,
+    pub sink: EventSink,
+    pub focused: Rc<RefCell<Option<String>>>,
+    pub focus_index: FocusIndex,
+    pub extensions: ExtensionRegistry,
+    pub control: ControlState,
+    pub local: Rc<RefCell<Value>>,
+    pub focus_handles: Vec<FocusHandle>,
+    pub subscriptions: Vec<Subscription>,
+    pub last_rev: Option<u64>,
+    pub pending: Option<StateValue>,
+    pub attached: bool,
+    pub watched_handles: usize,
 }
 
 impl NodeView {
+    fn entry(&self) -> Option<NodeEntry> {
+        self.tree.borrow().get(&self.id).cloned()
+    }
+
     fn state(&self, entry: &NodeEntry) -> VisualState {
         self.overrides
             .get(&self.id)
             .copied()
             .unwrap_or_else(|| data_state(&entry.props).unwrap_or_else(|| state_of(entry.status)))
+    }
+
+    fn disabled(&self, entry: &NodeEntry) -> bool {
+        self.sink.frozen()
+            || entry.status == genui_core::ir::NodeStatus::Partial
+            || self.state(entry) == VisualState::Disabled
+            || self.state(entry) == VisualState::Partial
+    }
+
+    fn binding(&self, entry: &NodeEntry) -> Option<String> {
+        props::binding(&entry.props, "bind")
+    }
+
+    fn store_value(&self, entry: &NodeEntry) -> Option<StateValue> {
+        let binding = self.binding(entry)?;
+        self.state.borrow().get(&binding).cloned()
+    }
+
+    fn value_or(&self, entry: &NodeEntry, fallback: Value) -> Value {
+        self.store_value(entry)
+            .map(|state| state.value)
+            .unwrap_or_else(|| {
+                let local = self.local.borrow().clone();
+                if matches!(local, Value::Null) {
+                    fallback
+                } else {
+                    local
+                }
+            })
+    }
+
+    fn focus_handle(&self, cx: &App) -> Option<FocusHandle> {
+        match &self.control.text {
+            Some(text) => Some(text.focus_handle(cx)),
+            None => self
+                .control
+                .select
+                .as_ref()
+                .map(|select| select.focus.clone())
+                .or_else(|| self.focus_handles.first().cloned()),
+        }
+    }
+
+    fn is_focused(&self, window: &Window, cx: &App) -> bool {
+        self.focus_handle(cx)
+            .is_some_and(|handle| handle.is_focused(window))
+    }
+
+    /// Create the widget state and subscriptions once per retained node
+    /// (SPEC §10.1, §10.4).
+    fn attach(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.attached {
+            return;
+        }
+        self.attached = true;
+        let Some(entry) = self.entry() else {
+            return;
+        };
+        match entry.kind.as_str() {
+            "Input" => self.attach_input(window, cx, &entry, false),
+            "TextArea" => self.attach_input(window, cx, &entry, true),
+            "Select" => self.attach_select(window, cx, &entry),
+            "Checkbox" | "Switch" => {
+                self.focus_handles.push(cx.focus_handle());
+                self.watch_handles(window, cx);
+            }
+            "CheckboxGroup" | "RadioGroup" => {
+                let count = props::options(&entry.props, "options").len();
+                while self.focus_handles.len() < count {
+                    self.focus_handles.push(cx.focus_handle());
+                }
+                self.watch_handles(window, cx);
+            }
+            _ => {}
+        }
+    }
+
+    fn watch_handles(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        for index in self.watched_handles..self.focus_handles.len() {
+            let handle = self.focus_handles[index].clone();
+            register_focus(&self.focus_index, &handle, &self.id);
+            let sink = self.sink.clone();
+            let id = self.id.clone();
+            let focused = self.focused.clone();
+            let focus_sink = sink.clone();
+            let focus_id = id.clone();
+            let focus_state = focused.clone();
+            let focus = cx.on_focus(&handle, window, move |_, _, cx| {
+                focus_node(&focus_state, &focus_sink, &focus_id, cx);
+            });
+            self.subscriptions.push(focus);
+            let subscription = cx.on_blur(&handle, window, move |_, _, cx| {
+                if focused.borrow().as_deref() == Some(id.as_str()) {
+                    focused.borrow_mut().take();
+                    sink.blur(&id, cx);
+                }
+            });
+            self.subscriptions.push(subscription);
+        }
+        self.watched_handles = self.focus_handles.len();
+    }
+
+    fn attach_input(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+        entry: &NodeEntry,
+        textarea: bool,
+    ) {
+        let placeholder = props::text_or(&entry.props, "placeholder", "");
+        let text = if textarea {
+            let state = cx.new(|cx| {
+                let mut state = TextareaState::new(window, cx);
+                state = state.placeholder(placeholder);
+                state
+            });
+            TextWidget::Area(state)
+        } else {
+            let state = cx.new(|cx| {
+                let mut state = InputState::new(window, cx);
+                state = state.placeholder(placeholder);
+                state
+            });
+            TextWidget::Input(state)
+        };
+        let focus = text.focus_handle(cx);
+        self.focus_handles.push(focus.clone());
+        register_focus(&self.focus_index, &focus, &self.id);
+        self.watch_handles(window, cx);
+        let sink = self.sink.clone();
+        let id = self.id.clone();
+        let focused = self.focused.clone();
+        let node = cx.entity().downgrade();
+        let subscription =
+            match &text {
+                TextWidget::Input(state) => {
+                    let state = state.clone();
+                    cx.subscribe_in(&state, window, move |view, state, event, window, cx| {
+                        match event {
+                            InputEvent::Change => {
+                                let value = user_text(state.read(cx).value().as_ref());
+                                *view.local.borrow_mut() = value.clone();
+                                sink.edit(&id, value, cx);
+                            }
+                            InputEvent::Focus => {
+                                focus_node(&focused, &sink, &id, cx);
+                                node.update(cx, |_, cx| cx.notify()).ok();
+                            }
+                            InputEvent::Blur => {
+                                if focused.borrow().as_deref() == Some(id.as_str()) {
+                                    focused.borrow_mut().take();
+                                }
+                                view.flush_pending(window, cx);
+                            }
+                            InputEvent::PressEnter { .. } => {
+                                view.submit_from_keyboard(cx);
+                            }
+                        }
+                    })
+                }
+                TextWidget::Area(state) => {
+                    let state = state.clone();
+                    cx.subscribe_in(&state, window, move |view, state, event, window, cx| {
+                        match event {
+                            InputEvent::Change => {
+                                let value = user_text(state.read(cx).value().as_ref());
+                                *view.local.borrow_mut() = value.clone();
+                                sink.edit(&id, value, cx);
+                            }
+                            InputEvent::Focus => {
+                                focus_node(&focused, &sink, &id, cx);
+                                node.update(cx, |_, cx| cx.notify()).ok();
+                            }
+                            InputEvent::Blur => {
+                                if focused.borrow().as_deref() == Some(id.as_str()) {
+                                    focused.borrow_mut().take();
+                                }
+                                view.flush_pending(window, cx);
+                            }
+                            // Enter is a newline in a multiline field.
+                            InputEvent::PressEnter { .. } => {}
+                        }
+                    })
+                }
+            };
+        self.subscriptions.push(subscription);
+        self.control.text = Some(text);
+        self.sync_widget(window, cx);
+    }
+
+    fn attach_select(&mut self, window: &mut Window, cx: &mut Context<Self>, entry: &NodeEntry) {
+        let options = props::options(&entry.props, "options");
+        let values: Vec<String> = options.iter().map(|option| option.value.clone()).collect();
+        let selected_value = self
+            .store_value(entry)
+            .and_then(|state| match state.value {
+                Value::Str(text) => Some(text.text.to_string()),
+                _ => None,
+            })
+            .or_else(|| match &*self.local.borrow() {
+                Value::Str(text) => Some(text.text.to_string()),
+                _ => None,
+            });
+        let selected = selected_value
+            .and_then(|value| values.iter().position(|item| item == &value))
+            .map(|index| gpui_component::IndexPath::default().row(index));
+        let state =
+            cx.new(|cx| SelectState::new(SearchableVec::new(values.clone()), selected, window, cx));
+        let focus = state.read(cx).focus_handle(cx);
+        self.focus_handles.push(focus.clone());
+        register_focus(&self.focus_index, &focus, &self.id);
+        self.watch_handles(window, cx);
+        let sink = self.sink.clone();
+        let id = self.id.clone();
+        let subscription = cx.subscribe_in(&state, window, move |_, _, event, _, cx| {
+            if let SelectEvent::Confirm(Some(value)) = event {
+                sink.edit(&id, user_text(value), cx);
+            }
+        });
+        self.subscriptions.push(subscription);
+        let focused = self.focused.clone();
+        let focus_sink = self.sink.clone();
+        let focus_id = self.id.clone();
+        let focus_state = focused.clone();
+        let focus_in = cx.on_focus(&focus, window, move |_, _, cx| {
+            focus_node(&focus_state, &focus_sink, &focus_id, cx);
+        });
+        self.subscriptions.push(focus_in);
+        let blur_sink = self.sink.clone();
+        let blur_id = self.id.clone();
+        let blur = cx.on_blur(&focus, window, move |_, _, cx| {
+            if focused.borrow().as_deref() == Some(blur_id.as_str()) {
+                focused.borrow_mut().take();
+            }
+            blur_sink.blur(&blur_id, cx);
+        });
+        self.subscriptions.push(blur);
+        self.control.select = Some(SelectWidget {
+            state,
+            focus,
+            values,
+        });
+        self.sync_widget(window, cx);
+    }
+
+    /// Store-to-widget sync (SPEC §10.4). User echoes and revisions already
+    /// pushed are ignored; a non-user change while focused waits for blur.
+    fn sync_widget(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(entry) = self.entry() else {
+            return;
+        };
+        if self.control.text.is_none() && self.control.select.is_none() {
+            return;
+        }
+        let disabled = self.disabled(&entry);
+        if let Some(text) = &self.control.text {
+            text.set_disabled(disabled, cx);
+        }
+        self.sync_select(&entry, window, cx);
+        let Some(store) = self.store_value(&entry) else {
+            return;
+        };
+        if self.last_rev == Some(store.rev) {
+            return;
+        }
+        let focused = self.is_focused(window, cx);
+        if store.origin == StateOrigin::User {
+            self.last_rev = Some(store.rev);
+            self.pending = None;
+            return;
+        }
+        if focused {
+            self.pending = Some(store);
+            return;
+        }
+        self.apply_store(&store, window, cx);
+    }
+
+    fn sync_select(&mut self, entry: &NodeEntry, window: &mut Window, cx: &mut Context<Self>) {
+        let options = props::options(&entry.props, "options");
+        let values: Vec<String> = options.iter().map(|option| option.value.clone()).collect();
+        let selected = self
+            .store_value(entry)
+            .and_then(|state| value_text(&state.value))
+            .or_else(|| value_text(&self.local.borrow()));
+        let Some(select) = self.control.select.take() else {
+            return;
+        };
+        if select.values != values {
+            let items = SearchableVec::new(values.clone());
+            select
+                .state
+                .update(cx, |state, cx| state.set_items(items, window, cx));
+        }
+        if let Some(selected) = selected {
+            let current = select.state.read(cx).selected_value().cloned();
+            if current.as_deref() != Some(selected.as_str()) {
+                select.state.update(cx, |state, cx| {
+                    state.set_selected_value(&selected, window, cx)
+                });
+            }
+        }
+        let mut select = select;
+        select.values = values;
+        self.control.select = Some(select);
+    }
+
+    fn flush_pending(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(store) = self.pending.take() {
+            self.apply_store(&store, window, cx);
+        }
+    }
+
+    fn apply_store(&mut self, store: &StateValue, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(entry) = self.entry() else {
+            return;
+        };
+        if let Some(text) = &self.control.text {
+            let value = value_text(&store.value).unwrap_or_default();
+            if text.value(cx) != value {
+                text.set_value(&value, window, cx);
+            }
+        }
+        if let Some(select) = self.control.select.take() {
+            let value = value_text(&store.value);
+            if let Some(value) = value {
+                select.state.update(cx, |state, cx| {
+                    state.set_selected_value(&value, window, cx);
+                });
+            }
+            self.control.select = Some(select);
+        }
+        self.last_rev = Some(store.rev);
+        let _ = entry;
+    }
+
+    /// DESIGN/SPEC §10.4: Enter in a single-line field submits only when the
+    /// enclosing form has exactly one submit button.
+    fn submit_from_keyboard(&self, cx: &mut App) {
+        let Some((node, action)) = self.submit_button() else {
+            return;
+        };
+        self.sink.activate(&node, &action, cx);
+    }
+
+    fn submit_button(&self) -> Option<(String, String)> {
+        let tree = self.tree.borrow();
+        let mut parent = tree.get(&self.id).and_then(|entry| entry.parent.clone());
+        let mut form = None;
+        while let Some(id) = parent {
+            let entry = tree.get(&id)?;
+            if entry.kind == "Form" {
+                form = Some(entry.clone());
+                break;
+            }
+            parent = entry.parent.clone();
+        }
+        let form = form?;
+        let mut submits = Vec::new();
+        for id in form.descendants(&tree) {
+            let entry = tree.get(&id)?;
+            if entry.kind == "Button" && props::bool_(&entry.props, "submit", false) {
+                submits.push(entry.clone());
+            }
+        }
+        if submits.len() != 1 {
+            return None;
+        }
+        let button = &submits[0];
+        let action = props::action(&button.props, "on_click")
+            .or_else(|| props::action(&form.props, "on_submit"))?;
+        Some((button.id.clone(), action))
+    }
+
+    fn form_submit_action(&self) -> Option<String> {
+        let tree = self.tree.borrow();
+        let entry = tree.get(&self.id)?;
+        if entry.kind != "Button" || !props::bool_(&entry.props, "submit", false) {
+            return None;
+        }
+        if let Some(action) = props::action(&entry.props, "on_click") {
+            return Some(action);
+        }
+        let mut parent = entry.parent.clone();
+        while let Some(id) = parent {
+            let form = tree.get(&id)?;
+            if form.kind == "Form" {
+                return props::action(&form.props, "on_submit");
+            }
+            parent = form.parent.clone();
+        }
+        None
     }
 
     fn child_widths(&self, entry: &NodeEntry, width: Pixels) -> (Vec<String>, Vec<Pixels>) {
@@ -493,10 +1332,11 @@ impl NodeView {
     }
 
     fn child_element(
-        &self,
+        &mut self,
         id: &str,
         index: usize,
         parent: &str,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let Some(entry) = self.tree.borrow().get(id).cloned() else {
@@ -525,7 +1365,7 @@ impl NodeView {
                 None => components::image(&self.theme, &entry.props, width, state),
             }
         } else {
-            self.build_entry(&entry, state, cx)
+            self.build_entry(&entry, state, window, cx)
         };
         if entry.kind == "Heading" && index > 0 {
             element = div()
@@ -538,21 +1378,412 @@ impl NodeView {
         if matches!(parent, "Column" | "Card" | "Form" | "List" | "Tabs" | "Tab")
             && matches!(entry.kind.as_str(), "Badge" | "Button")
         {
-            element = div().self_start().child(element).into_any_element();
+            element = div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .self_start()
+                .child(element)
+                .into_any_element();
         }
         element
     }
 
-    fn build_entry(
-        &self,
+    fn build_control(
+        &mut self,
         entry: &NodeEntry,
-        state: VisualState,
+        _state: VisualState,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let theme = self.theme.clone();
+        let display = FieldDisplay::from_props(&entry.props);
+        let disabled = self.disabled(entry);
+        let label = props::text_or(&entry.props, "label", "");
+        let required = props::bool_(&entry.props, "required", false);
+        let node = cx.entity().downgrade();
+        let sink = self.sink.clone();
+        let local = self.local.clone();
+        match entry.kind.as_str() {
+            "Input" | "TextArea" => {
+                let focused = self.is_focused(window, cx);
+                let error = display.visible_error().is_some();
+                let kind = props::name_or(&entry.props, "kind", "text");
+                let control: AnyElement = match &self.control.text {
+                    Some(TextWidget::Input(input)) => {
+                        let mut element = Input::new(input)
+                            .id(ElementId::Name(SharedString::from(format!(
+                                "genui-input-{}",
+                                entry.id
+                            ))))
+                            .appearance(false)
+                            .bordered(false)
+                            .focus_bordered(false)
+                            .disabled(disabled)
+                            .aria_label(label.clone())
+                            .text_color(theme.foreground())
+                            .h_full();
+                        element = match kind.as_str() {
+                            "email" => element.content_type(InputContentType::EmailAddress),
+                            "url" => element.content_type(InputContentType::Url),
+                            _ => element,
+                        };
+                        element.into_any_element()
+                    }
+                    Some(TextWidget::Area(area)) => Textarea::new(area)
+                        .appearance(false)
+                        .bordered(false)
+                        .disabled(disabled)
+                        .aria_label(label.clone())
+                        .text_color(theme.foreground())
+                        .h_full()
+                        .into_any_element(),
+                    None => div().into_any_element(),
+                };
+                let shell = if entry.kind == "TextArea" {
+                    let rows = props::int(&entry.props, "rows").unwrap_or(4);
+                    controls::textarea_shell(
+                        &theme,
+                        control,
+                        controls::ShellState {
+                            focused,
+                            error,
+                            disabled,
+                        },
+                        rows,
+                        window,
+                        cx,
+                    )
+                } else {
+                    controls::control_shell(
+                        &theme,
+                        control,
+                        controls::ShellState {
+                            focused,
+                            error,
+                            disabled,
+                        },
+                        theme.control_height(crate::theme::ControlSize::Medium),
+                        window,
+                        cx,
+                    )
+                };
+                let mut field = div()
+                    .id(ElementId::Name(SharedString::from(format!(
+                        "genui-field-{}",
+                        entry.id
+                    ))))
+                    .test_support();
+                if let Some(handle) = self.focus_handle(cx) {
+                    let sink = self.sink.clone();
+                    let focused = self.focused.clone();
+                    let node_id = entry.id.clone();
+                    field = field.on_click(move |_, window, cx| {
+                        focus_node(&focused, &sink, &node_id, cx);
+                        handle.focus(window, cx);
+                    });
+                }
+                let shell = field.child(shell).into_any_element();
+                let _ = (required, &local, &node);
+                controls::field(&theme, &entry.id, &label, shell, &display, disabled)
+            }
+            "Select" => {
+                let focused = self.is_focused(window, cx);
+                let error = display.visible_error().is_some();
+                let control: AnyElement = match &self.control.select {
+                    Some(select) => {
+                        let mut element = Select::new(&select.state)
+                            .id(ElementId::Name(SharedString::from(format!(
+                                "genui-select-{}",
+                                entry.id
+                            ))))
+                            .appearance(false)
+                            .focus_ring(false)
+                            .disabled(disabled)
+                            .accessibility_label(label.clone())
+                            .text_color(theme.foreground())
+                            .icon(
+                                gpui_component::Icon::new(gpui_component::IconName::ChevronDown)
+                                    .text_color(theme.surface()),
+                            );
+                        if let Some(placeholder) = props::text(&entry.props, "placeholder") {
+                            element = element.placeholder(placeholder);
+                        }
+                        element.into_any_element()
+                    }
+                    None => div().into_any_element(),
+                };
+                let control = div()
+                    .flex()
+                    .items_center()
+                    .w_full()
+                    .gap(theme.space(1))
+                    .child(div().flex_1().min_w_0().child(control))
+                    .child(controls::select_chevron(&theme))
+                    .into_any_element();
+                let shell = controls::control_shell(
+                    &theme,
+                    control,
+                    controls::ShellState {
+                        focused,
+                        error,
+                        disabled,
+                    },
+                    theme.control_height(crate::theme::ControlSize::Medium),
+                    window,
+                    cx,
+                );
+                let mut field = div()
+                    .id(ElementId::Name(SharedString::from(format!(
+                        "genui-field-{}",
+                        entry.id
+                    ))))
+                    .test_support();
+                if let Some(handle) = self.focus_handle(cx) {
+                    let sink = self.sink.clone();
+                    let focused = self.focused.clone();
+                    let node_id = entry.id.clone();
+                    field = field.on_click(move |_, window, cx| {
+                        focus_node(&focused, &sink, &node_id, cx);
+                        handle.focus(window, cx);
+                    });
+                }
+                let shell = field.child(shell).into_any_element();
+                let _ = (required, &local, &node);
+                controls::field(&theme, &entry.id, &label, shell, &display, disabled)
+            }
+            "Checkbox" => {
+                let checked = matches!(self.value_or(entry, Value::Bool(false)), Value::Bool(true));
+                let node_id = entry.id.clone();
+                if self.focus_handles.is_empty() {
+                    self.focus_handles.push(cx.focus_handle());
+                }
+                self.watch_handles(window, cx);
+                let handle = self.focus_handles[0].clone();
+                let control = controls::checkbox(
+                    &theme,
+                    ElementId::Name(SharedString::from(format!("genui-checkbox-{}", entry.id))),
+                    &label,
+                    checked,
+                    disabled,
+                    &handle,
+                    move |next, _window, cx| {
+                        *local.borrow_mut() = Value::Bool(*next);
+                        sink.edit(&node_id, Value::Bool(*next), cx);
+                        node.update(cx, |_, cx| cx.notify()).ok();
+                    },
+                );
+                controls::field_error(&theme, &entry.id, control, &display, disabled)
+            }
+            "CheckboxGroup" => {
+                let options = props::options(&entry.props, "options");
+                let values = match self.value_or(entry, Value::List(Arc::new(Vec::new()))) {
+                    Value::List(values) => values
+                        .iter()
+                        .filter_map(value_text)
+                        .collect::<Vec<String>>(),
+                    _ => Vec::new(),
+                };
+                while self.focus_handles.len() < options.len() {
+                    self.focus_handles.push(cx.focus_handle());
+                }
+                self.watch_handles(window, cx);
+                let option_values: Vec<String> =
+                    options.iter().map(|option| option.value.clone()).collect();
+                let option_values_for_event = option_values.clone();
+                let values_for_event = values.clone();
+                let id = entry.id.clone();
+                let on_change = Rc::new(
+                    move |index: usize, checked: bool, _w: &mut Window, cx: &mut App| {
+                        let Some(value) = option_values_for_event.get(index) else {
+                            return;
+                        };
+                        let mut next: Vec<String> = values_for_event.clone();
+                        if checked {
+                            if !next.iter().any(|item| item == value) {
+                                next.push(value.clone());
+                            }
+                        } else {
+                            next.retain(|item| item != value);
+                        }
+                        next.sort_by_key(|item| {
+                            option_values_for_event
+                                .iter()
+                                .position(|value| value == item)
+                                .unwrap_or(usize::MAX)
+                        });
+                        let value = Value::List(Arc::new(
+                            next.into_iter().map(|item| user_text(&item)).collect(),
+                        ));
+                        *local.borrow_mut() = value.clone();
+                        sink.edit(&id, value, cx);
+                        node.update(cx, |_, cx| cx.notify()).ok();
+                    },
+                );
+                let control = controls::checkbox_group(
+                    &theme,
+                    controls::GroupLayout {
+                        id: &entry.id,
+                        label: &label,
+                        disabled,
+                    },
+                    &options,
+                    &values,
+                    &self.focus_handles,
+                    on_change,
+                );
+                controls::field_error(&theme, &entry.id, control, &display, disabled)
+            }
+            "RadioGroup" => {
+                let options = props::options(&entry.props, "options");
+                while self.focus_handles.len() < options.len() {
+                    self.focus_handles.push(cx.focus_handle());
+                }
+                self.watch_handles(window, cx);
+                let selected = value_text(&self.value_or(entry, Value::Null));
+                let option_values: Vec<String> =
+                    options.iter().map(|option| option.value.clone()).collect();
+                let values_for_event = option_values.clone();
+                let id = entry.id.clone();
+                let on_change = Rc::new(move |index: usize, _w: &mut Window, cx: &mut App| {
+                    let Some(value) = values_for_event.get(index) else {
+                        return;
+                    };
+                    let value = user_text(value);
+                    *local.borrow_mut() = value.clone();
+                    sink.edit(&id, value, cx);
+                    node.update(cx, |_, cx| cx.notify()).ok();
+                });
+                let group = controls::radio_group(
+                    &theme,
+                    controls::GroupLayout {
+                        id: &entry.id,
+                        label: &label,
+                        disabled,
+                    },
+                    &options,
+                    selected.as_deref(),
+                    &self.focus_handles,
+                    on_change.clone(),
+                );
+                let key_values = option_values;
+                let key_handles = self.focus_handles.clone();
+                let key_selected = selected.clone();
+                let key_id = entry.id.clone();
+                let key_sink = self.sink.clone();
+                let key_local = self.local.clone();
+                let key_node = cx.entity().downgrade();
+                let control = div()
+                    .id(ElementId::Name(SharedString::from(format!(
+                        "genui-radio-key-{}",
+                        entry.id
+                    ))))
+                    .on_key_down(move |event, window, cx| {
+                        if disabled {
+                            return;
+                        }
+                        let key = event.keystroke.key.as_str();
+                        if !matches!(key, "up" | "down" | "left" | "right") {
+                            return;
+                        }
+                        if key_values.is_empty() {
+                            return;
+                        }
+                        let current = key_selected
+                            .as_deref()
+                            .and_then(|value| key_values.iter().position(|item| item == value))
+                            .unwrap_or(0);
+                        let next = if matches!(key, "up" | "left") {
+                            (current + key_values.len() - 1) % key_values.len()
+                        } else {
+                            (current + 1) % key_values.len()
+                        };
+                        let Some(value) = key_values.get(next) else {
+                            return;
+                        };
+                        let value = user_text(value);
+                        *key_local.borrow_mut() = value.clone();
+                        key_sink.edit(&key_id, value, cx);
+                        if let Some(handle) = key_handles.get(next) {
+                            handle.focus(window, cx);
+                        }
+                        key_node.update(cx, |_, cx| cx.notify()).ok();
+                        cx.stop_propagation();
+                    })
+                    .child(group)
+                    .into_any_element();
+                controls::field_error(&theme, &entry.id, control, &display, disabled)
+            }
+            "Switch" => {
+                if self.focus_handles.is_empty() {
+                    self.focus_handles.push(cx.focus_handle());
+                }
+                self.watch_handles(window, cx);
+                let checked = matches!(self.value_or(entry, Value::Bool(false)), Value::Bool(true));
+                let handle = self.focus_handles[0].clone();
+                let node_id = entry.id.clone();
+                let control = controls::switch(
+                    &theme,
+                    ElementId::Name(SharedString::from(format!("genui-switch-{}", entry.id))),
+                    &label,
+                    checked,
+                    disabled,
+                    &handle,
+                    move |next, _window, cx| {
+                        *local.borrow_mut() = Value::Bool(next);
+                        sink.edit(&node_id, Value::Bool(next), cx);
+                        node.update(cx, |_, cx| cx.notify()).ok();
+                    },
+                );
+                controls::field_error(&theme, &entry.id, control, &display, disabled)
+            }
+            "Button" => {
+                let tone = props::name_or(&entry.props, "tone", "secondary");
+                let action =
+                    props::action(&entry.props, "on_click").or_else(|| self.form_submit_action());
+                let disabled = disabled || props::bool_(&entry.props, "disabled", false);
+                let node_id = entry.id.clone();
+                let focused = self.focused.clone();
+                let action = action.unwrap_or_default();
+                controls::button(
+                    &theme,
+                    &entry.id,
+                    &label,
+                    &tone,
+                    disabled,
+                    Rc::new(move |_, _, cx| {
+                        if !disabled && !action.is_empty() {
+                            clear_focus(&focused, &sink, cx);
+                            sink.activate(&node_id, &action, cx);
+                        }
+                    }),
+                )
+            }
+            _ => components::deferred(&theme, &entry.kind),
+        }
+    }
+
+    fn build_entry(
+        &mut self,
+        entry: &NodeEntry,
+        state: VisualState,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        if let Some(builder) = self.extensions.get(&entry.kind) {
+            let node = ExtensionNode {
+                id: entry.id.clone(),
+                kind: entry.kind.clone(),
+                role: entry.role,
+                props: entry.props.clone(),
+                status: entry.status,
+            };
+            return builder(&node, window, cx);
+        }
         if let Some(_milestone) = components::deferred_milestone(&entry.kind) {
-            // Forms, lists and tabs have meaningful children; show them under a
+            // Lists and tabs have meaningful children; show them under a
             // clearly labeled placeholder so their anatomy remains inspectable.
-            if matches!(entry.kind.as_str(), "Form" | "List" | "Tabs" | "Tab") {
+            if matches!(entry.kind.as_str(), "List" | "Tabs" | "Tab") {
                 let width = self.widths.get(&entry.id, self.theme.message_max_width());
                 let (children, widths) = self.child_widths(entry, width);
                 for (child, width) in children.iter().zip(widths) {
@@ -561,7 +1792,7 @@ impl NodeView {
                 let elements: Vec<AnyElement> = children
                     .iter()
                     .enumerate()
-                    .map(|(index, child)| self.child_element(child, index, &entry.kind, cx))
+                    .map(|(index, child)| self.child_element(child, index, &entry.kind, window, cx))
                     .collect();
                 let mut caption = components::deferred_label(&entry.kind);
                 if entry.kind == "Tab"
@@ -593,6 +1824,26 @@ impl NodeView {
             return components::deferred(&self.theme, &entry.kind);
         }
         match entry.kind.as_str() {
+            "Form" => {
+                let width = self.widths.get(&entry.id, self.theme.message_max_width());
+                let (children, widths) = self.child_widths(entry, width);
+                for (child, width) in children.iter().zip(widths) {
+                    self.widths.set(child, width);
+                }
+                let first_submit = children.iter().position(|child| {
+                    self.tree.borrow().get(child).is_some_and(|entry| {
+                        entry.kind == "Button" && props::bool_(&entry.props, "submit", false)
+                    })
+                });
+                let elements: Vec<AnyElement> = children
+                    .iter()
+                    .enumerate()
+                    .map(|(index, child)| self.child_element(child, index, &entry.kind, window, cx))
+                    .collect();
+                controls::form(&self.theme, &entry.id, elements, first_submit)
+            }
+            "Input" | "TextArea" | "Select" | "Checkbox" | "CheckboxGroup" | "RadioGroup"
+            | "Switch" | "Button" => self.build_control(entry, state, window, cx),
             "Column" | "Row" | "Grid" | "Card" | "Stat" | "Facts" => {
                 let width = self.widths.get(&entry.id, self.theme.message_max_width());
                 let (children, widths) = self.child_widths(entry, width);
@@ -611,7 +1862,7 @@ impl NodeView {
                 let elements: Vec<AnyElement> = children
                     .iter()
                     .enumerate()
-                    .map(|(index, child)| self.child_element(child, index, &entry.kind, cx))
+                    .map(|(index, child)| self.child_element(child, index, &entry.kind, window, cx))
                     .collect();
                 let props = &entry.props;
                 match entry.kind.as_str() {
@@ -666,7 +1917,6 @@ impl NodeView {
             ),
             "Alert" => components::alert(&self.theme, &entry.id, &entry.props),
             "Divider" => components::divider(&self.theme),
-            "Button" => components::button(&self.theme, &entry.props, state),
             "Markdown" => components::markdown(
                 &self.theme,
                 &entry.id,
@@ -680,7 +1930,7 @@ impl NodeView {
 
 impl Render for NodeView {
     #[allow(refining_impl_trait)]
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let started = Instant::now();
         self.metrics
             .borrow_mut()
@@ -688,15 +1938,35 @@ impl Render for NodeView {
             .entry(self.id.clone())
             .and_modify(|count| *count += 1)
             .or_insert(1);
-        let element = match self.tree.borrow().get(&self.id).cloned() {
+        let entry = self.tree.borrow().get(&self.id).cloned();
+        let element = match entry {
             Some(entry) => {
                 let state = self.state(&entry);
-                self.build_entry(&entry, state, cx)
+                self.build_entry(&entry, state, window, cx)
             }
             None => div().into_any_element(),
         };
         self.metrics.borrow_mut().node_render_ns += started.elapsed().as_nanos() as u64;
-        div().w_full().child(element).into_any_element()
+        if crate::components::IMPLEMENTED.contains(&self.kind.as_str())
+            && !matches!(
+                self.kind.as_str(),
+                "Column"
+                    | "Row"
+                    | "Grid"
+                    | "Card"
+                    | "Stat"
+                    | "Facts"
+                    | "Form"
+                    | "List"
+                    | "Table"
+                    | "Tabs"
+                    | "Tab"
+            )
+        {
+            element
+        } else {
+            div().w_full().child(element).into_any_element()
+        }
     }
 }
 

@@ -20,3 +20,12 @@ gpui-pre.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
+[dev-dependencies]
+# SPEC §12.7 scripted GPUI interaction tests use the kit's headless test
+# context. It is a test-only feature; release builds stay on the pinned set.
+gpui-kit = { workspace = true, features = ["test-support"] }
+
+
+[[bin]]
+name = "form-demo"
+path = "src/bin/form_demo.rs"

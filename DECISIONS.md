@@ -77,3 +77,14 @@ implementation work; the owner requirement and acceptance conditions are unchang
 | Feedback hint for `schema.enum` | Catalog signature line only; legal values only; both | Detail carries legal values, hint stays the legal-value list; missing-required hints use the catalog signature | Adopted in SPEC §4.6 |
 | How does static fallback handle dynamic props? | Evaluate early; omit the prop; emit a placeholder | Omit it (empty text) until M4 supplies evaluated values; never invent data | Documented in SPEC §4.7 |
 | `StateSnapshot` shape | Opaque host JSON; tagged value list; versioned value map | `{ v: 1, values: { state-name: Value } }`, plain data, serde-stable | Adopted in SPEC §9.2 |
+
+## M5 model-evaluation item (ROADMAP 4)
+
+ROADMAP item 4 asks for an evaluation set with recorded model transcripts and
+answers to the extraction open questions. No model endpoint or recorded model
+transcripts are available in this worktree. Options considered: fabricate model
+outputs, present the deterministic exemplars as model data, or build only the
+deterministic prerequisites and record the gap. The adopted default is the third:
+do not label synthetic output as model evidence. Prompt/feedback/message fixtures,
+the prompt digest and the CLI demos are ready for a real recording run; the
+evaluation set and transcript measurements remain open in `docs/milestones/M5.md`.

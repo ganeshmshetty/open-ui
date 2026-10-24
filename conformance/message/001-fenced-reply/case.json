@@ -1,0 +1,6 @@
+{
+  "title": "fenced-reply",
+  "tier": "core",
+  "tags": ["replay", "complete"],
+  "notes": "SPEC §9.2: prose segments, one program, exact stored bytes and replay without metadata."
+}

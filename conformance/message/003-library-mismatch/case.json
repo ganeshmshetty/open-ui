@@ -1,0 +1,6 @@
+{
+  "title": "library-mismatch",
+  "tier": "core",
+  "tags": ["negative", "lib.mismatch"],
+  "notes": "SPEC §§2.8,4.3,9.2: a stored library identity that differs from the active library emits Info lib.mismatch and replay still proceeds."
+}

@@ -1,0 +1,4 @@
+{
+  "capabilities": ["text_input"],
+  "max_examples": 3
+}

@@ -1,0 +1,6 @@
+{
+  "title": "tools-refs-host-rules",
+  "tier": "core",
+  "tags": ["golden", "tools", "host"],
+  "notes": "SPEC §9.1: tool signatures and result shapes, ref rules, preamble, host additions and two examples."
+}

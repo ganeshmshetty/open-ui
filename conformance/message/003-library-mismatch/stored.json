@@ -1,0 +1,12 @@
+{
+  "v": 1,
+  "segments": [
+    {"kind": "Program", "text": "root = Text(\"Hi\")\n", "major": 1}
+  ],
+  "lib": {"id": "std", "version": "0.0.9", "hash": "00000000000000000000000000000000"},
+  "prompt_digest": "00000000000000000000000000000000",
+  "complete": true,
+  "fallback_text": "Hi\n",
+  "diagnostics": [],
+  "state": null
+}

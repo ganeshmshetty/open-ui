@@ -1,0 +1,6 @@
+{
+  "title": "mixed-schema-and-name-errors",
+  "tier": "core",
+  "tags": ["sorting", "hints"],
+  "notes": "SPEC §4.6: enum, missing-required and unresolved feedback, severity sorted with catalog hints."
+}

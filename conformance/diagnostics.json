@@ -48,6 +48,9 @@
       "extract/006-unsupported-version",
       "extract/019-malformed-version"
     ],
+    "lib.mismatch": [
+      "message/003-library-mismatch"
+    ],
     "limit.depth": [
       "statements/020-depth-skip",
       "statements/022-expression-depth",

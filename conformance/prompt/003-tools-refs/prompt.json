@@ -1,0 +1,29 @@
+{
+  "capabilities": ["charts", "images", "markdown", "code_highlight", "text_input"],
+  "tools": [
+    {
+      "name": "search_orders",
+      "description": "Find orders for a customer.",
+      "args": [
+        {"name": "query", "ty": {"kind": "text"}, "kind": "plain"},
+        {"name": "region", "ty": {"kind": "text"}, "kind": "plain"}
+      ],
+      "result_shape": "list of {id: str, total: num}",
+      "auto_run": false
+    },
+    {
+      "name": "open_ticket",
+      "description": "Open a support ticket.",
+      "args": [
+        {"name": "subject", "ty": {"kind": "text"}, "kind": "free_text"},
+        {"name": "url", "ty": {"kind": "url"}, "kind": "url"}
+      ],
+      "result_shape": "ticket",
+      "auto_run": true
+    }
+  ],
+  "features": {"state": false, "forms": false, "queries": true, "refs": true},
+  "preamble": "This host is a support console.",
+  "extra_rules": ["Use metric units.", "Address the user as \"you\"."],
+  "max_examples": 2
+}

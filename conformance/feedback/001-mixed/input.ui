@@ -1,0 +1,4 @@
+root = Column([chart, grid, tbl])
+chart = Chart("pie", [{x: 1}], "x", "y")
+grid = Column([missing_card])
+tbl = Table([TableColumn("Name", "name")])

@@ -1,0 +1,6 @@
+{
+  "title": "syntax-recovery",
+  "tier": "core",
+  "tags": ["syntax"],
+  "notes": "SPEC §4.6: syntax warnings and errors use the diagnostic's exact single-line detail."
+}

@@ -1,0 +1,6 @@
+{
+  "title": "turn-block",
+  "tier": "core",
+  "tags": ["golden", "refs", "feedback"],
+  "notes": "SPEC §9.1: the per-turn block carries the ref catalog and any ui-diag feedback after the static prompt."
+}

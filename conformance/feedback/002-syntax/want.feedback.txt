@@ -1,0 +1,4 @@
+```ui-diag
+syntax.unclosed_bracket at root: An open bracket was closed implicitly; closed implicitly
+syntax.unterminated_string at -: A string was closed at the line or input boundary; closed implicitly
+```

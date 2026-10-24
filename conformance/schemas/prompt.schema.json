@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "capabilities": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "description"],
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "ty"],
+              "properties": {
+                "name": { "type": "string" },
+                "ty": { "type": "object" },
+                "kind": { "enum": ["plain", "free_text", "url"] }
+              }
+            }
+          },
+          "result_shape": { "type": "string" },
+          "auto_run": { "type": "boolean" }
+        }
+      }
+    },
+    "features": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "state": { "type": "boolean" },
+        "forms": { "type": "boolean" },
+        "queries": { "type": "boolean" },
+        "refs": { "type": "boolean" }
+      }
+    },
+    "preamble": { "type": "string" },
+    "extra_rules": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "max_examples": { "type": "integer", "minimum": 0 }
+  }
+}

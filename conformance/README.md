@@ -84,3 +84,12 @@ encoded by the core. Typed semantic maps retain entry order as tagged pairs.
 `mutations/m3/` holds the frozen M3 inventory and source-matched equivalent-mutant
 reviews; historical M2 acceptance stays in `mutations/`. Mutation metadata is not
 a fixture category and does not contribute to the fixture count.
+
+M5 implements `prompt`, `feedback` and `message`. Prompt fixtures provide
+`prompt.json` and compare `want.prompt.txt` byte for byte (plus an optional
+digest); `turn.json`/`want.turn.txt` pin the per-turn ref catalog and feedback
+block. Feedback fixtures compare the full `ui-diag` block or assert that none is
+produced. Message fixtures cover exact canonical stored messages from cut and
+complete replies, stored replay, library identity mismatch (`lib.mismatch`) and
+`ui-event` rendering. None of these categories creates host requests or model
+events; message construction and restore are static.

@@ -1,0 +1,3 @@
+```ui-event
+{"v":1,"source":"ui_event","kind":"open","label":"Open report","stmt":"open_report","msg":"msg_7"}
+```

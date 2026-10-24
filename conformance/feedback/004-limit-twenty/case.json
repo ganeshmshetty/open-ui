@@ -1,0 +1,6 @@
+{
+  "title": "twenty-line-cap",
+  "tier": "core",
+  "tags": ["limit"],
+  "notes": "SPEC §4.6: at most 20 lines after deduplication, in source order."
+}

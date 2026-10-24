@@ -1,5 +1,25 @@
 # Spec changelog
 
+## 2026-10-24 — M5 prompt, feedback and message protocol (§§4.6,9.1–9.3,12.1–12.2,12.7,13)
+
+- Define the static prompt layout (header, preamble, S1–S11, blank-line
+  separators, one terminating LF), signature/type spelling, capability and
+  example filtering, and `Prompt { text, digest, template_version }`. ROADMAP
+  item 3's prose now lives in `genui-prompt`; golden fixtures pin it byte for byte.
+- Define the per-turn ref catalog format and exact `ui-diag` feedback placement.
+  Feedback paths prefer argument/slot locations over raw IR paths, hints are
+  optional, duplicate merge and the 20-line cap are explicit, and spanless static
+  diagnostics use a deterministic statement-name fallback order.
+- Split storage segments from extractor segments: `StoredSegment` carries the
+  program's language major so replay can emit `ui vN`. Define canonical replay
+  text, `lib.mismatch` as Info while replay proceeds, and the `StateSnapshot`
+  shape. This removes `lib.mismatch` from the deferred set; M4/M6 codes remain.
+- Give `ui-event` a fixed field order and explicit optional-field omission so
+  event text is byte-stable across platforms and JSON map backends.
+- Add `prompt`, `feedback` and `message` conformance categories, exact prompt,
+  stored-message, replay, event and feedback goldens, and the corresponding CLI
+  inspection commands.
+
 ## 2026-10-24 — Mutation campaign sharding adjustment (§12.8)
 
 - Split the complete mutation campaign over thirty-two disjoint CI shards. With

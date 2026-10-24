@@ -847,10 +847,11 @@ schema.missing_required at tbl.args[1]: rows is required; hint Table(columns: [T
 ```
 ````
 
-- Each line is `<code> at <stmt>.<path>: <detail>; <recovery in words>`. The text is ASCII and the field order is fixed.
-- A hint is always the exact signature line from the prompt catalog (9.1).
+- Each line is `<code> at <stmt>.<path>: <detail>[; hint <hint>]; <recovery in words>`. The text is ASCII and the field order is fixed. `<path>` is the diagnostic's feedback location: an argument (`stmt.arg`), a required slot index (`stmt.args[N]`), a child slot (`stmt.children`) or the IR path, in that order of preference; absent parts are `-`.
+- A hint is the exact signature line from the prompt catalog (9.1), or the legal-value list for `schema.enum`. It is omitted when empty.
+- If a diagnostic has no source span (most static validation diagnostics), source order falls back to statement name, then path, then code. The order is still deterministic.
 - The machine form is the serde JSON of `Vec<Diagnostic>`.
-- The host compares the new block with the one it sent last time and decides whether to send it. The core does not track what was sent.
+- `Session::feedback()` returns the complete fenced `ui-diag` block, or `None` when no line is eligible. The host compares the new block with the one it sent last time and decides whether to send it. The core does not track what was sent.
 
 ### 4.7 Fallback text
 
@@ -864,6 +865,7 @@ Every message has a derived `fallback_text`, a subset of CommonMark. It is built
 Any prose segments in the message are added around it, in order.
 
 Fallback text is used when the program is fatal, when the user disables rich UI, or when the message is copied or exported. The model does not write fallback text (Appendix A).
+Static derivation before runtime evaluation uses static props only; a dynamic prop contributes empty text until M4 supplies its evaluated value through the same template.
 
 ---
 
@@ -1567,17 +1569,50 @@ The **per-turn block** is kept separate so the static prompt can be cached:
 
 It is sent as part of the user turn.
 
+**Template layout.** The static prompt starts with:
+
+```
+genui prompt template v<N>
+library: <id> <version> (<hash>)
+language: <major>
+```
+
+A non-empty `preamble` follows after one blank line. Sections S1-S11 then follow in
+order, separated by one blank line. Each heading is `## S<N> <title>`. A section is
+omitted entirely when its feature is off or it would be empty: S6 keeps the enabled
+parts and the always-available action list, S7 is omitted only when both queries
+and refs are off, and S9 is omitted when `max_examples` is zero or no example is
+eligible. The text ends with exactly one LF. `Prompt { text, digest, template_version }`;
+`digest` is xxh3-128 of the exact UTF-8 text bytes as 32 lowercase hexadecimal digits.
+
+Component signatures use the 8.8 format: `Name(required: type, ...; optional: type = default, ...)`.
+Shared type names are lowercase snake case (`space`, `button_tone`, `col_format`);
+other enum types print their quoted values joined by ` | `. A list of nodes is
+`[Component]` or `[node]`; a value list is `list<T>`; bindings are `binding<T>`.
+Only components whose `requires` set is contained in `capabilities` appear, and
+only examples that use those components are eligible. Examples are rendered as
+complete programs, at most `max_examples` in catalog order.
+
+The per-turn block is a plain `Available refs:` list (one `- ` line per entry:
+`` `id` (kind): description; shape ``), followed by one blank line and then the
+feedback block verbatim, when both are present. It is empty when neither is.
+`render_turn_block` returns the exact text, ending with one LF when non-empty.
+
 **Constraints.**
 
-- Every signature and function line is generated from the spec. Template prose is versioned as `prompt_template_version`.
+- Every signature and function line is generated from the spec. The fixed builtin
+  table in `-prompt` must cover every name in the core builtin list. Template prose
+  is versioned as `prompt_template_version`.
 - Each standard library has a golden prompt snapshot test (12.4, category `prompt`).
+- Generation is pure: no timestamps, locale-dependent formatting, or map iteration
+  order. Prompt goldens are compared byte for byte on Linux and macOS CI.
 
 ### 9.2 Programs in chat history
 
 ```rust
 pub struct StoredMessage {
     pub v: u32,
-    pub segments: Vec<Segment>,        // Markdown(String) | Program { text: String, major: u32 }
+    pub segments: Vec<StoredSegment>,  // Markdown { text } | Program { text, major }
     pub lib: LibRef,                   // { id, version, hash }
     pub prompt_digest: String,
     pub complete: bool,                // false if the stream was cut
@@ -1585,11 +1620,18 @@ pub struct StoredMessage {
     pub diagnostics: Vec<Diagnostic>,  // final, non-provisional
     pub state: Option<StateSnapshot>,  // host-optional persistence
 }
+pub struct StateSnapshot { pub v: u32, pub values: BTreeMap<String, Value> }
 ```
 
+`StoredSegment` is the storage/display segment. It differs from the extractor's
+`Segment` only by carrying the program's `major`, which is the library's language
+major for an accepted reply.
+
 - Programs are stored as the model's original text, never as IR.
-- When history is replayed to the model, a program segment is written back as a ```` ```ui ```` fenced block. Storage metadata is never shown to the model.
+- When history is replayed to the model, a program segment is written back as a ```` ```ui ```` fenced block (```` ```ui vN ```` for a non-current major). Storage metadata is never shown to the model. `render_stored_message` is the canonical renderer.
 - A cut-off message (`complete = false`) renders whatever parsed. When a reply is regenerated, the new record replaces the old one in the UI, and the old record is kept with `superseded_by`.
+- `StoredMessage::library_mismatch(&LibrarySpec)` compares `id`, `version` and `hash`. A difference yields one Info `lib.mismatch`, and replay still proceeds; it never blocks or changes the program.
+- `Session::restore` re-parses the stored program text on the batch path, restores `state` when the state runtime exists (M4), and returns a live session. It keeps the restored snapshot so a later `stored_message()` round-trips it. Replay and identity checks create no host requests, model events or state writes.
 
 ### 9.3 Events as synthetic user turns
 
@@ -1602,6 +1644,11 @@ A `ModelEvent` (7.8) becomes the next user turn as a fenced block:
 ````
 
 - The block always contains JSON, one object per fence.
+- Object fields are written in this fixed order: `v`, `source`, `kind`, `text`,
+  `label`, `ctx`, `node`, `stmt`, `msg`. `v` is 1, `source` is `ui_event`, and
+  `label` is always present. Other absent optional fields are omitted. `ctx` is
+  canonical JSON, so nested object keys are sorted. The renderer is pure and does
+  not create requests or events.
 - Text the user typed alongside the event goes outside the fence.
 - Diagnostics feedback (4.6) is a separate ```` ```ui-diag ```` block.
 
@@ -1856,6 +1903,15 @@ conformance/
     want.resolved.json        evaluated tree (interactive tier)
     want.requests.json        expected host requests and model events
     want.prompt.txt           golden prompt (category prompt)
+    want.prompt.digest        expected xxh3-128 prompt digest (category prompt)
+    prompt.json               PromptOptions input (category prompt)
+    turn.json                 ref catalog and feedback for the per-turn block
+    want.turn.txt             golden per-turn block or stored-message replay
+    stored.json               StoredMessage input (category message)
+    want.stored.json          canonical StoredMessage golden (category message)
+    message.json              stored-message construction options (category message)
+    event.json                ModelEvent input (category message)
+    want.event.txt            golden ui-event block (category message)
 ```
 
 If an implementation and a fixture disagree, the disagreement is treated as a spec bug. It is resolved by changing the spec text and the fixture together in one change.
@@ -1867,7 +1923,9 @@ If an implementation and a fixture disagree, the disagreement is treated as a sp
 - **IR** goldens are compact canonical JSON followed by one file-terminating LF, and are compared as canonical JSON: sorted keys, `{id, kind, role, props, children}`, absent props omitted, encoded as in 6.5. `children` includes every validated slot, including its empty array. Retained patch-tree comparisons normalize empty slots, since inserts do not carry empty slot declarations.
 - **Diagnostics** are compared as a multiset of `(code, stmt, path, recovery)`. `message` and `hint` are not compared, except in category `feedback`, which compares the rendered `ui-diag` text byte for byte.
 - **Patches** are compared exactly in category `patches`. Elsewhere they are checked by replay: applying them to an empty tree must give `want.ir.json` or `want.resolved.json`.
-- **Prompts and the Library Spec** are compared byte for byte.
+- **Prompts and the Library Spec** are compared byte for byte. `want.prompt.txt` ends with one LF.
+- **Feedback** is compared byte for byte as the full `ui-diag` block. A feedback fixture without `want.feedback.txt` expects no block.
+- **Stored messages** are compared as compact canonical JSON plus one terminating LF (`want.stored.json`). Program replay and event rendering are compared as exact text (`want.turn.txt`, `want.event.txt`).
 - **Strict schemas.** `want.*` files may not contain unknown fields.
 
 ### 12.3 Streaming harness
@@ -1936,8 +1994,7 @@ For every chunking it checks:
   the explicit documentation host context in `conformance/libs/host.json`. It does
   not silently allow arbitrary tool or ref names.
 - M2's checked-in diagnostic coverage audit lists the codes covered by static
-  fixtures and the codes awaiting M4 (execution/delivery), M5 (stored replay) or
-  M6 (renderer panic). Arithmetic overflow/finiteness codes already have lexical
+  fixtures and the codes awaiting M4 (execution/delivery) or M6 (renderer panic). Arithmetic overflow/finiteness codes already have lexical
   fixtures; their evaluated variants remain M4 work. Every reachable code and
   every declared conditional recovery variant must have a fixture.
 - **M0 bootstrap.** Before the parser and library exist, `spec-check` requires every `ui` and `ui-fragment` block to lex without diagnostics. It recognizes `ui-invalid` blocks but does not yet assert semantic rejection. At M2 the full validation rule above replaces this lexical-only gate. The M0 chunking harness checks finish-only lexical equality using a byte accumulator. At M1, `ui` and `ui-fragment` must parse without syntax diagnostics, and each `ui-invalid` must produce diagnostics. Every syntax fixture runs through resumable scanners under all 12.3 chunkings and compares final tokens/AST, segments and diagnostics. All entry points use the single 2.4 splitter. The live IR/patch/provisional invariants in 12.3 become mandatory with M3.
@@ -1958,6 +2015,9 @@ Conformance fixtures prove the core. These checks prove the whole system works a
 | --- | --- | --- |
 | `genui-cli tree <file.ui>` | M2 | Prints the validated IR as an indented tree (kind, key props, NodeId path) plus diagnostics. The quickest way to see whether a program does what it should. |
 | `genui-cli replay <file.ui> [--chunk N]` | M3 | Streams the file in N-byte chunks and prints each patch batch and the tree after each chunk. Shows how the UI grows and catches flicker or churn. |
+| `genui-cli prompt [--digest] [options.json]` | M5 | Prints the exact static prompt for the std library, or its digest, optionally with a `PromptOptions` JSON file. |
+| `genui-cli feedback <file.ui>` | M5 | Prints the exact `ui-diag` block for a program, or `(no model feedback)`. |
+| `genui-cli message <file.ui> [digest] [--cut] [--replay]` | M5 | Prints the canonical stored message, or its model-facing replay with `--replay`. `--cut` records an unfinished stream. |
 | Scripted GPUI interaction tests | M7 | Headless GPUI tests (the gpui test context) that load a program, simulate clicks, typing, selection, submit and focus changes, and assert the exact `UiEvent`s, state and resulting patches. Behaviour is tested here, not by looking at screenshots. |
 | Gallery app and screenshot loop (backend: windowed `Window::render_to_image` from gpui-kit's test-support feature, dev-only; headless frame driving is a separate investigation; capture timing is excluded from performance numbers) | M6 | A demo binary renders every `examples/*.ui` and a per-component state sheet (all states from DESIGN.md §7) in light and dark. `--screenshot <dir>` writes one PNG per example and mode. At the end of M6, M7 and M8, the screenshot set is reviewed against DESIGN.md; each finding is fixed or logged in PROGRESS.md with a reason. Screenshots are not golden-compared in phase 1. |
 | Real-model loop | M8 | The sample host streams a live model reply into the UI. The run is recorded as a transcript (prompt, chunks with timing, events) and replayed deterministically. Screenshots are taken at 25%, 50%, 75% and 100% of the stream to check that partial UIs look intentional. |
@@ -1982,6 +2042,14 @@ a batch only if it changes the tree (or initializes a new session); repeated
 finish/push after finish are inert. `snapshot` returns an Update containing Reset
 and inserts and consumes the next sequence number in the current epoch. `reset`
 clears syntax, diagnostics/prose/IR, increments epoch and emits seq 0 Reset.
+
+`prompt`, `feedback` and `message` use genui-std and the default host policy.
+`prompt` prints the generated text only. `feedback` prints the block without a
+trailing blank line and exits successfully even when the block is non-empty.
+`message` reads a model reply, builds the stored message with the optional prompt
+digest, and prints compact canonical JSON plus LF; `--replay` prints
+`render_stored_message` instead. These commands create no sessions with host
+effects and no model calls.
 
 ### 12.8 Quality gates (CI)
 
@@ -2042,6 +2110,7 @@ pub struct SessionOptions {
     pub tools: Vec<ToolDescriptor>,
     pub ref_catalog: RefCatalog,
     pub url_policy: UrlPolicy,
+    pub prompt_digest: String,
 }
 
 pub struct Session { /* parser, IR, runtime; Send, !Sync */ }
@@ -2084,9 +2153,13 @@ pub enum HostError { Denied, Failed(String), TooLarge }
 pub fn parse_batch(text: &str, lib: &Library, limits: &Limits) -> ParseResult;  // IR + diagnostics
 
 // ---------- <name>-prompt ----------
+pub const PROMPT_TEMPLATE_VERSION: u32;
+pub struct Prompt { pub text: String, pub digest: String, pub template_version: u32 }
 pub fn generate(spec: &LibrarySpec, opts: &PromptOptions) -> Prompt;
+pub fn example_programs(spec: &LibrarySpec, opts: &PromptOptions) -> Vec<String>;
 pub fn render_turn_block(catalog: &RefCatalog, feedback: Option<&str>) -> String;
 pub fn render_event(ev: &ModelEvent) -> String;
+pub fn render_stored_message(msg: &StoredMessage) -> String;
 ```
 
 **There is no renderer trait.** The renderer contract is data: `PatchBatch` in, `UiEvent` out (6.5, 7.8). Each renderer crate shapes its own API to its toolkit. 10.1 shows the GPUI one.

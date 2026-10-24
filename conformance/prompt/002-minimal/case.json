@@ -1,0 +1,6 @@
+{
+  "title": "minimal-features",
+  "tier": "core",
+  "tags": ["golden", "gating"],
+  "notes": "SPEC §9.1: no capabilities, all optional features off, no examples, no host additions."
+}

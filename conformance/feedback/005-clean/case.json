@@ -1,0 +1,6 @@
+{
+  "title": "clean-program",
+  "tier": "core",
+  "tags": ["empty"],
+  "notes": "SPEC §4.6: a valid program produces no feedback block."
+}

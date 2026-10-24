@@ -1,0 +1,6 @@
+{
+  "title": "std-default",
+  "tier": "core",
+  "tags": ["golden", "determinism"],
+  "notes": "SPEC §9.1: every S1-S10 section for the standard library, all capabilities, six library examples."
+}

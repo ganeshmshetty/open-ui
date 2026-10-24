@@ -1,0 +1,7 @@
+{
+  "refs": [
+    {"id": "t4.places", "kind": "table", "description": "Places to visit", "shape": "list of {id: str, name: str, photo: image_url}"},
+    {"id": "acct.current", "kind": "record", "description": "Current account", "shape": "{id: str, plan: str}"}
+  ],
+  "feedback": "```ui-diag\nschema.enum at chart.kind: found \"pie\", expected \"bar\"|\"line\"; node dropped\n```\n"
+}

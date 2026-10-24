@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "description"],
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "type": "string" },
+          "description": { "type": "string" },
+          "shape": { "type": "string" }
+        }
+      }
+    },
+    "feedback": { "type": ["string", "null"] }
+  }
+}

@@ -1,0 +1,7 @@
+Available refs:
+- `t4.places` (table): Places to visit; list of {id: str, name: str, photo: image_url}
+- `acct.current` (record): Current account; {id: str, plan: str}
+
+```ui-diag
+schema.enum at chart.kind: found "pie", expected "bar"|"line"; node dropped
+```

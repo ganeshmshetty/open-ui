@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "v",
+    "segments",
+    "lib",
+    "prompt_digest",
+    "complete",
+    "fallback_text",
+    "diagnostics",
+    "state"
+  ],
+  "properties": {
+    "v": { "type": "integer", "minimum": 1 },
+    "segments": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "text"],
+            "properties": {
+              "kind": { "const": "Markdown" },
+              "text": { "type": "string" }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "text", "major"],
+            "properties": {
+              "kind": { "const": "Program" },
+              "text": { "type": "string" },
+              "major": { "type": "integer", "minimum": 1 }
+            }
+          }
+        ]
+      }
+    },
+    "lib": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "hash"],
+      "properties": {
+        "id": { "type": "string" },
+        "version": { "type": "string" },
+        "hash": { "type": "string" }
+      }
+    },
+    "prompt_digest": { "type": "string" },
+    "complete": { "type": "boolean" },
+    "fallback_text": { "type": "string" },
+    "diagnostics": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "state": {
+      "type": ["object", "null"]
+    }
+  }
+}

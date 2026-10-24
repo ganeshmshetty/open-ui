@@ -192,14 +192,13 @@ pub fn run_case(
                 Step::Finish => session.finish(),
                 Step::Push { input } => session.push(input.as_bytes()),
                 Step::Advance { ms } => session.advance_clock(ms),
-                Step::Edit { node, value } => {
-                    let node = node_by_path(&session, &node)?;
-                    session.event(genui_core::session::UiEvent::Edit { node, value })
-                }
-                Step::Blur { node } => {
-                    let node = node_by_path(&session, &node)?;
-                    session.event(genui_core::session::UiEvent::Blur { node })
-                }
+                Step::Edit { node, value } => session.event(genui_core::session::UiEvent::Edit {
+                    node: genui_core::ir::NodePath(node),
+                    value,
+                }),
+                Step::Blur { node } => session.event(genui_core::session::UiEvent::Blur {
+                    node: genui_core::ir::NodePath(node),
+                }),
             };
             apply_replay(&mut replay, &update, "script")?;
             requests.extend(
@@ -336,14 +335,4 @@ fn apply_replay(
         }
     }
     Ok(())
-}
-
-fn node_by_path(session: &Session, path: &str) -> Result<genui_core::ir::NodeId> {
-    session
-        .live_ir()
-        .nodes
-        .values()
-        .find(|node| node.path.0 == path)
-        .map(|node| node.id)
-        .ok_or_else(|| format!("no node {path:?}"))
 }

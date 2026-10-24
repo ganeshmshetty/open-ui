@@ -133,20 +133,22 @@ pub enum QueryStatus {
     Failed,
     Refreshing,
 }
-/// Renderer-originated input (§7.8). Editing and blur work on sealed fields even
+/// Renderer-originated input (§7.8). Nodes are named by their stable path
+/// because that is the identity on the patch wire (§6.5); the session resolves
+/// it to the current IR `NodeId`. Editing and blur work on sealed fields even
 /// while streaming; activation requires a live session.
 #[derive(Clone, Debug, PartialEq)]
 pub enum UiEvent {
     Activate {
-        node: crate::ir::NodeId,
+        node: crate::ir::NodePath,
         action: ActionHandle,
     },
     Edit {
-        node: crate::ir::NodeId,
+        node: crate::ir::NodePath,
         value: crate::value::Value,
     },
     Blur {
-        node: crate::ir::NodeId,
+        node: crate::ir::NodePath,
     },
 }
 /// An epoch-bound handle for an explicit action entry point (§7.4).
@@ -548,26 +550,41 @@ impl Session {
             epoch: self.epoch,
         })
     }
-    /// Explicit action entry point. Events are gated while streaming and stale
-    /// epoch/plan handles are inert. Host effects become requests/model events.
+    /// Explicit action entry point by IR id. Events are gated while streaming
+    /// and stale epoch/plan handles are inert. Host effects become
+    /// requests/model events. Renderers use [`Self::event`] with paths.
     pub fn activate(&mut self, node: crate::ir::NodeId, handle: &ActionHandle) -> Update {
-        self.event(UiEvent::Activate {
-            node,
-            action: handle.clone(),
-        })
+        self.activate_event(node, handle.clone())
+    }
+    /// The current IR id for a stable node path (§5.2).
+    pub fn node_id(&self, path: &crate::ir::NodePath) -> Option<crate::ir::NodeId> {
+        self.live_ir()
+            .nodes
+            .values()
+            .find(|node| node.path == *path)
+            .map(|node| node.id)
     }
     /// Renderer input entry point (§7.8). Editing/blurring a sealed field writes
     /// user state while streaming; activation requires a live session.
     pub fn event(&mut self, event: UiEvent) -> Update {
         match event {
-            UiEvent::Activate { node, action } => self.activate_event(node, action),
+            UiEvent::Activate { node, action } => match self.node_id(&node) {
+                Some(node) => self.activate_event(node, action),
+                None => self.empty_update(),
+            },
             UiEvent::Edit { node, value } => {
+                let Some(node) = self.node_id(&node) else {
+                    return self.empty_update();
+                };
                 self.edit(node, value);
                 self.tree_dirty = true;
                 self.evaluate();
                 self.update(false, false)
             }
             UiEvent::Blur { node } => {
+                let Some(node) = self.node_id(&node) else {
+                    return self.empty_update();
+                };
                 if let Some(node) = self.live_ir().nodes.get(&node) {
                     self.touched.insert(node.path.0.clone());
                 }
@@ -576,6 +593,10 @@ impl Session {
                 self.update(false, false)
             }
         }
+    }
+    /// A renderer-visible snapshot of `$state` values and revisions (§10.4).
+    pub fn state_values(&self) -> BTreeMap<String, crate::runtime::StateValue> {
+        self.runtime.state.values()
     }
     fn edit(&mut self, node: crate::ir::NodeId, value: crate::value::Value) {
         let Some(node) = self.live_ir().nodes.get(&node) else {
@@ -616,6 +637,7 @@ impl Session {
         if !self.live_ir().nodes.contains_key(&node) {
             return self.empty_update();
         }
+        let form = self.nearest_form(node);
         self.action_diagnostics.clear();
         let gate = if let Some(scope) = plan.submit_scope {
             Some(Some(scope))
@@ -634,7 +656,7 @@ impl Session {
         let mut effects = self.execute_plan(&plan);
         if button_submit
             && plan.submit_scope.is_none()
-            && let Some(form) = self.nearest_form(node)
+            && let Some(form) = form
             && let Some(form_plan) = self.form_submit_plan(form)
         {
             effects.extend(self.execute_plan(&form_plan));
@@ -2621,6 +2643,32 @@ mod session_contract_tests {
                         .example("Control()"),
                 )
                 .component(
+                    ComponentDef::new("Form", Role::Form)
+                        .group("G")
+                        .doc("A form.")
+                        .req("children", T::nodes())
+                        .opt_none("on_submit", T::action())
+                        .example("Form([])"),
+                )
+                .component(
+                    ComponentDef::new("Button", Role::Button)
+                        .group("G")
+                        .doc("A submit button.")
+                        .req("label", T::text())
+                        .opt_none("on_click", T::action())
+                        .opt("submit", T::bool(), false)
+                        .example("Button(\"Go\")"),
+                )
+                .component(
+                    ComponentDef::new("Input", Role::TextInput)
+                        .group("G")
+                        .doc("A bound field.")
+                        .req("label", T::text())
+                        .opt_none("bind", T::binding(T::text()))
+                        .opt("required", T::bool(), false)
+                        .example("Input(\"Name\")"),
+                )
+                .component(
                     ComponentDef::new("ShowList", Role::Paragraph)
                         .group("G")
                         .doc("A list binding sink.")
@@ -3052,7 +3100,23 @@ mod tests {
                         .group("G")
                         .doc("Button.")
                         .req("label", T::text())
-                        .opt_none("on_click", T::action()),
+                        .opt_none("on_click", T::action())
+                        .opt("submit", T::bool(), false),
+                )
+                .component(
+                    ComponentDef::new("Form", Role::Form)
+                        .group("G")
+                        .doc("Form.")
+                        .req("children", T::nodes())
+                        .opt_none("on_submit", T::action()),
+                )
+                .component(
+                    ComponentDef::new("Input", Role::TextInput)
+                        .group("G")
+                        .doc("Input.")
+                        .req("label", T::text())
+                        .opt_none("bind", T::binding(T::text()))
+                        .opt("required", T::bool(), false),
                 )
                 .build()
                 .unwrap(),
@@ -3374,5 +3438,83 @@ mod tests {
                 .as_deref(),
             Some("1")
         );
+    }
+
+    #[test]
+    fn renderer_events_address_nodes_by_path_and_expose_state_values() {
+        let mut session = Session::new(SessionOptions::program(library()));
+        let update = session.push(
+            b"$name=\"\"\nform=Form([field,go],on_submit:say(\"Create\"))\nfield=Input(\"Name\",bind:$name,required:true)\ngo=Button(\"Create\",submit:true)\nroot=Stack([form])",
+        );
+        assert!(update.patches.is_some());
+        session.finish();
+
+        let field = crate::ir::NodePath("root/children:@form/children:@field".into());
+        let unknown = crate::ir::NodePath("root/children:@missing".into());
+        let edit = session.event(UiEvent::Edit {
+            node: field.clone(),
+            value: crate::value::Value::from("Ada"),
+        });
+        assert!(edit.patches.is_some());
+        let values = session.state_values();
+        assert_eq!(values["name"].value, crate::value::Value::from("Ada"));
+        assert_eq!(values["name"].origin, crate::runtime::StateOrigin::User);
+        assert_eq!(values["name"].rev, 1);
+
+        let ignored = session.event(UiEvent::Edit {
+            node: unknown,
+            value: crate::value::Value::from("nobody"),
+        });
+        assert!(ignored.patches.is_none());
+        assert_eq!(
+            session.state_values()["name"].value,
+            crate::value::Value::from("Ada")
+        );
+
+        let blur = session.event(UiEvent::Blur { node: field });
+        assert!(blur.patches.is_some());
+        assert_eq!(
+            session.field_status()["root/children:@form/children:@field"].touched,
+            true
+        );
+    }
+
+    #[test]
+    fn submit_only_button_runs_the_form_plan() {
+        let mut session = Session::new(SessionOptions::program(library()));
+        session.push(
+            b"$name=\"\"\nform=Form([field,go],on_submit:say(\"Create\"))\nfield=Input(\"Name\",bind:$name,required:true)\ngo=Button(\"Create\",submit:true)\nroot=Stack([form])",
+        );
+        session.finish();
+        let field = crate::ir::NodePath("root/children:@form/children:@field".into());
+        let button = crate::ir::NodePath("root/children:@form/children:@go".into());
+        let form = crate::ir::NodePath("root/children:@form".into());
+
+        let handle = session
+            .action_handle(&form, "on_submit")
+            .expect("form action");
+        let blocked = session.event(UiEvent::Activate {
+            node: button.clone(),
+            action: handle.clone(),
+        });
+        assert!(
+            blocked.model_events.is_empty(),
+            "required field blocks submit"
+        );
+        assert!(
+            session.field_status()["root/children:@form/children:@field"].touched,
+            "a failed submit touches every field in scope"
+        );
+
+        session.event(UiEvent::Edit {
+            node: field,
+            value: crate::value::Value::from("Ada"),
+        });
+        let update = session.event(UiEvent::Activate {
+            node: button,
+            action: handle,
+        });
+        assert_eq!(update.model_events.len(), 1);
+        assert_eq!(update.model_events[0].text.as_deref(), Some("Create"));
     }
 }

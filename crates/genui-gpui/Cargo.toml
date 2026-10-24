@@ -6,7 +6,7 @@ publish.workspace = true
 
 [features]
 default = []
-# Windowed `Window::render_to_image` capture for the gallery (SPEC §12.7).
+# `Window::render_to_image` capture for the gallery (SPEC §12.7).
 # It is a dev-only feature; normal builds of the renderer do not need it.
 screenshot = ["gpui-kit/test-support"]
 
@@ -20,13 +20,3 @@ gpui-pre.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
-[dev-dependencies]
-gpui-kit = { workspace = true, features = ["test-support"] }
-
-[[bin]]
-name = "gallery"
-path = "src/bin/gallery.rs"
-
-[[bin]]
-name = "dashboard"
-path = "src/bin/dashboard.rs"

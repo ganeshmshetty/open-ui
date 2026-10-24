@@ -66,3 +66,14 @@ Implementation checkpoint: the shared resource-profile/range kernel is now in
 production for state/query allocation, with stop, rollback and deferred-dirty-suffix
 tests. General node tasks/visible projection and dirty source inference remain
 implementation work; the owner requirement and acceptance conditions are unchanged.
+
+## M5 defaults recorded while implementing the contract
+
+| Question | Options | Recommended default / action | Status |
+| --- | --- | --- | --- |
+| How is the S1–S11 prose versioned and changed? | Keep prose only in code; duplicate it in the spec; generate from a template file | `PROMPT_TEMPLATE_VERSION` in `-prompt`, byte goldens in conformance, spec defines layout and semantics | Adopted; bump the version with any wording change |
+| Should stored segments reuse the extractor's `Segment`? | Add `major` to extraction segments; keep extraction unchanged; separate stored type | `StoredSegment { Markdown, Program { text, major } }`; extraction contract and its goldens stay M1-compatible | Adopted in SPEC §9.2 |
+| What does `Session::restore` do before M4 state exists? | Reject snapshots; apply nothing silently and drop them; retain them for M4 | Re-parse the program, retain `restored_state`, round-trip it in `stored_message`; M4 applies values | Adopted; no state effects are claimed in M5 |
+| Feedback hint for `schema.enum` | Catalog signature line only; legal values only; both | Detail carries legal values, hint stays the legal-value list; missing-required hints use the catalog signature | Adopted in SPEC §4.6 |
+| How does static fallback handle dynamic props? | Evaluate early; omit the prop; emit a placeholder | Omit it (empty text) until M4 supplies evaluated values; never invent data | Documented in SPEC §4.7 |
+| `StateSnapshot` shape | Opaque host JSON; tagged value list; versioned value map | `{ v: 1, values: { state-name: Value } }`, plain data, serde-stable | Adopted in SPEC §9.2 |

@@ -11,7 +11,7 @@ A milestone is complete only after its acceptance checks pass and CI is green.
 | M2 — Library, validation, IR and limits | Complete, including tree and quality gates | 295 fixtures / 66,772 chunkings / 400 permutations; 66 Rust + 10 gate tests; 8 CLI fixtures; 24 exemplars; renewed parser/validator ASan 601s each; 609 mutations audited; Linux/macOS/quality and mutation CI green. |
 | M3 — Streaming and patches | Complete (mutation advisory) | CI green; fresh 601 s fuzz; 100k property; fixtures/replay. Mutation survivors recorded as backlog per the 2026-10-24 gate change. |
 | M4 — Runtime | Not started | Evaluation and interactive fixture categories. |
-| M5 — Prompt, feedback and messages | Not started | Golden output and cross-platform determinism. |
+| M5 — Prompt, feedback and messages | Complete | `prompt`, `feedback` and `message` pass; 375 fixtures / 83,719 chunkings / 430 permutations; 385 tests; exact prompt bytes on Linux/macOS CI; 15 new fixtures. |
 | M6 — GPUI skeleton | Not started | Live streaming demo and recorded performance. |
 | M7 — Inputs and forms | Not started | Stable editing, keyboard form demo and accessibility. |
 | M8 — Data components and sample host | Not started | Table stress, panic containment, transcript replay, security review, v0.1 tag. |
@@ -1148,3 +1148,42 @@ mutation never blocks, and adds a demo-first rule: each milestone must end with 
 runnable user-visible demo. ROADMAP items 19–20 add a streaming-dashboard vertical slice and the
 scheduled mutation workflow; chess is explicitly not a milestone. The 32-shard run was cancelled once the new contract
 was recorded; its survivor data remains in the repository for later triage.
+
+## M5 — Prompt, feedback, stored messages and events
+
+Created milestone/m5 from 35d84e8 and read AGENTS.md, this file, ROADMAP items 3–4,
+SPEC §§4.6,8.8,9,12 and the changelog. ROADMAP item 3 is done. No M4 runtime was
+added; message construction, replay and feedback are static.
+
+Built `genui-prompt`: S1–S11 generation with a versioned template, capability and
+feature gating, Library Spec signatures, builtin docs, selected validated examples,
+host tools/preamble/extra rules, per-turn ref catalog + `ui-diag`, stored-message
+replay, `ui-event` rendering and xxh3-128 prompt digests. Core gained deterministic
+feedback formatting, stored message/library identity/state types, fallback text,
+`Session::{feedback, fallback_text, stored_message, restore}` and precise feedback
+locations for argument/slot diagnostics. `lib.mismatch` moved from deferred to
+covered. Three CLI demos (`prompt`, `feedback`, `message`) and a prompt fuzz target
+were added.
+
+Fixtures were authored before the matching implementation and reviewed after:
+5 prompt (including tools/refs/host rules, capability gating and the per-turn
+block), 5 feedback (sorting, hints, filtering, 20-line cap, empty) and 5 message
+(complete/cut replies, canonical stored bytes, replay, `lib.mismatch`, events).
+Prompt texts are byte-compared and generated twice; message replay is exact text.
+No old `want.*` golden was edited.
+
+Local gates: fmt, Clippy `-D warnings`, 385 workspace tests (319 core, 49
+conformance, 7 prompt, 5 std, 2 CLI, 1 replay, 2 tree) under default and
+`preserve_order`, 375 fixtures / 83,719 chunkings / 430 permutations, spec-check
+(3 programs, 4 fragments, 24 exemplars), 10 Python gate tests, source/dependency
+checks and all fuzz-target builds. CI runs the same fixture suite on Linux and
+macOS, which satisfies the exact-prompt-byte check. No fuzz campaign or mutation
+campaign was run, per the task constraints.
+
+Spec changes are listed in `spec/CHANGELOG.md` and `docs/milestones/M5.md`:
+prompt layout/signature/digest, per-turn feedback placement and hint rules,
+`StoredSegment`/`StateSnapshot`/replay/`lib.mismatch`, fixed `ui-event` field
+order, fixture layout/comparison, CLI demos and static-fallback behavior.
+Remaining gaps: M4 runtime application/query delivery/state effects, ROADMAP item
+4's real-model evaluation and recorded transcripts, and advisory mutation triage.
+No files under `research/openui/` were opened, searched or copied.

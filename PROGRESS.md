@@ -11,7 +11,7 @@ A milestone is complete only after its acceptance checks pass and CI is green.
 | M2 — Library, validation, IR and limits | Complete, including tree and quality gates | 295 fixtures / 66,772 chunkings / 400 permutations; 66 Rust + 10 gate tests; 8 CLI fixtures; 24 exemplars; renewed parser/validator ASan 601s each; 609 mutations audited; Linux/macOS/quality and mutation CI green. |
 | M3 — Streaming and patches | Complete (mutation advisory) | CI green; fresh 601 s fuzz; 100k property; fixtures/replay. Mutation survivors recorded as backlog per the 2026-10-24 gate change. |
 | M4 — Runtime | Not started | Evaluation and interactive fixture categories. |
-| M5 — Prompt, feedback and messages | Complete | `prompt`, `feedback` and `message` pass; 375 fixtures / 83,719 chunkings / 430 permutations; 385 tests; exact prompt bytes on Linux/macOS CI; 15 new fixtures. |
+| M5 — Prompt, feedback and messages | Complete | `prompt`, `feedback` and `message` pass; 375 fixtures / 83,719 chunkings / 430 permutations; 386 tests; exact prompt bytes on Linux/macOS CI; 15 new fixtures. |
 | M6 — GPUI skeleton | Not started | Live streaming demo and recorded performance. |
 | M7 — Inputs and forms | Not started | Stable editing, keyboard form demo and accessibility. |
 | M8 — Data components and sample host | Not started | Table stress, panic containment, transcript replay, security review, v0.1 tag. |
@@ -1172,7 +1172,7 @@ block), 5 feedback (sorting, hints, filtering, 20-line cap, empty) and 5 message
 Prompt texts are byte-compared and generated twice; message replay is exact text.
 No old `want.*` golden was edited.
 
-Local gates: fmt, Clippy `-D warnings`, 385 workspace tests (319 core, 49
+Local gates: fmt, Clippy `-D warnings`, 386 workspace tests (320 core, 49
 conformance, 7 prompt, 5 std, 2 CLI, 1 replay, 2 tree) under default and
 `preserve_order`, 375 fixtures / 83,719 chunkings / 430 permutations, spec-check
 (3 programs, 4 fragments, 24 exemplars), 10 Python gate tests, source/dependency

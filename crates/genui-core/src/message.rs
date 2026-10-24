@@ -27,13 +27,22 @@ impl LibRef {
 }
 
 /// Host-optional persistence of evaluated state (SPEC §§7.2,9.2). Values are plain data.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct StateSnapshot {
     #[serde(default = "snapshot_version")]
     pub v: u32,
     #[serde(default)]
     pub values: BTreeMap<String, Value>,
+}
+
+impl Default for StateSnapshot {
+    fn default() -> Self {
+        Self {
+            v: snapshot_version(),
+            values: BTreeMap::new(),
+        }
+    }
 }
 
 fn snapshot_version() -> u32 {
@@ -176,6 +185,12 @@ mod tests {
                 values: [("count".into(), Value::Int(3))].into(),
             }),
         }
+    }
+
+    #[test]
+    fn empty_state_snapshot_uses_version_one() {
+        assert_eq!(StateSnapshot::default().v, 1);
+        assert!(StateSnapshot::default().values.is_empty());
     }
 
     #[test]

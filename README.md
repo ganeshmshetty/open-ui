@@ -4,9 +4,11 @@ A clean-room implementation of [SPEC.md](spec/SPEC.md), using the temporary
 `genui` crate prefix. See [PROGRESS.md](PROGRESS.md) for milestone status,
 [ROADMAP.md](ROADMAP.md) for future work, and [AGENTS.md](AGENTS.md) for the quality bar.
 
-M2 adds the checked library builder, standard catalog, static resolver/validator,
-recovery ladder, typed IR with path IDs and limits to M1's syntax pipeline.
-Dynamic data stays in expression and slot plans until the M4 runtime.
+M3 completes the streaming parser, retained patches and replay. M6 adds the GPUI
+renderer skeleton: `UiView`, the DESIGN token theme, layout/text/data content
+components, the gallery/state sheet and a streaming dashboard demo. The M4
+runtime, M5 prompt/messages, M7 inputs/forms and M8 data components are still
+ahead; see PROGRESS.md for the exact boundary.
 
 ```sh
 cargo fmt --all -- --check
@@ -32,7 +34,20 @@ python3 scripts/quality.py fixtures --base main --head HEAD
 python3 scripts/mutation.py --output /tmp/genui-mutations  # cargo-mutants 27.1.0
 ```
 
-Quality gates (§12.8) run in CI. Mutation testing is a milestone gate, run locally
+M6 renderer demos (macOS local verification; the screenshot feature is
+test-support and dev-only):
+
+```sh
+cargo run -p genui-gpui --features screenshot --bin gallery -- --list
+cargo run -p genui-gpui --features screenshot --bin gallery -- \
+  --screenshot /tmp/genui-gallery --mode both
+cargo run -p genui-gpui --features screenshot --bin gallery -- --self-test-freshness
+cargo run -p genui-gpui --features screenshot --bin dashboard -- \
+  --file examples/01-sales-dashboard.ui --chunk 5 --headless \
+  --screenshot /tmp/dashboard.png --patch-log /tmp/patches.jsonl
+```
+
+Quality gates (§12.8) run in CI. Mutation testing is an advisory nightly report, run locally
 or through **Milestone mutation gate** (manual, or a push whose commit message
 contains `[mutation-gate]`). It uses a project-only
 copy and never copies research. The core's public syntax APIs and

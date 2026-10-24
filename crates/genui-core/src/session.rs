@@ -1287,14 +1287,49 @@ impl Session {
             return;
         }
         let mut attached: Vec<(String, String, String)> = Vec::new();
+        let live = self.live_ir().clone();
         for (node_id, _, value) in self.resolved.entries() {
-            let crate::ir::PropValue::Value(crate::value::Value::Ref(reference)) = value else {
+            let Some(node) = live.nodes.get(&node_id) else {
                 continue;
             };
-            let Some(node) = self.live_ir().nodes.get(&node_id) else {
-                continue;
-            };
-            attached.push((node.path.0.clone(), reference.clone(), node.origin.clone()));
+            let mut references = std::collections::BTreeSet::new();
+            if let crate::ir::PropValue::Value(value) = value {
+                collect_value_refs(value, &mut references);
+            }
+            for reference in references {
+                attached.push((node.path.0.clone(), reference, node.origin.clone()));
+            }
+        }
+        // Scan the static validated IR: runtime expansion drops a plan when its
+        // data is still a Ref, and the pending ref must stay discoverable (§7.7).
+        for node in self.current.ir.nodes.values() {
+            let mut references = std::collections::BTreeSet::new();
+            for prop in node.props.values() {
+                if let Prop::Dynamic(id) = prop
+                    && let Some(expression) = self.current.ir.expressions.get(id)
+                {
+                    collect_expr_refs(expression, &mut references);
+                }
+            }
+            for slot in &node.slots {
+                for plan in &slot.plans {
+                    if let Some(expression) = self.current.ir.expressions.get(&plan.expression) {
+                        collect_expr_refs(expression, &mut references);
+                    }
+                }
+            }
+            for reference in references {
+                attached.push((node.path.0.clone(), reference, node.origin.clone()));
+            }
+        }
+        if let Some(plan) = &self.current.ir.root_plan
+            && let Some(expression) = self.current.ir.expressions.get(&plan.expression)
+        {
+            let mut references = std::collections::BTreeSet::new();
+            collect_expr_refs(expression, &mut references);
+            for reference in references {
+                attached.push((plan.base.0.clone(), reference, String::new()));
+            }
         }
         attached.sort();
         attached.dedup();
@@ -2289,6 +2324,71 @@ impl Session {
         }
     }
 }
+/// Collect ref ids nested anywhere in an evaluated value (§7.7).
+fn collect_value_refs(value: &crate::value::Value, out: &mut std::collections::BTreeSet<String>) {
+    match value {
+        crate::value::Value::Ref(reference) => {
+            out.insert(reference.clone());
+        }
+        crate::value::Value::List(items) => {
+            for item in items.iter() {
+                collect_value_refs(item, out);
+            }
+        }
+        crate::value::Value::Map(entries) => {
+            for (_, item) in entries.iter() {
+                collect_value_refs(item, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Collect literal `ref("id")` calls from an expression, including list/map and
+/// lambda bodies. Data-typed `each`/`if` plans use expressions, not props, so
+/// their refs are invisible to the evaluated-prop scan (§§2.14,7.7).
+fn collect_expr_refs(
+    expression: &crate::syntax::ast::Expr,
+    out: &mut std::collections::BTreeSet<String>,
+) {
+    use crate::syntax::ast::Expr;
+    match expression {
+        Expr::Call { name, args } => {
+            if name == "ref"
+                && let Some(crate::syntax::ast::Expr::String { value }) =
+                    args.first().map(|arg| &arg.value)
+            {
+                out.insert(value.clone());
+            }
+            for arg in args {
+                collect_expr_refs(&arg.value, out);
+            }
+        }
+        Expr::List { items } => {
+            for item in items {
+                collect_expr_refs(item, out);
+            }
+        }
+        Expr::Map { entries } => {
+            for entry in entries {
+                collect_expr_refs(&entry.value, out);
+            }
+        }
+        Expr::Unary { expr, .. } => collect_expr_refs(expr, out),
+        Expr::Binary { left, right, .. } => {
+            collect_expr_refs(left, out);
+            collect_expr_refs(right, out);
+        }
+        Expr::Member { base, .. } => collect_expr_refs(base, out),
+        Expr::Index { base, index } => {
+            collect_expr_refs(base, out);
+            collect_expr_refs(index, out);
+        }
+        Expr::Lambda { body, .. } => collect_expr_refs(body, out),
+        _ => {}
+    }
+}
+
 fn event_len(event: &ModelEvent) -> usize {
     crate::canonical::serialize(event).map_or(usize::MAX, |json| json.len())
 }

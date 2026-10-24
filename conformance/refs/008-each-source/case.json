@@ -1,0 +1,6 @@
+{
+  "title": "Ref used as an each source requests resolution before instantiation",
+  "tier": "core",
+  "tags": ["runtime"],
+  "notes": "SPEC §§2.14,7.7: the plan expression's ref is requested and the delivered list instantiates each."
+}

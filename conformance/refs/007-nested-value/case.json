@@ -1,0 +1,6 @@
+{
+  "title": "Ref nested in a list/map requests resolution",
+  "tier": "core",
+  "tags": ["runtime"],
+  "notes": "SPEC §7.7: a Ref anywhere inside an evaluated prop reaches the data-typed position and requests resolution."
+}

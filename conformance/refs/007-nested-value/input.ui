@@ -1,0 +1,1 @@
+root=Facts([{label:"Place",value:ref("t4.places")}])

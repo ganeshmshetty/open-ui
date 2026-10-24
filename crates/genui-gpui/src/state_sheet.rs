@@ -25,7 +25,7 @@ pub struct StateSheet {
 struct Scene {
     ops: Vec<Op>,
     position: usize,
-    child_counts: BTreeMap<String, u32>,
+    child_counts: BTreeMap<(String, String), u32>,
 }
 
 impl Scene {
@@ -38,10 +38,21 @@ impl Scene {
     }
 
     fn add(&mut self, parent: Option<&str>, kind: &str, props: Value) -> String {
+        let slot = if parent.is_some() { "children" } else { "root" };
+        self.add_in(parent, slot, kind, props)
+    }
+
+    fn add_in(
+        &mut self,
+        parent: Option<&str>,
+        slot: &str,
+        kind: &str,
+        props: Value,
+    ) -> String {
         let id = match parent {
             None => "root".to_string(),
             Some(parent) => {
-                let id = format!("{parent}/children:#{}", self.position);
+                let id = format!("{parent}/{slot}:#{}", self.position);
                 self.position += 1;
                 id
             }
@@ -49,7 +60,10 @@ impl Scene {
         let props: BTreeMap<String, Value> = serde_json::from_value(props).unwrap_or_default();
         let index = parent
             .map(|parent| {
-                let count = self.child_counts.entry(parent.to_string()).or_insert(0);
+                let count = self
+                    .child_counts
+                    .entry((parent.to_string(), slot.to_string()))
+                    .or_insert(0);
                 let index = *count;
                 *count += 1;
                 index
@@ -57,11 +71,7 @@ impl Scene {
             .unwrap_or(0);
         self.ops.push(Op::Insert {
             parent: parent.map(str::to_string),
-            slot: if parent.is_some() {
-                "children".into()
-            } else {
-                "root".into()
-            },
+            slot: slot.into(),
             index,
             node: NodeInit {
                 id: id.clone(),
@@ -277,11 +287,18 @@ pub fn build() -> StateSheet {
         json!({"src": "https://example.com/pending", "alt": "Pending image", "height": {"i": 120}}),
     );
     overrides.insert(pending, VisualState::Loading);
-    scene.add(
+    let failed = scene.add(
         Some(&images),
         "Image",
         json!({"src": "https://example.com/failed", "alt": "Image unavailable", "height": {"i": 120}}),
     );
+    overrides.insert(failed, VisualState::Error);
+    let loaded = scene.add(
+        Some(&images),
+        "Image",
+        json!({"src": "genui://sample", "alt": "Sample chart", "height": {"i": 120}}),
+    );
+    overrides.insert(loaded, VisualState::Normal);
 
     // Data.
     let data = scene.add(Some(&root), "Card", card("Data"));
@@ -381,6 +398,113 @@ pub fn build() -> StateSheet {
     );
     overrides.insert(error, VisualState::Error);
 
+    // Lists, tables and tabs (M8).
+    let list = scene.add(
+        Some(&data),
+        "List",
+        json!({"ordered": true}),
+    );
+    for text in [
+        "Prepare the release notes",
+        "Run the acceptance pass",
+        "Ship the build",
+    ] {
+        scene.add_in(Some(&list), "items", "Text", text_props(text));
+    }
+    let unordered = scene.add(Some(&data), "List", json!({"ordered": false}));
+    for text in ["Fast exports", "Audit history", "Keyboard navigation"] {
+        scene.add_in(Some(&unordered), "items", "Text", text_props(text));
+    }
+
+    let table = scene.add(
+        Some(&data),
+        "Table",
+        json!({
+            "rows": [
+                {"map": [["order", "ORD-1042"], ["customer", "Ada Lovelace"], ["total", {"f": 128.5}], ["status", "Paid"]]},
+                {"map": [["order", "ORD-1041"], ["customer", "Grace Hopper"], ["total", {"f": 64.0}], ["status", "Pending"]]},
+                {"map": [["order", "ORD-1040"], ["customer", "Alan Turing"], ["total", {"f": 212.25}], ["status", "Refunded"]]},
+                {"map": [["order", "ORD-1039"], ["customer", "Katherine Johnson"], ["total", {"f": 18.0}], ["status", "Paid"]]}
+            ]
+        }),
+    );
+    for (header, field, align, format) in [
+        ("Order", "order", "start", "text"),
+        ("Customer", "customer", "start", "text"),
+        ("Total", "total", "end", "currency"),
+        ("Status", "status", "start", "text"),
+    ] {
+        scene.add_in(
+            Some(&table),
+            "columns",
+            "TableColumn",
+            json!({"header": header, "field": field, "align": align, "format": format}),
+        );
+    }
+    let table_states = scene.add(Some(&data), "Grid", json!({"cols": 3, "gap": space(3)}));
+    let empty_table = scene.add(Some(&table_states), "Table", json!({"rows": [], "empty": "No orders yet"}));
+    for (header, field) in [("Order", "order")] {
+        scene.add_in(
+            Some(&empty_table),
+            "columns",
+            "TableColumn",
+            json!({"header": header, "field": field}),
+        );
+    }
+    overrides.insert(empty_table, VisualState::Empty);
+    let loading_table = scene.add(
+        Some(&table_states),
+        "Table",
+        json!({"rows": [], "status": "requested", "empty": "Loading"}),
+    );
+    for (header, field) in [("Order", "order")] {
+        scene.add_in(
+            Some(&loading_table),
+            "columns",
+            "TableColumn",
+            json!({"header": header, "field": field}),
+        );
+    }
+    overrides.insert(loading_table, VisualState::Loading);
+    let failed_table = scene.add(
+        Some(&table_states),
+        "Table",
+        json!({"rows": [], "status": "failed", "empty": "Couldn't load data"}),
+    );
+    for (header, field) in [("Order", "order")] {
+        scene.add_in(
+            Some(&failed_table),
+            "columns",
+            "TableColumn",
+            json!({"header": header, "field": field}),
+        );
+    }
+    overrides.insert(failed_table, VisualState::Error);
+
+    let tabs = scene.add(Some(&data), "Tabs", json!({}));
+    let overview = scene.add_in(
+        Some(&tabs),
+        "tabs",
+        "Tab",
+        json!({"label": "Overview", "value": "overview"}),
+    );
+    scene.add(
+        Some(&overview),
+        "Text",
+        text_props("The selected tab's panel is the only mounted subtree."),
+    );
+    let details = scene.add_in(
+        Some(&tabs),
+        "tabs",
+        "Tab",
+        json!({"label": "Details"}),
+    );
+    scene.add(
+        Some(&details),
+        "Text",
+        text_props("Second panel. Left/Right, Home and End switch when focused."),
+    );
+
     // Shared states.
     let states = scene.add(Some(&root), "Card", card("States"));
     let buttons = scene.add(Some(&states), "Row", json!({"gap": space(2), "wrap": true}));
@@ -406,11 +530,11 @@ pub fn build() -> StateSheet {
     overrides.insert(partial_text, VisualState::Partial);
 
     // Deferred components.
-    let deferred = scene.add(Some(&root), "Card", card("Deferred to M7 and M8"));
+    let deferred = scene.add(Some(&root), "Card", card("Deferred to M7"));
     scene.add(
         Some(&deferred),
         "Text",
-        json!({"text": "These placeholders are clearly labeled until their milestone lands. No stub API is exposed.", "tone": "warning"}),
+        json!({"text": "Inputs and forms keep clearly labeled placeholders until M7 lands. No stub API is exposed.", "tone": "warning"}),
     );
     let deferred_row = scene.add(
         Some(&deferred),
@@ -426,9 +550,6 @@ pub fn build() -> StateSheet {
         "RadioGroup",
         "Switch",
         "Form",
-        "List",
-        "Table",
-        "Tabs",
     ] {
         scene.add(Some(&deferred_row), kind, json!({}));
     }
@@ -466,6 +587,20 @@ pub fn batches() -> Vec<PatchBatch> {
     }]
 }
 
+/// Encoded host images for the state sheet. This is demo data read at compile
+/// time; the renderer itself owns no I/O (SPEC §10.3, ROADMAP item 7).
+pub fn image_assets() -> Vec<(String, gpui_kit::ImageFormat, Vec<u8>)> {
+    vec![(
+        "genui://sample".into(),
+        gpui_kit::ImageFormat::Png,
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../examples/assets/sample.png"
+        ))
+        .to_vec(),
+    )]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -482,7 +617,16 @@ mod tests {
         for kind in crate::components::IMPLEMENTED {
             assert!(kinds.contains(kind), "missing implemented {kind}");
         }
-        for kind in ["Input", "Form", "List", "Table", "Tabs"] {
+        for kind in [
+            "Input",
+            "TextArea",
+            "Select",
+            "Checkbox",
+            "CheckboxGroup",
+            "RadioGroup",
+            "Switch",
+            "Form",
+        ] {
             assert!(kinds.contains(&kind), "missing deferred {kind}");
         }
         assert!(

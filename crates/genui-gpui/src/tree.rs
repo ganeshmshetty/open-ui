@@ -25,6 +25,13 @@ pub struct NodeEntry {
     pub parent: Option<String>,
     pub slot: String,
     pub children: BTreeMap<String, SharedVector<String>>,
+    /// Bumped whenever props, text or status change. Renderers cache parsed
+    /// models (for example a table's rows) against it.
+    pub rev: u64,
+    /// Bumped only when a `rows` prop is set or unset. Table data is parsed
+    /// once and the raw wire prop is dropped from the retained tree, so an
+    /// unrelated prop update must not invalidate the parsed rows.
+    pub rows_rev: u64,
 }
 
 impl NodeEntry {
@@ -38,6 +45,8 @@ impl NodeEntry {
             parent,
             slot,
             children: BTreeMap::new(),
+            rev: 0,
+            rows_rev: 0,
         }
     }
 
@@ -233,6 +242,10 @@ impl RetainedTree {
                 for (key, value) in set {
                     entry.props.insert(key.clone(), value.clone());
                 }
+                entry.rev = entry.rev.saturating_add(1);
+                if set.contains_key("rows") || unset.iter().any(|key| key == "rows") {
+                    entry.rows_rev = entry.rows_rev.saturating_add(1);
+                }
                 dirty.insert(id.clone());
                 Ok(())
             }
@@ -249,6 +262,7 @@ impl RetainedTree {
                             .insert(prop.clone(), Value::String(text.clone()));
                     }
                 }
+                entry.rev = entry.rev.saturating_add(1);
                 dirty.insert(id.clone());
                 Ok(())
             }
@@ -305,6 +319,7 @@ impl RetainedTree {
                     return Err(format!("set_status names unknown node {id:?}"));
                 };
                 entry.status = *status;
+                entry.rev = entry.rev.saturating_add(1);
                 dirty.insert(id.clone());
                 Ok(())
             }

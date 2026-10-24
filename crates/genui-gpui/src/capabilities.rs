@@ -33,6 +33,12 @@ impl Capabilities {
         }
     }
 
+    /// M8 keeps the same flags: data components are always available, images
+    /// are host-delivered and text inputs remain M7.
+    pub const fn m8() -> Self {
+        Self::m6()
+    }
+
     /// The core's capability names (SPEC §8.8), for `SessionOptions`.
     pub fn names(&self) -> BTreeSet<String> {
         let mut names = BTreeSet::new();

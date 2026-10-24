@@ -13,10 +13,11 @@ use gpui_kit::{
     StatefulInteractiveElement, Styled, Window, div,
 };
 
-/// Components this milestone draws for real (inputs and data tables are M7/M8).
+/// Components this milestone draws for real.
 pub const IMPLEMENTED: &[&str] = &[
     "Column", "Row", "Grid", "Card", "Divider", "Heading", "Text", "Markdown", "Code", "Badge",
-    "Alert", "Image", "Button", "Stat", "Facts", "Chart",
+    "Alert", "Image", "Button", "Stat", "Facts", "Chart", "List", "Table", "TableColumn", "Tabs",
+    "Tab",
 ];
 
 /// A clearly scoped placeholder for a component owned by a later milestone.
@@ -24,7 +25,6 @@ pub fn deferred_milestone(kind: &str) -> Option<&'static str> {
     match kind {
         "Form" | "Input" | "TextArea" | "Select" | "Checkbox" | "CheckboxGroup" | "RadioGroup"
         | "Switch" => Some("M7"),
-        "List" | "Table" | "TableColumn" | "Tabs" | "Tab" => Some("M8"),
         _ => None,
     }
 }
@@ -170,8 +170,9 @@ pub fn deferred(theme: &UiTheme, kind: &str) -> AnyElement {
         .into_any_element()
 }
 
-/// A disabled visual button. Interaction, gating and events are M7 work.
-pub fn button(theme: &UiTheme, props: &Props, state: VisualState) -> AnyElement {
+/// A button. Interaction is attached by the view; this function owns only the
+/// anatomy (DESIGN §7).
+pub fn button(theme: &UiTheme, id: &str, props: &Props, state: VisualState) -> gpui_kit::Stateful<gpui_kit::Div> {
     let label = props::text_or(props, "label", "");
     let tone = props::name_or(props, "tone", "secondary");
     let style = theme.text(TextRole::Body);
@@ -189,6 +190,9 @@ pub fn button(theme: &UiTheme, props: &Props, state: VisualState) -> AnyElement 
         _ => (theme.secondary(), theme.foreground(), theme.secondary()),
     };
     let mut element = div()
+        .id(gpui_kit::ElementId::Name(SharedString::from(format!(
+            "genui-button-{id}"
+        ))))
         .flex()
         .items_center()
         .justify_center()
@@ -217,7 +221,7 @@ pub fn button(theme: &UiTheme, props: &Props, state: VisualState) -> AnyElement 
     if disabled {
         element = element.opacity(0.5);
     }
-    element.into_any_element()
+    element
 }
 
 pub fn markdown(theme: &UiTheme, id: &str, source: &str) -> AnyElement {
@@ -542,6 +546,8 @@ pub fn facts(theme: &UiTheme, props: &Props, width: gpui_kit::Pixels) -> AnyElem
         .into_any_element()
 }
 
+/// The DESIGN pending/failed box. The view uses `crate::image::element` when
+/// the host has delivered bytes (SPEC §10.3, ROADMAP item 7).
 pub fn image(
     theme: &UiTheme,
     props: &Props,
@@ -553,27 +559,16 @@ pub fn image(
         theme.image_min_height().as_f32(),
         theme.image_max_height().as_f32(),
     );
-    let caption = theme.text(TextRole::Caption);
-    let mut element = div()
-        .flex()
-        .items_center()
-        .justify_center()
-        .w(gpui_kit::px(width.as_f32().max(0.0)))
-        .h(gpui_kit::px(height))
-        .bg(theme.surface_subtle())
-        .border_1()
-        .border_color(theme.border())
-        .rounded(theme.radius(Radius::Lg));
-    if state != VisualState::Loading {
-        element = element.child(
-            div()
-                .text_size(caption.size)
-                .line_height(caption.line_height)
-                .text_color(theme.muted_foreground())
-                .child(alt),
-        );
-    }
-    element.into_any_element()
+    let fit = props::name_or(props, "fit", "cover");
+    crate::image::element(
+        theme,
+        &alt,
+        gpui_kit::px(height),
+        width,
+        &fit,
+        &crate::image::ImageState::Pending,
+        state,
+    )
 }
 
 /// A minimal tooltip view for truncated values (DESIGN §7 Facts/Table).
@@ -619,8 +614,8 @@ mod tests {
             assert!(!is_implemented(kind));
         }
         for kind in ["List", "Table", "TableColumn", "Tabs", "Tab"] {
-            assert_eq!(deferred_milestone(kind), Some("M8"), "{kind}");
-            assert!(!is_implemented(kind));
+            assert_eq!(deferred_milestone(kind), None, "{kind}");
+            assert!(is_implemented(kind));
         }
         assert_eq!(deferred_milestone("Nope"), None);
         assert!(is_implemented("Chart"));

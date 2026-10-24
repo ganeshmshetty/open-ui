@@ -683,9 +683,108 @@ impl UiTheme {
         self.space(2)
     }
 
-    /// List anatomy (DESIGN §7). Lists themselves land in M8; the token exists
-    /// now so the placeholder and future renderer share one source.
+    /// List anatomy (DESIGN §7).
     pub fn list_item_gap(&self) -> Pixels {
+        self.space(2)
+    }
+
+    /// The list marker gutter: a 4 px dot or an ordered number (DESIGN §7).
+    pub fn list_gutter_width(&self) -> Pixels {
+        px(16.)
+    }
+
+    pub fn list_marker_size(&self) -> Pixels {
+        px(4.)
+    }
+
+    pub fn list_row_min_height(&self) -> Pixels {
+        px(20.)
+    }
+
+    /// Table anatomy (DESIGN §§5, 6.10, 7).
+    pub fn table_row_height(&self) -> Pixels {
+        px(32.)
+    }
+
+    pub fn table_header_height(&self) -> Pixels {
+        px(32.)
+    }
+
+    pub fn table_cell_padding_x(&self) -> Pixels {
+        px(8.)
+    }
+
+    pub fn table_cell_padding_y(&self) -> Pixels {
+        self.space(1)
+    }
+
+    /// A table viewport caps its height so a 50,000-row table scrolls inside
+    /// the message instead of growing the page (DESIGN §6.10, SPEC §10.6).
+    pub fn table_viewport_height(&self) -> Pixels {
+        px(480.)
+    }
+
+    /// Tables shorter than this render at their natural height.
+    pub fn table_natural_row_limit(&self) -> usize {
+        12
+    }
+
+    pub fn table_empty_height(&self) -> Pixels {
+        px(64.)
+    }
+
+    pub fn table_min_column_width(&self) -> Pixels {
+        px(80.)
+    }
+
+    pub fn table_max_column_width(&self) -> Pixels {
+        px(320.)
+    }
+
+    pub fn table_loading_rows(&self) -> usize {
+        3
+    }
+
+    /// Tab bar anatomy (DESIGN §7).
+    pub fn tab_bar_height(&self) -> Pixels {
+        px(40.)
+    }
+
+    pub fn tab_gap(&self) -> Pixels {
+        self.space(4)
+    }
+
+    pub fn tab_underline_height(&self) -> Pixels {
+        px(2.)
+    }
+
+    pub fn tab_panel_gap(&self) -> Pixels {
+        self.space(3)
+    }
+
+    /// Motion (DESIGN §8). Durations are milliseconds.
+    pub fn fade_in_ms(&self) -> u64 {
+        150
+    }
+
+    pub fn skeleton_pulse_ms(&self) -> u64 {
+        1_200
+    }
+
+    pub fn skeleton_bar_height(&self) -> Pixels {
+        px(12.)
+    }
+
+    pub fn skeleton_alpha_min(&self) -> f32 {
+        0.5
+    }
+
+    pub fn refreshing_opacity(&self) -> f32 {
+        0.7
+    }
+
+    /// Chart hover tooltip offset from the category (DESIGN §6.11).
+    pub fn chart_tooltip_gap(&self) -> Pixels {
         self.space(2)
     }
 
@@ -707,7 +806,7 @@ impl UiTheme {
 
     /// A taller window for the component state sheet screenshots.
     pub fn state_sheet_window_size(&self) -> Size<Pixels> {
-        size(px(940.), px(3400.))
+        size(px(940.), px(4300.))
     }
 
     /// Sidebar width in the gallery.

@@ -465,7 +465,7 @@ pub fn stat(theme: &UiTheme, props: &Props) -> AnyElement {
 }
 
 pub fn facts(theme: &UiTheme, props: &Props, width: gpui_kit::Pixels) -> AnyElement {
-    let items = props::data(props, "items");
+    let items: Vec<_> = props::data(props, "items").into_iter().take(50).collect();
     let columns = props::int(props, "columns").unwrap_or(1).clamp(1, 2) as usize;
     let gap = theme.fact_column_gap();
     let cell_width = if columns == 2 {

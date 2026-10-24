@@ -4,6 +4,7 @@
 //! SPEC §14.2 question 5). Values are wire-encoded IR values (`{"i":2}`,
 //! `{"f":2.5}`, strings, booleans and null).
 
+use crate::props::sanitize_text;
 use serde_json::Value;
 
 const MINUS: char = '\u{2212}';
@@ -95,7 +96,7 @@ pub fn format_scalar(value: &Scalar, format: Format, currency: &str) -> String {
         };
     }
     match value {
-        Scalar::Text(text) => text.clone(),
+        Scalar::Text(text) => sanitize_text(text),
         Scalar::Bool(value) => value.to_string(),
         Scalar::Null => "—".into(),
         Scalar::Int(_) | Scalar::Float(_) => match format {
@@ -115,7 +116,7 @@ pub fn text_of(value: &Value) -> String {
     match Scalar::from_wire(value) {
         Scalar::Int(value) => value.to_string(),
         Scalar::Float(value) => trim_float(value, 2),
-        Scalar::Text(text) => text,
+        Scalar::Text(text) => sanitize_text(&text),
         Scalar::Bool(value) => value.to_string(),
         Scalar::Null => String::new(),
     }

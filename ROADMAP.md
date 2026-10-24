@@ -23,6 +23,6 @@ Each item has a "due by" milestone. When starting a milestone, pick up every ite
 | 17 | Real-model loop: live stream, recorded transcripts, deterministic replay, mid-stream screenshots (SPEC §12.7) | M8 | sample host + `eval/transcripts/` |
 | 18 | Quality gates 1–7 (SPEC §12.8) | right after M2, before the spike — done | Lints, dependency ban, skipped-test/style/fixture/diagnostic gates pass; mutation is advisory/nightly as of 2026-10-24 |
 | 19 | Streaming dashboard vertical slice: stream an existing dashboard exemplar through Session into `UiView`, show live patches/screenshots | M6 — done | `dashboard` binary, checked-in patch log and metrics; `--stress` 2,000-node measurement in `docs/milestones/M6.md` |
-| 20 | Mutation workflow as scheduled/nightly advisory (no merge gate) | immediately | Scheduled workflow + survivor backlog report; survivors no longer block milestones |
+| 20 | Mutation workflow as scheduled/nightly advisory (no merge gate) | done | `.github/workflows/mutations.yml` runs nightly (`17 3 * * *`) and on demand; survivor backlog in `conformance/mutations/m3/` and PROGRESS |
 
 Deferred features (edit mode, write tools, secret fields, more components, other renderers) are in SPEC Appendix A, not here.

@@ -1486,3 +1486,29 @@ then repeat the screenshot review with scripted interaction tests. M8 owns data
 components (List/Table/Tabs), virtualization, the host image loader, chart
 tooltips, panic containment/quarantine, and the real-model loop. The frame and
 memory misses above remain open and are not waived.
+
+### Independent M4/M5/M6 review fixes (2026-10-24)
+
+The read-only review of `d8c6d4d`/`074cdae` found six behavioral blockers; all are
+fixed on `main` with regression fixtures/tests before M7/M8 integration:
+
+- Submit-only `Button(submit: true)` now has a form `submit` handle; fixture
+  `forms/011-submit-only-button` covers the §2.14 example shape.
+- Refs nested inside lists/maps and `each` plan sources are discovered and
+  requested (`refs/007-nested-value`, `refs/008-each-source`).
+- State snapshots persist from the live state store and are applied on
+  `Session::restore` with declaration type checks (§§7.9,9.2).
+- `fallback_text` renders evaluated dynamic props and runtime-instantiated
+  children (§4.7).
+- A same-key query refresh reports `Refreshing` while keeping the old result
+  visible (§7.5).
+- Model Markdown/Code links are inert (no `App::open_url`), and synthetic
+  query/ref `status` props drive loading/error visuals (§§10.7,10.12).
+- The prompt omits `ref()` when `features.refs` is false, and the minimal prompt
+  golden was corrected.
+- `DECISIONS.md` conflict markers were removed.
+
+Remaining logged gaps: `Image` capability still claims a loader until M8 lands it,
+and the prose-segment renderer stays M7/M8. Gate run after the fixes: 452 fixtures
+/ 106,634 chunkings, 456 workspace tests, spec-check clean, Clippy clean.
+

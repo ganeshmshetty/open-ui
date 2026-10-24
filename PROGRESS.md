@@ -1145,6 +1145,6 @@ item 7 now defines it as a nightly/advisory report with a complete-inventory rev
 kept as backlog evidence; M3's done-when requires CI plus fresh fuzz, not a clean
 mutation campaign. M3 is marked complete on that basis. AGENTS self-merge now says
 mutation never blocks, and adds a demo-first rule: each milestone must end with a
-runnable user-visible demo. ROADMAP items 19–20 add the chess vertical slice and the
-scheduled mutation workflow. The 32-shard run was cancelled once the new contract
+runnable user-visible demo. ROADMAP items 19–20 add a streaming-dashboard vertical slice and the
+scheduled mutation workflow; chess is explicitly not a milestone. The 32-shard run was cancelled once the new contract
 was recorded; its survivor data remains in the repository for later triage.

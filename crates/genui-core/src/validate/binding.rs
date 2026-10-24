@@ -747,6 +747,40 @@ mod tests {
     }
 
     #[test]
+    fn refresh_ignores_retained_deps_of_a_changed_node() {
+        // §3.6: a changed source must be summarised from its live text. Cached
+        // deps of the old text may name nodes that are no longer referenced;
+        // pulling those in would do (and charge) unrelated work.
+        let lib = library();
+        let table = table(&[("a", "a=Show(value:1)"), ("b", "b=Show(value:$s)")]);
+        let node_kinds = kinds(&[("a", Kind::Node), ("b", Kind::Node)]);
+        let old = cache(&[("a", vec![("stale".into(), T::Bool)], &["b"])]);
+        let (next, _, checked) = refresh(
+            &old,
+            &table,
+            &node_kinds,
+            &lib,
+            &std::iter::once("a".to_string()).collect(),
+            &std::iter::once("a".to_string()).collect(),
+        );
+        assert_eq!(
+            checked,
+            1,
+            "only the changed node may be recomputed: {:?}",
+            next.keys().collect::<Vec<_>>()
+        );
+        assert!(
+            !next.contains_key("b"),
+            "an unreferenced retained dependency must not be retained: {:?}",
+            next.keys().collect::<Vec<_>>()
+        );
+        assert!(
+            next["a"].deps.is_empty(),
+            "the summary must follow the live source"
+        );
+    }
+
+    #[test]
     fn refresh_orders_dependencies_and_retries_incomplete_entries() {
         let lib = library();
         let table = table(&[("a", "a=Stack([b])"), ("b", "b=Show(value:$s)")]);

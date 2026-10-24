@@ -1260,6 +1260,7 @@ mod tests {
             slots: Vec::new(),
             status: NodeStatus::Sealed,
             origin: "root".into(),
+            index: 0,
         }
     }
     fn address(path: &str, parent: Option<&str>, index: usize) -> crate::validate::Address {
@@ -1331,7 +1332,7 @@ mod tests {
             &[(11, "a", Some("root"), 0)],
             &[(12, "x", Some("root"), 0), (11, "a", Some("root"), 1)],
         );
-        let (ops, _) = tree.maintain(&ir, &lib, &projection);
+        let (ops, _) = tree.maintain(&ir, &lib, None, &projection);
         assert_eq!(ops.len(), 1, "only the insert is required: {ops:?}");
         assert!(matches!(&ops[0], Op::Insert { node, index: 0, .. } if node.id == "x"));
         assert_eq!(root_children(&tree), vec!["x", "a"]);
@@ -1344,7 +1345,7 @@ mod tests {
             &[(11, "a", Some("root"), 0), (12, "b", Some("root"), 1)],
             &[(12, "b", Some("root"), 0), (11, "a", Some("root"), 1)],
         );
-        let (ops, _) = tree.maintain(&ir, &lib, &projection);
+        let (ops, _) = tree.maintain(&ir, &lib, None, &projection);
         assert!(
             matches!(&ops[0], Op::Move { id, index: 0, .. } if id == "b"),
             "unexpected ops: {ops:?}"
@@ -1364,7 +1365,7 @@ mod tests {
                 (11, "a", Some("root"), 2),
             ],
         );
-        let (ops, _) = tree.maintain(&ir, &lib, &projection);
+        let (ops, _) = tree.maintain(&ir, &lib, None, &projection);
         assert_eq!(
             ops,
             vec![
@@ -1401,7 +1402,7 @@ mod tests {
                 (11, "a", Some("root"), 2),
             ],
         );
-        let (ops, _) = tree.maintain(&ir, &lib, &projection);
+        let (ops, _) = tree.maintain(&ir, &lib, None, &projection);
         assert_eq!(
             ops,
             vec![
@@ -1430,7 +1431,7 @@ mod tests {
             &[(11, "a", Some("root"), 0)],
             &[(11, "a", Some("other"), 0)],
         );
-        let (ops, _) = tree.maintain(&ir, &lib, &projection);
+        let (ops, _) = tree.maintain(&ir, &lib, None, &projection);
         assert!(
             matches!(&ops[0], Op::Move { id, parent: Some(parent), index: 0, .. }
                 if id == "a" && parent == "other"),
@@ -1454,7 +1455,7 @@ mod tests {
             remove: None,
             order: Vec::new(),
         };
-        let (ops, work) = tree.insert_grafts(&ir, &lib, &[graft]);
+        let (ops, work) = tree.insert_grafts(&ir, &lib, None, &[graft]);
         assert_eq!(root_children(&tree), vec!["x", "y"]);
         assert!(matches!(&ops[0], Op::Insert { node, index: 0, .. } if node.id == "x"));
         assert!(matches!(&ops[1], Op::Insert { node, index: 1, .. } if node.id == "y"));
@@ -1471,7 +1472,7 @@ mod tests {
             remove: Some("a".into()),
             order: Vec::new(),
         };
-        let (ops, work) = tree.insert_grafts(&ir, &lib, &[graft]);
+        let (ops, work) = tree.insert_grafts(&ir, &lib, None, &[graft]);
         assert_eq!(ops, vec![Op::Remove { id: "a".into() }]);
         assert!(!tree.nodes.contains_key("a"));
         assert_eq!(work.wire_nodes_examined, 1);
@@ -1492,7 +1493,7 @@ mod tests {
             remove: None,
             order: Vec::new(),
         };
-        let (ops, _) = tree.insert_grafts(&ir, &lib, &[graft]);
+        let (ops, _) = tree.insert_grafts(&ir, &lib, None, &[graft]);
         assert_eq!(ops.len(), 1, "same-kind nodes are updated: {ops:?}");
         assert!(
             matches!(&ops[0], Op::SetProps { id, .. } if id == "a"),
@@ -1504,14 +1505,14 @@ mod tests {
         let (mut tree, lib, mut ir) = tree_with(&["a", "b"]);
         ir.nodes.remove(&crate::ir::NodeId(11));
         let removal = projection(vec![11], &[(11, "a", Some("root"), 0)], &[]);
-        let (ops, work) = tree.maintain(&ir, &lib, &removal);
+        let (ops, work) = tree.maintain(&ir, &lib, None, &removal);
         assert_eq!(ops, vec![Op::Remove { id: "a".into() }]);
         assert_eq!(work.wire_nodes_examined, 1);
 
         let (mut tree, lib, mut ir) = tree_with(&["a"]);
         ir.nodes.insert(crate::ir::NodeId(12), column(12, "x"));
         let insertion = projection(vec![12], &[], &[(12, "x", Some("root"), 0)]);
-        let (ops, work) = tree.maintain(&ir, &lib, &insertion);
+        let (ops, work) = tree.maintain(&ir, &lib, None, &insertion);
         assert!(matches!(&ops[0], Op::Insert { node, .. } if node.id == "x"));
         assert_eq!(work.wire_nodes_examined, 1);
     }
@@ -1622,7 +1623,7 @@ mod tests {
             Prop::Static(PropValue::Value(Value::from("new"))),
         );
         ir.nodes.insert(id, node);
-        let (ops, work) = tree.update_props(&ir, &lib, &[id]);
+        let (ops, work) = tree.update_props(&ir, &lib, None, &[id]);
         assert!(ops.iter().any(|op| matches!(op, Op::SetProps { .. })));
         assert_eq!(
             work.props_compared, 3,

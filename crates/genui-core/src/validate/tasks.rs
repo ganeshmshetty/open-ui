@@ -574,6 +574,7 @@ mod tests {
                 steps: Vec::new(),
                 origin: NodeId(1),
                 submit_scope: None,
+                locals: Default::default(),
             },
         );
         machine.fallbacks.insert(
@@ -977,6 +978,7 @@ mod tests {
                 key: "k".into(),
             },
             accepts: Vec::new(),
+            index: 0,
         });
         let shared = Output {
             nodes: nodes.clone(),
@@ -998,6 +1000,7 @@ mod tests {
                 key: "k".into(),
             },
             accepts: Vec::new(),
+            index: 0,
         }]);
         let equal_but_distinct = Output {
             nodes: distinct_nodes,

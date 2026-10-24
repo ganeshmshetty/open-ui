@@ -1861,6 +1861,7 @@ mod tests {
                             key: "unused".into(),
                         },
                         accepts: Vec::new(),
+                        index: 0,
                     }]
                     .into(),
                 }),

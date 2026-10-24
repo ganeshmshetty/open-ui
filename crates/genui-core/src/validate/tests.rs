@@ -683,6 +683,7 @@ fn retained_subtree_removal_charges_allocation_and_keeps_semantic_node() {
         slots: Vec::new(),
         status: NodeStatus::Sealed,
         origin: "root".into(),
+        index: 0,
     };
     let mut machine = tasks::Machine::default();
     machine.graph.insert(node, 3);

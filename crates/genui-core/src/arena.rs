@@ -379,6 +379,7 @@ mod tests {
             }],
             origin: crate::ir::NodeId(1),
             submit_scope: None,
+            locals: Default::default(),
         };
         let mut arena = ActionArena::default();
         assert!(arena.is_empty());

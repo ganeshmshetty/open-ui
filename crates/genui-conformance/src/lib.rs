@@ -4,6 +4,7 @@
 pub mod chunks;
 mod m5;
 pub mod properties;
+mod runtime;
 mod semantic;
 pub mod spec_check;
 pub mod streaming;
@@ -84,6 +85,11 @@ struct Schemas {
     options: jsonschema::Validator,
     ir: jsonschema::Validator,
     turn: jsonschema::Validator,
+    resolved: jsonschema::Validator,
+    requests: jsonschema::Validator,
+    events: jsonschema::Validator,
+    fields: jsonschema::Validator,
+    library_input: jsonschema::Validator,
 }
 
 impl Schemas {
@@ -107,6 +113,11 @@ impl Schemas {
             options: load(root, "options")?,
             ir: load(root, "ir")?,
             turn: load(root, "turn")?,
+            resolved: load(root, "resolved")?,
+            requests: load(root, "requests")?,
+            events: load(root, "events")?,
+            fields: load(root, "fields")?,
+            library_input: load(root, "library")?,
         })
     }
 }
@@ -179,6 +190,16 @@ pub fn run_suite(root: &Path) -> Result<SuiteReport> {
                     | "prompt"
                     | "feedback"
                     | "message"
+                    | "numbers"
+                    | "expr"
+                    | "iteration"
+                    | "state"
+                    | "actions"
+                    | "queries"
+                    | "refs"
+                    | "events"
+                    | "forms"
+                    | "provenance"
             ) {
                 return Err(format!("{}: category is not implemented", path.display()));
             }
@@ -190,6 +211,25 @@ pub fn run_suite(root: &Path) -> Result<SuiteReport> {
                 )
             } else if matches!(category_name, "prompt" | "feedback" | "message") {
                 m5::run_case(&path, category_name, &schemas)
+            } else if matches!(
+                category_name,
+                "numbers"
+                    | "expr"
+                    | "iteration"
+                    | "state"
+                    | "actions"
+                    | "queries"
+                    | "refs"
+                    | "events"
+                    | "forms"
+                    | "provenance"
+            ) {
+                runtime::run_case(
+                    &path,
+                    &schemas,
+                    std::sync::Arc::new(genui_std::std_library().map_err(|e| format!("{e:?}"))?),
+                    category_name,
+                )
             } else if matches!(
                 category_name,
                 "library" | "resolve" | "schema" | "ir" | "limits"

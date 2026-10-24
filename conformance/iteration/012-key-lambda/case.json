@@ -1,0 +1,1 @@
+{"title":"Key lambda receives item and index","tier":"core","tags":["runtime","iteration"],"notes":"SPEC §§2.7,5.2: key lambdas bind their own parameters, including the element index.","limits":{}}

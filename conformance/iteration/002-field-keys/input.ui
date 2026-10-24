@@ -1,0 +1,2 @@
+rows=[{id:7,name:"a"},{id:9,name:"b"}]
+root=Column([Text("head"),each(rows, |r| Text(r.name), key:"id"),Text("tail")])

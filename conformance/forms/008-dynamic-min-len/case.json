@@ -1,0 +1,8 @@
+{
+  "title": "Dynamic length check gates submit",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a7\u00a72.14,7.3: min_len is evaluated at validation time."
+}

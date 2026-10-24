@@ -1,0 +1,1 @@
+{"title":"Rejected action write over the state byte cap","tier":"core","tags":["runtime"],"notes":"SPEC §§7.1,7.2,4.3: total stored state is capped by limit.state.","limits":{"max_state_bytes":7}}

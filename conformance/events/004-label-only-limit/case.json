@@ -1,0 +1,11 @@
+{
+  "title": "Oversized label with no text still reports limit.event",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a7\u00a74.3,7.8: every oversized event reports exactly one limit.event even when only the label is large.",
+  "limits": {
+    "max_event_bytes": 60
+  }
+}

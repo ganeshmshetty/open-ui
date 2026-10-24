@@ -1,0 +1,3 @@
+query q=tool("known",{},default:"d")
+go=Button("Reload",on_click:refresh(q))
+root=Column([Text(q),go])

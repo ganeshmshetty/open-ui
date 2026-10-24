@@ -122,6 +122,10 @@ pub struct ModelEvent {
     pub kind: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub params: Option<Value>,
     pub label: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ctx: Option<Value>,
@@ -144,6 +148,8 @@ impl ModelEvent {
             source: event_source(),
             kind: kind.into(),
             text: None,
+            name: None,
+            params: None,
             label: label.into(),
             ctx: None,
             node: None,

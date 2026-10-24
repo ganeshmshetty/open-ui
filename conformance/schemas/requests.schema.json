@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["id", "epoch", "origin", "kind"],
+    "properties": {
+      "id": { "type": "integer", "minimum": 1 },
+      "epoch": { "type": "integer", "minimum": 1 },
+      "origin": {
+        "anyOf": [
+          { "const": "program" },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["user_gesture"],
+            "properties": {
+              "user_gesture": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["node"],
+                "properties": { "node": { "type": "integer", "minimum": 0 } }
+              }
+            }
+          }
+        ]
+      },
+      "kind": {
+        "enum": ["query", "resolve_ref", "say", "open_url", "emit"]
+      },
+      "stmt": { "type": "string" },
+      "tool": { "type": "string" },
+      "args": {},
+      "args_hash": { "type": "integer", "minimum": 0 },
+      "needs_approval": { "type": "boolean" },
+      "ref": { "type": "string" },
+      "path": { "type": ["string", "null"] },
+      "text": { "type": "string" },
+      "ctx": {},
+      "label": { "type": "string" },
+      "node": { "type": "string" },
+      "url": { "type": "string" },
+      "name": { "type": "string" },
+      "params": {}
+    }
+  }
+}

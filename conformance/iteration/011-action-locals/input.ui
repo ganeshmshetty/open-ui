@@ -1,0 +1,3 @@
+$n=0
+rows=[{id:1,v:11},{id:2,v:22}]
+root=Column([Text(text($n)),each(rows,|r| Button(fmt("set {}",r.v),on_click:set($n,r.v)),key:"id")])

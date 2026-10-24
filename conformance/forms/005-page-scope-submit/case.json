@@ -1,0 +1,8 @@
+{
+  "title": "Submit outside a form validates page scope",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a72.14: a submit button outside a Form validates the page scope, then runs its on_click."
+}

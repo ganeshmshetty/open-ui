@@ -1,0 +1,11 @@
+{
+  "title": "Concurrent request cap queues queries",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a77.5: only max_concurrent_requests are requested; delivery pumps the next in name order.",
+  "limits": {
+    "max_concurrent_requests": 1
+  }
+}

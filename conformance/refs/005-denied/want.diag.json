@@ -1,0 +1,1 @@
+[{"code":"schema.missing_required","path":"root","recovery":"NodeDropped","stmt":"root"},{"code":"ref.unknown","path":"root","recovery":"ValueNulled","stmt":"root"}]

@@ -1,0 +1,4 @@
+$n=1
+query q=tool("known",{x:$n},default:"none")
+go=Button("Reload",on_click:refresh(q))
+root=Column([Text(q),go])

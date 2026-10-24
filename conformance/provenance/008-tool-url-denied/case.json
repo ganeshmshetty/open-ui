@@ -1,0 +1,8 @@
+{
+  "title": "Tool URL policy denied",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a77.6: Tool-provenance URLs still pass the host UrlPolicy."
+}

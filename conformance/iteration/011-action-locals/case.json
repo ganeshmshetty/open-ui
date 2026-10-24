@@ -1,0 +1,1 @@
+{"title":"Element actions capture lambda locals","tier":"interactive","tags":["runtime","iteration"],"notes":"SPEC §§2.7,7.4: an action instantiated inside each keeps the element environment and its own path identity.","limits":{}}

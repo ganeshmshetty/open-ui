@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["v", "source", "kind", "label", "node", "stmt"],
+    "properties": {
+      "v": { "const": 1 },
+      "source": { "const": "ui_event" },
+      "kind": { "enum": ["say", "emit"] },
+      "text": { "type": "string" },
+      "name": { "type": "string" },
+      "params": {},
+      "label": { "type": "string" },
+      "ctx": {},
+      "node": { "type": "string" },
+      "stmt": { "type": "string" }
+    }
+  }
+}

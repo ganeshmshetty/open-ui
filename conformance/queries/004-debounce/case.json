@@ -1,0 +1,8 @@
+{
+  "title": "Query argument changes debounce 300ms",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a7\u00a72.15,7.5: a dependency change waits for the virtual clock and then re-requests."
+}

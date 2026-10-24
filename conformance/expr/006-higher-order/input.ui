@@ -1,0 +1,1 @@
+root=Column([Stat("sum",sum([1,2,3])),Stat("avg",avg([1,2,3])),Stat("min",min([3,1,2])),Stat("max",max([3,1,2])),Stat("mapped",len(map([1,2,3],|x|x*2))),Stat("filtered",len(filter([1,2,3,4],|x|x%2==0))),Stat("sorted",join(map(sort_by([3,1,2],|x|x,desc:true),|x|text(x)),","))])

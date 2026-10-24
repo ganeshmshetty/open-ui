@@ -67,7 +67,7 @@ impl Oracle {
             }
             next_seq += 1;
             check_prose(&session, &update, &mut prose)?;
-            live(&session, &update, &mut replay, &mut trace)
+            live(&session, &update, &mut replay, &mut trace, false)
                 .map_err(|e| format!("chunk {i}: {e}"))?;
             if let Some(batch) = update.patches {
                 batches.push(batch);
@@ -80,7 +80,8 @@ impl Oracle {
             return Err("finish sequence has a gap".into());
         }
         check_prose(&session, &update, &mut prose)?;
-        live(&session, &update, &mut replay, &mut trace).map_err(|e| format!("finish: {e}"))?;
+        live(&session, &update, &mut replay, &mut trace, true)
+            .map_err(|e| format!("finish: {e}"))?;
         if let Some(batch) = update.patches {
             batches.push(batch);
         }
@@ -110,11 +111,37 @@ impl Oracle {
                 "final diagnostics differ\nstream {actual:?}\nbatch {expected:?}"
             ));
         }
-        if replay.tree != Tree::from_ir(&self.batch.ir, &self.library) {
+        let resolved = genui_core::runtime::evaluate_with_catalog(
+            &self.batch.ir,
+            &self.library,
+            &self.options.limits,
+            &self.options.refs,
+        );
+        if without_synthetic(&replay.tree)
+            != without_synthetic(&Tree::from_ir_resolved(
+                &self.batch.ir,
+                &self.library,
+                &resolved,
+            ))
+        {
+            return Err("final patch replay differs from evaluated batch tree".into());
+        }
+        let mut runtime: Vec<_> = session
+            .runtime_diagnostics()
+            .iter()
+            .filter(|d| !d.provisional)
+            .map(DiagnosticKey::from)
+            .collect();
+        runtime.sort();
+        let mut expected_runtime: Vec<_> = resolved
+            .diagnostics()
+            .iter()
+            .map(DiagnosticKey::from)
+            .collect();
+        expected_runtime.sort();
+        if runtime != expected_runtime {
             return Err(format!(
-                "final patch replay differs from batch tree: {:?} != {:?}",
-                replay.tree,
-                Tree::from_ir(&self.batch.ir, &self.library)
+                "final runtime diagnostics differ\nstream {runtime:?}\nbatch {expected_runtime:?}"
             ));
         }
         if session.seals() != self.trace {
@@ -127,6 +154,26 @@ impl Oracle {
         Ok(batches)
     }
 }
+/// Synthetic renderer props are session/query state, not part of the batch
+/// projection. Runtime fixtures assert them directly (§§7.3,7.5).
+fn without_synthetic(tree: &Tree) -> Tree {
+    let nodes = tree
+        .nodes
+        .iter()
+        .map(|(id, entry)| {
+            let mut entry = entry.clone();
+            for name in ["error", "touched", "status"] {
+                entry.node.props.remove(name);
+            }
+            (id.clone(), entry)
+        })
+        .collect();
+    Tree {
+        root: tree.root.clone(),
+        nodes,
+    }
+}
+
 pub fn check(
     input: &[u8],
     parts: &[&[u8]],
@@ -172,6 +219,7 @@ fn live(
     update: &genui_core::Update,
     replay: &mut Replay,
     trace: &mut Vec<genui_core::syntax::streaming::Seal>,
+    at_finish: bool,
 ) -> Result<()> {
     let work = session.parser_work();
     if work.parsed_seals > session.seals().len() || work.tail_bytes > work.tail_limit {
@@ -189,8 +237,8 @@ fn live(
     }) {
         return Err("a sealed origin became provisional".into());
     }
-    if !update.requests.is_empty() || !update.model_events.is_empty() {
-        return Err("M3 emitted host effects".into());
+    if !at_finish && (!update.requests.is_empty() || !update.model_events.is_empty()) {
+        return Err("streaming emitted host effects".into());
     }
     if !session.seals().starts_with(trace) {
         return Err("sealed statements changed or disappeared".into());
@@ -433,7 +481,7 @@ fn run_script(
                 session.reset()
             }
         };
-        live(&session, &update, &mut replay, &mut trace)?;
+        live(&session, &update, &mut replay, &mut trace, finish)?;
         if finish {
             let batch = if message {
                 validate_message(&source, &library, &options).1

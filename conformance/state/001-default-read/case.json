@@ -1,0 +1,1 @@
+{"title":"State defaults resolve","tier":"core","tags":["runtime"],"notes":"SPEC §§2.12,7.2: declared defaults are readable state values."}

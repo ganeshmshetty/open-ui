@@ -1,0 +1,2 @@
+rows=[]
+root=Column([Text("head"),Tabs(each(rows, |r| Tab(r.name,[Text(r.body)]))),Text("tail")])

@@ -1,0 +1,11 @@
+{
+  "title": "Per-message ref resolution cap",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a7\u00a77.1,7.7: max_ref_resolutions caps the per-message ref cache.",
+  "limits": {
+    "max_ref_resolutions": 0
+  }
+}

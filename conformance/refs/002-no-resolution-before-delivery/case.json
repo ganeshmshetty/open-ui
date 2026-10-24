@@ -1,0 +1,8 @@
+{
+  "title": "Ref stays a placeholder before delivery",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a77.7: no data is invented; the request carries the id and the prop remains a Ref."
+}

@@ -1,38 +1,6 @@
 {
-  "expr.div_zero": {
-    "milestone": "M4",
-    "reason": "Arithmetic is stored as Dynamic; division is not evaluated in M2."
-  },
-  "expr.index_oob": {
-    "milestone": "M4",
-    "reason": "Indexing is evaluated against data in M4, even when its syntax is literal."
-  },
-  "limit.event": {
-    "milestone": "M4",
-    "reason": "Requires construction of a gesture event, including resolved label and context."
-  },
-  "limit.fuel": {
-    "milestone": "M4",
-    "reason": "Requires execution of a fuel-metered expression or action step."
-  },
-  "query.denied": {
-    "milestone": "M4",
-    "reason": "Requires a host approval decision."
-  },
-  "query.failed": {
-    "milestone": "M4",
-    "reason": "Requires a host tool delivery."
-  },
-  "ref.too_large": {
-    "milestone": "M4",
-    "reason": "Requires resolved host data and delivery byte accounting."
-  },
   "render.panic": {
     "milestone": "M6",
     "reason": "Requires a renderer subtree boundary and renderer failure."
-  },
-  "state.type_write": {
-    "milestone": "M4",
-    "reason": "Actions are inert plans; this code describes an executed state write."
   }
 }

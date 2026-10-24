@@ -1,0 +1,8 @@
+{
+  "title": "Resolved ref data is Host provenance",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a7\u00a77.6,7.7."
+}

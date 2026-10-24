@@ -1,0 +1,8 @@
+{
+  "title": "Dynamic required gates submit",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a7\u00a72.14,7.3: required is evaluated, not read only from a static literal."
+}

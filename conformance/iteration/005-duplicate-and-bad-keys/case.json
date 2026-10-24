@@ -1,0 +1,1 @@
+{"title":"Duplicate and bad element keys","tier":"core","tags":["runtime","iteration"],"notes":"SPEC §§2.7,2.10–2.11,4.4,5.5,12.3: Duplicate and non-string/integer keys fall back to index paths.","limits":{}}

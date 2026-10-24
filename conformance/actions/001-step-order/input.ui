@@ -1,0 +1,3 @@
+$n=1
+go=[set($n,5),restore($n)]
+root=Column([Text(text($n)),Button("Go",on_click:go)])

@@ -1,0 +1,17 @@
+{
+  "id": "std",
+  "version": "0.1.0",
+  "actions": [
+    {
+      "name": "export",
+      "params": [
+        {
+          "kind": "int"
+        }
+      ],
+      "doc": "Export a record."
+    }
+  ],
+  "groups": [],
+  "components": []
+}

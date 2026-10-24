@@ -1,0 +1,8 @@
+{
+  "title": "Step arguments see earlier writes",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a77.4: each step evaluates when it starts, so a Set is visible to a later Say."
+}

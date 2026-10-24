@@ -554,6 +554,15 @@ pub fn render_event(event: &ModelEvent) -> String {
     if let Some(text) = &event.text {
         fields.push(format!("\"text\":{}", json_string(text)));
     }
+    if let Some(name) = &event.name {
+        fields.push(format!("\"name\":{}", json_string(name)));
+    }
+    if let Some(params) = &event.params {
+        fields.push(format!(
+            "\"params\":{}",
+            canonical::encode(&params.plain_json())
+        ));
+    }
     fields.push(format!("\"label\":{}", json_string(&event.label)));
     if let Some(ctx) = &event.ctx {
         fields.push(format!("\"ctx\":{}", canonical::encode(&ctx.plain_json())));
@@ -692,12 +701,36 @@ mod tests {
     }
 
     #[test]
+    fn emit_event_json_places_name_and_params_before_label() {
+        let event = ModelEvent {
+            v: 1,
+            source: "ui_event".into(),
+            kind: "emit".into(),
+            text: None,
+            name: Some("export".into()),
+            params: Some(serde_json::from_str(r#"{"format":"csv"}"#).unwrap()),
+            label: "Export".into(),
+            ctx: None,
+            node: Some("root/children:@btn".into()),
+            stmt: Some("btn".into()),
+            msg: None,
+        };
+        let rendered = render_event(&event);
+        assert_eq!(
+            rendered,
+            "```ui-event\n{\"v\":1,\"source\":\"ui_event\",\"kind\":\"emit\",\"name\":\"export\",\"params\":{\"format\":\"csv\"},\"label\":\"Export\",\"node\":\"root/children:@btn\",\"stmt\":\"btn\"}\n```\n"
+        );
+    }
+
+    #[test]
     fn event_json_has_a_fixed_field_order() {
         let event = ModelEvent {
             v: 1,
             source: "ui_event".into(),
             kind: "say".into(),
             text: Some("Recommend laptops".into()),
+            name: None,
+            params: None,
             label: "Find laptops".into(),
             ctx: Some(serde_json::from_str(r#"{"budget":"mid","use":["coding"]}"#).unwrap()),
             node: Some("root/children:@finder/children:@go".into()),

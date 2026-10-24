@@ -1,0 +1,8 @@
+{
+  "title": "Combining tags gives Mixed",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a77.6: `+` mixing a Model literal with Tool data is Mixed."
+}

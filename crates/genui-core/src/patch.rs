@@ -135,22 +135,29 @@ impl Tree {
         ir: &Ir,
         library: &Library,
         id: crate::ir::NodeId,
+        resolved: Option<&crate::runtime::Resolved>,
         work: &mut crate::MaintenanceWork,
     ) -> Option<NodeInit> {
         let n = ir.nodes.get(&id)?;
         let c = library.components().get(n.kind.0 as usize)?;
         let mut props = Props::new();
-        for (id, p) in &n.props {
+        for (prop_id, p) in &n.props {
             work.props_compared += 1;
-            let Some(arg) = c.args.get(id.0 as usize) else {
+            let Some(arg) = c.args.get(prop_id.0 as usize) else {
                 continue;
             };
             let value = match p {
                 Prop::Dynamic(e) => {
-                    let Some(e) = ir.expressions.get(e) else {
-                        continue;
-                    };
-                    json!({"deferred":e})
+                    if let Some(PropValue::Value(value)) =
+                        resolved.and_then(|resolved| resolved.prop(id, *prop_id))
+                    {
+                        wire_value(value)
+                    } else {
+                        let Some(e) = ir.expressions.get(e) else {
+                            continue;
+                        };
+                        json!({"deferred":e})
+                    }
                 }
                 Prop::Static(PropValue::Value(v)) => wire_value(v),
                 Prop::Static(PropValue::Token { scale, value }) => {
@@ -160,6 +167,17 @@ impl Tree {
                 Prop::Static(PropValue::Action(id)) => json!({"action":id.0.as_ref()}),
             };
             props.insert(arg.name.clone(), value);
+        }
+        if let Some(resolved) = resolved {
+            for (prop, name) in [
+                (crate::runtime::PROP_ERROR, "error"),
+                (crate::runtime::PROP_TOUCHED, "touched"),
+                (crate::runtime::PROP_STATUS, "status"),
+            ] {
+                if let Some(PropValue::Value(value)) = resolved.prop(id, prop) {
+                    props.insert(name.to_string(), wire_value(value));
+                }
+            }
         }
         Some(NodeInit {
             id: n.path.0.clone(),
@@ -173,6 +191,7 @@ impl Tree {
         &mut self,
         ir: &Ir,
         library: &Library,
+        resolved: Option<&crate::runtime::Resolved>,
         grafts: &[crate::validate::Graft],
     ) -> (Vec<Op>, crate::MaintenanceWork) {
         let mut work = crate::MaintenanceWork::default();
@@ -196,7 +215,7 @@ impl Tree {
             }
             while let Some((id, parent, slot, index)) = queue.pop() {
                 work.wire_nodes_examined += 1;
-                let Some(node) = Self::props_from_ir(ir, library, id, &mut work) else {
+                let Some(node) = Self::props_from_ir(ir, library, id, resolved, &mut work) else {
                     continue;
                 };
                 let path = node.id.clone();
@@ -205,7 +224,7 @@ impl Tree {
                     .get(&path)
                     .is_some_and(|old| old.node.kind == node.kind)
                 {
-                    let (changes, charged) = self.update_props(ir, library, &[id]);
+                    let (changes, charged) = self.update_props(ir, library, resolved, &[id]);
                     work += charged;
                     ops.extend(changes);
                 } else {
@@ -242,6 +261,7 @@ impl Tree {
         &mut self,
         ir: &Ir,
         library: &Library,
+        resolved: Option<&crate::runtime::Resolved>,
         projection: &crate::validate::Projection,
     ) -> (Vec<Op>, crate::MaintenanceWork) {
         use crate::ir::NodeId;
@@ -347,7 +367,7 @@ impl Tree {
             });
             if !self.nodes.contains_key(&path) {
                 work.wire_nodes_examined += 1;
-                let Some(node) = Self::props_from_ir(ir, library, id, &mut work) else {
+                let Some(node) = Self::props_from_ir(ir, library, id, resolved, &mut work) else {
                     continue;
                 };
                 let op = Op::Insert {
@@ -383,7 +403,7 @@ impl Tree {
                         }
                     }
                 }
-                let (changes, charged) = self.update_props(ir, library, &[id]);
+                let (changes, charged) = self.update_props(ir, library, resolved, &[id]);
                 work += charged;
                 ops.extend(changes);
             }
@@ -394,13 +414,14 @@ impl Tree {
         &mut self,
         ir: &Ir,
         library: &Library,
+        resolved: Option<&crate::runtime::Resolved>,
         ids: &[crate::ir::NodeId],
     ) -> (Vec<Op>, crate::MaintenanceWork) {
         let mut work = crate::MaintenanceWork::default();
         let mut ops = Vec::new();
         for id in ids {
             work.wire_nodes_examined += 1;
-            let Some(target) = Self::props_from_ir(ir, library, *id, &mut work) else {
+            let Some(target) = Self::props_from_ir(ir, library, *id, resolved, &mut work) else {
                 continue;
             };
             let Some(entry) = self.nodes.get_mut(&target.id) else {
@@ -453,9 +474,20 @@ impl Tree {
         (ops, work)
     }
     pub fn from_ir(ir: &Ir, library: &Library) -> Self {
-        Self::from_ir_measured(ir, library).0
+        Self::from_ir_measured(ir, library, None).0
     }
-    pub(crate) fn from_ir_measured(ir: &Ir, library: &Library) -> (Self, crate::MaintenanceWork) {
+    pub fn from_ir_resolved(
+        ir: &Ir,
+        library: &Library,
+        resolved: &crate::runtime::Resolved,
+    ) -> Self {
+        Self::from_ir_measured(resolved.ir_or(ir), library, Some(resolved)).0
+    }
+    pub(crate) fn from_ir_measured(
+        ir: &Ir,
+        library: &Library,
+        resolved: Option<&crate::runtime::Resolved>,
+    ) -> (Self, crate::MaintenanceWork) {
         let mut work = crate::MaintenanceWork::default();
         let mut tree = Self::default();
         let Some(root) = ir.root else {
@@ -467,7 +499,7 @@ impl Tree {
             let Some(n) = ir.nodes.get(&id) else {
                 continue;
             };
-            let Some(init) = Self::props_from_ir(ir, library, id, &mut work) else {
+            let Some(init) = Self::props_from_ir(ir, library, id, resolved, &mut work) else {
                 continue;
             };
             if parent.is_none() {
@@ -850,10 +882,12 @@ pub fn strip_invisibles(text: &str) -> String {
 }
 pub fn wire_value(v: &Value) -> J {
     match v {
-        Value::Str(s) if s.prov == Provenance::Model => J::String(strip_invisibles(&s.text)),
+        Value::Str(s) if matches!(s.prov, Provenance::Model | Provenance::Mixed) => {
+            J::String(strip_invisibles(&s.text))
+        }
         Value::List(items) => J::Array(items.iter().map(wire_value).collect()),
         Value::Map(items) => {
-            json!({"map":items.iter().map(|(k,v)|json!([k,wire_value(v)])).collect::<Vec<_>>()})
+            json!({"map":items.iter().map(|(k,v)|json!([strip_invisibles(k),wire_value(v)])).collect::<Vec<_>>()})
         }
         _ => v.ir_json(),
     }
@@ -1184,6 +1218,11 @@ mod tests {
         );
         let model = Value::from("a\u{202e}b\u{200b}c");
         assert_eq!(wire_value(&model), json!("abc"));
+        let mixed = Value::Str(crate::value::PStr {
+            text: "a\u{202e}b".into(),
+            prov: Provenance::Mixed,
+        });
+        assert_eq!(wire_value(&mixed), json!("ab"));
         let tool = Value::Str(crate::value::PStr {
             text: "x\u{200b}".into(),
             prov: Provenance::Tool,
@@ -1221,6 +1260,7 @@ mod tests {
             slots: Vec::new(),
             status: NodeStatus::Sealed,
             origin: "root".into(),
+            index: 0,
         }
     }
     fn address(path: &str, parent: Option<&str>, index: usize) -> crate::validate::Address {
@@ -1292,7 +1332,7 @@ mod tests {
             &[(11, "a", Some("root"), 0)],
             &[(12, "x", Some("root"), 0), (11, "a", Some("root"), 1)],
         );
-        let (ops, _) = tree.maintain(&ir, &lib, &projection);
+        let (ops, _) = tree.maintain(&ir, &lib, None, &projection);
         assert_eq!(ops.len(), 1, "only the insert is required: {ops:?}");
         assert!(matches!(&ops[0], Op::Insert { node, index: 0, .. } if node.id == "x"));
         assert_eq!(root_children(&tree), vec!["x", "a"]);
@@ -1305,7 +1345,7 @@ mod tests {
             &[(11, "a", Some("root"), 0), (12, "b", Some("root"), 1)],
             &[(12, "b", Some("root"), 0), (11, "a", Some("root"), 1)],
         );
-        let (ops, _) = tree.maintain(&ir, &lib, &projection);
+        let (ops, _) = tree.maintain(&ir, &lib, None, &projection);
         assert!(
             matches!(&ops[0], Op::Move { id, index: 0, .. } if id == "b"),
             "unexpected ops: {ops:?}"
@@ -1325,7 +1365,7 @@ mod tests {
                 (11, "a", Some("root"), 2),
             ],
         );
-        let (ops, _) = tree.maintain(&ir, &lib, &projection);
+        let (ops, _) = tree.maintain(&ir, &lib, None, &projection);
         assert_eq!(
             ops,
             vec![
@@ -1362,7 +1402,7 @@ mod tests {
                 (11, "a", Some("root"), 2),
             ],
         );
-        let (ops, _) = tree.maintain(&ir, &lib, &projection);
+        let (ops, _) = tree.maintain(&ir, &lib, None, &projection);
         assert_eq!(
             ops,
             vec![
@@ -1391,7 +1431,7 @@ mod tests {
             &[(11, "a", Some("root"), 0)],
             &[(11, "a", Some("other"), 0)],
         );
-        let (ops, _) = tree.maintain(&ir, &lib, &projection);
+        let (ops, _) = tree.maintain(&ir, &lib, None, &projection);
         assert!(
             matches!(&ops[0], Op::Move { id, parent: Some(parent), index: 0, .. }
                 if id == "a" && parent == "other"),
@@ -1415,7 +1455,7 @@ mod tests {
             remove: None,
             order: Vec::new(),
         };
-        let (ops, work) = tree.insert_grafts(&ir, &lib, &[graft]);
+        let (ops, work) = tree.insert_grafts(&ir, &lib, None, &[graft]);
         assert_eq!(root_children(&tree), vec!["x", "y"]);
         assert!(matches!(&ops[0], Op::Insert { node, index: 0, .. } if node.id == "x"));
         assert!(matches!(&ops[1], Op::Insert { node, index: 1, .. } if node.id == "y"));
@@ -1432,7 +1472,7 @@ mod tests {
             remove: Some("a".into()),
             order: Vec::new(),
         };
-        let (ops, work) = tree.insert_grafts(&ir, &lib, &[graft]);
+        let (ops, work) = tree.insert_grafts(&ir, &lib, None, &[graft]);
         assert_eq!(ops, vec![Op::Remove { id: "a".into() }]);
         assert!(!tree.nodes.contains_key("a"));
         assert_eq!(work.wire_nodes_examined, 1);
@@ -1453,7 +1493,7 @@ mod tests {
             remove: None,
             order: Vec::new(),
         };
-        let (ops, _) = tree.insert_grafts(&ir, &lib, &[graft]);
+        let (ops, _) = tree.insert_grafts(&ir, &lib, None, &[graft]);
         assert_eq!(ops.len(), 1, "same-kind nodes are updated: {ops:?}");
         assert!(
             matches!(&ops[0], Op::SetProps { id, .. } if id == "a"),
@@ -1465,14 +1505,14 @@ mod tests {
         let (mut tree, lib, mut ir) = tree_with(&["a", "b"]);
         ir.nodes.remove(&crate::ir::NodeId(11));
         let removal = projection(vec![11], &[(11, "a", Some("root"), 0)], &[]);
-        let (ops, work) = tree.maintain(&ir, &lib, &removal);
+        let (ops, work) = tree.maintain(&ir, &lib, None, &removal);
         assert_eq!(ops, vec![Op::Remove { id: "a".into() }]);
         assert_eq!(work.wire_nodes_examined, 1);
 
         let (mut tree, lib, mut ir) = tree_with(&["a"]);
         ir.nodes.insert(crate::ir::NodeId(12), column(12, "x"));
         let insertion = projection(vec![12], &[], &[(12, "x", Some("root"), 0)]);
-        let (ops, work) = tree.maintain(&ir, &lib, &insertion);
+        let (ops, work) = tree.maintain(&ir, &lib, None, &insertion);
         assert!(matches!(&ops[0], Op::Insert { node, .. } if node.id == "x"));
         assert_eq!(work.wire_nodes_examined, 1);
     }
@@ -1583,7 +1623,7 @@ mod tests {
             Prop::Static(PropValue::Value(Value::from("new"))),
         );
         ir.nodes.insert(id, node);
-        let (ops, work) = tree.update_props(&ir, &lib, &[id]);
+        let (ops, work) = tree.update_props(&ir, &lib, None, &[id]);
         assert!(ops.iter().any(|op| matches!(op, Op::SetProps { .. })));
         assert_eq!(
             work.props_compared, 3,

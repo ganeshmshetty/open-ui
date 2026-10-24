@@ -1,0 +1,3 @@
+$n="1234"
+go=[set($n,"123456")]
+root=Column([Text(text($n)),Button("Go",on_click:go)])

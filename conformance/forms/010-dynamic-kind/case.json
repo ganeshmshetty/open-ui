@@ -1,0 +1,8 @@
+{
+  "title": "Dynamic kind selects the format check",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a7\u00a72.14,7.3: kind is evaluated, not read only from a static literal."
+}

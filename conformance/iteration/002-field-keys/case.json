@@ -1,0 +1,1 @@
+{"title":"Field keys splice in canonical order","tier":"core","tags":["runtime","iteration"],"notes":"SPEC §§2.7,2.10–2.11,4.4,5.5,12.3: key:\"id\" uses typed string/integer paths while static siblings keep source order.","limits":{}}

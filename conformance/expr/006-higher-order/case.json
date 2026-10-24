@@ -1,0 +1,1 @@
+{"title":"Lambdas, aggregation and stable sort","tier":"core","tags":["runtime"],"notes":"SPEC §2.7: map, filter, sort_by, sum/avg/min/max."}

@@ -1,0 +1,5 @@
+$term="a"
+query a=tool("known",{n:1},default:"a")
+query b=tool("known",{term:$term},default:"b")
+go=Button("Change",on_click:set($term,"b"))
+root=Column([Text(a),Text(b),go])

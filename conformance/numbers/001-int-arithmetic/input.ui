@@ -1,0 +1,1 @@
+root=Stat("arithmetic",7/2*3+7%4-1)

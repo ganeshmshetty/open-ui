@@ -1,0 +1,8 @@
+{
+  "title": "Debounce fires at 301 ms",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a77.5: the 300 ms debounce starts at the dependency change."
+}

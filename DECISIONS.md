@@ -88,3 +88,86 @@ deterministic prerequisites and record the gap. The adopted default is the third
 do not label synthetic output as model evidence. Prompt/feedback/message fixtures,
 the prompt digest and the CLI demos are ready for a real recording run; the
 evaluation set and transcript measurements remain open in `docs/milestones/M5.md`.
+
+## M4 runtime slice boundary
+
+- Implement value evaluation, fuel, state reads, typed state writes and an explicit
+  epoch-bound `activate` entry now. Queries resolve to their declared default and
+  `ref()` stays a `Ref` placeholder; host dispatch, delivery, events and
+  `limit.event` stay in the next runtime slice.
+- Wire action props keep the source-owner key and the epoch binding lives in
+  `Session::action_handle`. This lets events be authorized without changing every
+  action golden; the events slice can decide whether a handle string must also
+  carry the epoch on the wire. SPEC §6.5 still requires epoch-bound handles.
+- A host-effect step in an activated plan is returned as deferred rather than
+  partially dispatched. State steps (`set`/`restore`) run in order. This keeps the
+  plan atomic at the current host boundary.
+- Runtime expression errors yield `null` with one diagnostic. Runtime node-dropping
+  for a required non-nullable prop, slot `min_items` and form/field recovery remain
+  future M4 work; the current slice only replaces values and reports diagnostics.
+- `each` and node-producing `if`/`coalesce` stay checked plans until node
+  instantiation is implemented; calling `each` in a value position is `expr.type`.
+
+## M4 runtime slice 2 decisions (host boundary)
+
+- Queries request after `finish()`; dependency changes are debounced through the
+  virtual clock (300 ms). Pending requests beyond `max_concurrent_requests` stay
+  queued and are pumped by delivery. A delivery is accepted only for the current
+  `(stmt, args_hash)`; stale and cross-epoch ids are dropped. This is the simplest
+  reading of §7.5's request table and avoids any real clock or async work in core.
+- Tool descriptors are not part of `SessionOptions` yet. Every accepted query
+  therefore reports `needs_approval = true`, the §7.5 default for `auto_run =
+  false`. When descriptors arrive, this becomes descriptor- and provenance-based.
+- Ref delivery error mapping is fixed because §7.7 names only three codes: a
+  denied/failed host delivery is `ref.unknown`, too many bytes or too many
+  resolutions is `ref.too_large`, and a nested ref is `ref.invalid`.
+- Field formats are fixed in §2.14: scalar-value length, one `@` with a dotted
+  domain for email, `http(s)://authority` for url, finite `f64` and `i64` parsing.
+  Field status is exposed by node path until the renderer adds error/touched props.
+- Event truncation drops `ctx` first, then trims `text`. Keeping visible text is
+  more useful than keeping optional context; `limit.event` is emitted once.
+- Action steps that create host requests are returned in `Update.requests` and,
+  for `say`/custom actions, `Update.model_events`. The host still decides whether
+  to send the model event; the core never transmits anything.
+
+## M4 runtime slice 3 decisions (data-dependent nodes)
+
+- Keep `Session::ir()` as the static validated tree and expose the expanded
+  runtime tree as `Session::live_ir()`/`Resolved::ir()`. This preserves the
+  batch/stream IR equality contract while patches, fields, actions and resolved
+  trees see instantiated nodes.
+- Retain a source element index on `SlotPlan` and `Node` rather than reconstruct
+  ordering from path strings; path suffixes are not a total order for repeated
+  names.
+- Runtime drops keep the failing expression's diagnostic recovery (`ValueNulled`)
+  because §4.3 fixes code recovery. A plain `Null` for a required non-nullable
+  argument with no default reports `schema.missing_required`, whose recovery is
+  `NodeDropped`.
+- Action plans instantiated inside `each` capture lambda locals. A static
+  template plan is reused only when its owner path is a prefix of the concrete
+  element path; otherwise steps are rebuilt from the validated expression.
+- Synthetic field/query props (`error`, `touched`, `status`) are emitted by the
+  wire projection and ignored by the stream/batch tree comparison because they
+  are session state, not batch projection.
+
+## M4 review fixes — defaults adopted
+
+- **Denied refresh.** §7.5 says "default stays", while the §4.3 recovery column
+  said `KeptLastGood`. The recovery column was the contradiction; it is now
+  `Defaulted`, and a denied refresh clears the previous result. `query.failed`
+  keeps `KeptLastGood`, so a failed refresh may keep the last good value.
+- **Cross-epoch delivery.** Request ids restart at 1 after `reset()`, so the id
+  alone cannot identify a delivery. Pending entries now carry their epoch and
+  `Session::deliver_from(epoch, id, ...)` rejects an id whose epoch differs from
+  both the pending entry and the current session. `deliver(id, ...)` remains the
+  current-epoch convenience for hosts that have just received the request.
+- **Ref failure.** §4.3 fixes `ref.unknown`/`ref.too_large`/`ref.invalid` to
+  `ValueNulled`; the old placeholder retention contradicted that. A failed
+  delivery now evaluates the ref to `Null`, and a required non-nullable node then
+  follows the §4.4 ladder (possibly `schema.missing_required` and `NodeDropped`).
+- **Runtime library extensions.** Runtime fixtures may supply `library.json` to
+  extend std with a custom action. This is used only to exercise `emit` without
+  adding a standard action to the public std library.
+- **Debounce base.** The 300 ms timer starts from the virtual clock at the
+  dependency change (the clock before the observing `advance_clock`), cancels
+  when arguments revert, and applies to queued queries.

@@ -1,0 +1,1 @@
+{"title":"Fuel exhaustion nulls one prop","tier":"core","tags":["runtime"],"notes":"SPEC §§7.1,4.3: each prop is metered independently.","limits":{"fuel_per_prop":4}}

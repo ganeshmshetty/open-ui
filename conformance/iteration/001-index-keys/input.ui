@@ -1,0 +1,1 @@
+root=Column(each([1,2,3], |n,i| Text(fmt("{}:{}", n, i))))

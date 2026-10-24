@@ -316,7 +316,7 @@ All builtins are pure, total and fuel-metered. Their names are reserved in the c
 
 Semantics:
 
-- **`each`** is the only construct that yields lists of nodes. `key:` is a lambda or a field-path string (`key: "id"`), and keys MUST be strings or integers (`schema.bad_key`). Without `key:`, elements are keyed by index. `each` is capped by `each_max_items` (`limit.list_len`, truncated).
+- **`each`** is the only construct that yields lists of nodes. `key:` is a lambda or a field-path string (`key: "id"`), and keys MUST be strings or integers (`schema.bad_key`). A key lambda binds its own parameters (item and zero-based index) independently of the body lambda. Without `key:`, elements are keyed by index. `each` is capped by `each_max_items` (`limit.list_len`, truncated).
 - **`sort_by`** is stable. Keys must all be numbers or all strings (`expr.type` otherwise). Fuel is charged as `n·ceil(log2 n)`.
 - **Lambdas** bind their parameters, which shadow statement names, including a
   same-named node statement. Parameters are data values, not nodes. Free names in
@@ -393,8 +393,12 @@ Unreachable node statements are checked locally for syntax/schema errors, withou
 instantiation: their references do not allocate nodes or report path cycles.
 
 In batch static validation, data-dependent `each`, `if` and `coalesce` retain
-checked node plans. Their instances consume budgets and report path cycles only when M4 instantiates them,
-using this same canonical walk; M2 does not evaluate their collections or conditions.
+checked node plans. Their instances consume budgets, allocate keyed paths and
+report path cycles only when M4 instantiates them, using this same canonical walk;
+M2 does not evaluate their collections or conditions. Runtime instantiation walks
+concrete children and plans together by their source index. A dropped subtree
+releases its allocation before the next sibling, and a `min_items` failure drops
+its parent exactly as during static validation (§4.4).
 
 ### 2.11 Components, arguments and slots
 
@@ -503,6 +507,10 @@ The model never supplies a regular expression. A library MAY add named format ki
 
 - The empty value is `""`, `[]` or `null`. An empty field fails only if `required` is set; every other check passes it.
 - Checks run in this fixed order: required, format, length, range. A field shows the first check it fails.
+
+Length counts Unicode scalar values for text and elements for lists. The fixed formats are: `email` needs one non-empty local part, a non-empty domain containing a dot and no whitespace; `url` needs an `http://` or `https://` prefix followed by a non-empty authority; `number` needs a finite numeric string; `integer` needs an `i64` string. `min`/`max` compare a numeric value or numeric string.
+
+The session exposes each field's `FieldStatus` by canonical node path (`field_status()`), and a later renderer mirrors `error` and `touched` into resolved props. Validation and submit gating never dispatch a host effect.
 
 **Submit.**
 
@@ -778,7 +786,7 @@ Codes are stable once released. A code's severity and recovery are fixed, except
 | `state.type_write` | Warning | Ignored | |
 | `query.unknown_tool` | Error | KeptLastGood (default stays) | yes |
 | `query.too_many` | Error | StatementDropped | yes |
-| `query.denied` | Error | KeptLastGood | |
+| `query.denied` | Error | Defaulted | |
 | `query.failed` | Error | KeptLastGood | |
 | `ref.invalid` | Error | ValueNulled | yes |
 | `ref.unknown` | Error | ValueNulled | yes |
@@ -804,7 +812,7 @@ Recovery is applied bottom-up. Each step stops the cascade, so a parent sees a c
 
 1. **Token.** Skip a byte, insert a missing comma, ignore a stray closer.
 2. **Value.** An expression that errors becomes `Null`.
-3. **Argument.** A bad optional argument is omitted. A bad required argument takes its library default, if one exists.
+3. **Argument.** A bad optional argument is omitted. A bad required argument takes its library default, if one exists. At runtime a required non-nullable argument whose evaluated value is `Null` reports `schema.missing_required` when no default exists; a failed expression keeps its own diagnostic.
 4. **Node.** If a required argument is still missing, or is `Null` without an explicitly nullable type, the node is dropped.
 5. **Slot.** A dropped child is removed from its parent's slot, and the parent renders with the remaining children. If a slot is now below its `min_items`, the parent is dropped (step 4 applies to it).
 6. **Statement.** A statement that cannot be parsed or classified is dropped. Its name stays claimed if its left side was parsed (2.3).
@@ -974,9 +982,12 @@ recovered-null metadata; hash collisions compare the full identity. Inserting an
 earlier expression MUST NOT renumber retained props. Expression owners release
 obsolete references when rechecked, so growing a tail does not retain its old
 expression bodies. Node slots separately retain
-`SlotPlan { base, expression, accepts }` for data-dependent node expressions;
-empty concrete children do not imply an empty plan. Plans preserve source bases,
-lambda scopes and accepted component types without manufacturing instances.
+`SlotPlan { base, expression, accepts, index }` for data-dependent node
+expressions; empty concrete children do not imply an empty plan. `index` is the
+source element position in the parent slot, so concrete children and plans keep
+their canonical interleaving. Nodes also retain that source index. Plans preserve
+source bases, lambda scopes and accepted component types without manufacturing
+instances.
 The IR also retains the canonical node-statement template table used by named
 references inside these plans; no definition is lost when a template is deferred.
 Static action-plan references use the source-owner string
@@ -999,7 +1010,10 @@ Direct aliases of literal constants can still resolve statically.
 These arenas are process-local validation output. In the static-only M3 phase,
 a dynamic prop is carried as `{"deferred": <structural Expr AST>}` in patches,
 without evaluation; unlike an arena index, this survives unrelated arena growth.
-M4 replaces this staging representation with resolved values (§6.5/G9).
+M4 evaluates dynamic props at runtime and sends resolved values (§6.5/G9). A
+prop whose expression errors is `null` with a runtime diagnostic; until host
+delivery exists, a query name evaluates to its declared `default` and `ref()`
+remains a `Ref` placeholder.
 
 ### 5.6 Statement kinds and node expressions
 
@@ -1173,14 +1187,17 @@ pub enum StateOrigin { Default, User, Action }
 Each field registers `(form scope, state key, kind, required, min_len, max_len, min, max)` with the runtime.
 
 - `validate(scope)` evaluates every field in the scope with the 2.14 rules. It produces `FieldStatus { error: Option<FieldErrorCode>, touched }`.
-- The renderer reads field status through resolved props (`error`, `touched`) and never decides validity itself.
+- The renderer reads field status through resolved props (`error`, `touched`) and never decides validity itself. These are synthetic resolved props, not library arguments, and are never visible to expressions.
 - A field becomes touched on blur or on a failed submit.
 - `FieldErrorCode` is one of `required`, `format`, `too_short`, `too_long`, `too_small` or `too_large`. The renderer turns it into localized text.
 
 ### 7.4 Action plans
 
 ```rust
-pub struct ActionPlan { pub steps: Vec<Step>, pub origin: NodeId, pub submit_scope: Option<FormScope> }
+pub struct ActionPlan {
+    pub steps: Vec<Step>, pub origin: NodeId, pub submit_scope: Option<FormScope>,
+    pub locals: Map<Name, Value>,   // captured lambda environment when instantiated in each
+}
 pub enum Step {
     Set(StateKey, ExprId), Restore(Vec<StateKey>), Refresh(StmtId),
     Say { text: ExprId, ctx: Option<ExprId> }, Open(ExprId), Emit { name: Name, params: Option<ExprId> },
@@ -1229,6 +1246,14 @@ pub enum ReqKind {
 | `Ready`, `Failed` | `refresh` or arg change | `Refreshing` (same key) or a new entry (new key) | emit a new request; the old result stays visible |
 | any | delivery for an entry that is no longer current for its statement | unchanged | delivery dropped |
 
+A denial clears any previous result, so a refresh that is denied falls back to
+the query's declared `default`; a failure keeps the last good result or that
+default. Every `HostRequest` carries the epoch in which it was issued. Request
+ids restart at 1 after `reset()`, so a delivery is accepted only through
+`deliver_from(epoch, id, ...)` (or `deliver` for the current epoch) when the
+pending entry and the session agree on that epoch; an id from an older epoch is
+dropped even when its number is reused.
+
 **Policy.** The core never calls a tool and never decides policy. It flags `needs_approval = true` in two cases:
 
 - the descriptor has `auto_run = false`;
@@ -1236,7 +1261,9 @@ pub enum ReqKind {
 
 The host decides, typically asking the user for each distinct args hash, and then delivers either a result or `Err(Denied)`.
 
-**Status display.** Request status reaches renderers as a `Status` resolved prop on the data-bearing nodes that read the query (a loading dim, an error notice). It is never visible to expressions.
+**Issuance and delivery.** `finish()` requests every accepted query in query-name order, up to `max_concurrent_requests`; the remainder stay queued and are requested as deliveries free capacity. A dependency change does not request immediately: `advance_clock(now_ms)` starts a 300 ms debounce, then requests the new `(stmt, args_hash)`. A delivery is accepted only while that request is current for its statement and args hash; stale ids and ids from another epoch are dropped. A delivered result is tagged `Tool`, capped by `max_resolved_data_bytes`, and a `TooLarge` result is `query.failed`. When no tool descriptor is supplied the core assumes `auto_run = false`, so queries request host approval.
+
+**Status display.** Request status reaches renderers as a synthetic `status` resolved prop on the data-bearing nodes whose props read the query (a loading dim, an error notice). It is one of `idle`, `requested`, `refreshing`, `ready`, `denied` or `failed`, aggregated worst-first when a node reads several queries. It is never visible to expressions. The session also exposes `query_status(name)`.
 
 **Results** are untrusted data. They are capped by `max_resolved_data_bytes`, tagged with `Tool` provenance, and never parsed as program text.
 
@@ -1274,6 +1301,8 @@ Images are never fetched from a URL by the renderer. The host fetches them and h
 - **Nesting.** A resolved value MUST NOT contain further refs.
 - **Caching.** Resolution is cached per `(message, RefId)`. The limits are in 7.1.
 
+Before delivery the ref id is validated against the catalog and the prop keeps a `Ref` placeholder; no data is invented. Delivery replaces it with the value tagged `Host`, capped by `max_resolved_data_bytes` and by `max_ref_resolutions` per message. A `Denied` or `Failed` delivery is `ref.unknown`, an oversized value or an exceeded resolution cap is `ref.too_large`, and a resolved value that still contains a ref is `ref.invalid`; all three use the §4.3 recovery (`ValueNulled`), so the placeholder is replaced by `Null` and the §4.4 ladder continues from there.
+
 ### 7.8 UI events and events to the model
 
 ```rust
@@ -1293,6 +1322,7 @@ Events that leave the process become `ModelEvent`s once the host lets them throu
 
 - **`label`** is the visible label of the node the user activated, read from the IR. It is not taken from model-supplied event text. This lets the host and the model see what the user actually clicked.
 - **Size.** Events are capped at `max_event_bytes` (`limit.event`).
+- **Truncation.** An oversized event first drops its `ctx`, then trims `text` at a character boundary; `limit.event` is reported once. If the event is still oversized after the text is exhausted (for example an oversized label), the one diagnostic is still reported: `label` is the activated node's real label and is not rewritten. `say` and declared custom actions produce a model event beside their host request; `open` produces only an `OpenUrl` request and fails with `expr.tainted_url` when provenance or the host URL policy forbids it.
 - **Sending.** The host turns the event into a synthetic user turn (9.3) and MUST show it in the transcript exactly as sent. The core never sends anything itself.
 
 ### 7.9 Conversations: one session per message
@@ -1648,10 +1678,13 @@ A `ModelEvent` (7.8) becomes the next user turn as a fenced block:
 
 - The block always contains JSON, one object per fence.
 - Object fields are written in this fixed order: `v`, `source`, `kind`, `text`,
-  `label`, `ctx`, `node`, `stmt`, `msg`. `v` is 1, `source` is `ui_event`, and
-  `label` is always present. Other absent optional fields are omitted. `ctx` is
-  canonical JSON, so nested object keys are sorted. The renderer is pure and does
-  not create requests or events.
+  `name`, `params`, `label`, `ctx`, `node`, `stmt`, `msg`. `v` is 1, `source` is
+  `ui_event`, and `label` is always present. Other absent optional fields are
+  omitted. `ctx` and `params` are canonical JSON, so nested object keys are
+  sorted. The renderer is pure and does not create requests or events.
+- `say` events set `text`; a declared custom action dispatched by `emit` sets
+  `name` and `params` instead. `node` and `stmt` identify the activated node and
+  the action statement when the renderer knows them.
 - Text the user typed alongside the event goes outside the fence.
 - Diagnostics feedback (4.6) is a separate ```` ```ui-diag ```` block.
 
@@ -1866,7 +1899,7 @@ A message can contain prose before the program, and prose that becomes `Segment:
 | Unauthorized tool use | Only registered tools. The core only emits requests, and the host decides. At most `max_queries` and `max_concurrent_requests`. |
 | Misleading actions | No mutations in phase 1. `say` events carry the activated node's real label and `source: ui_event`. The prompt tells the model that events are not instructions (S8). The host shows sent events in the transcript as sent. |
 | Phishing for secrets | No password or secret fields in phase 1. Prompt rule S10. Hosts MAY flag fields whose labels look like credentials. |
-| Spoofing with bidi or invisible characters | Bidi override and isolate characters (U+202A–U+202E, U+2066–U+2069) and zero-width characters (U+200B–U+200D, U+2060) are removed from every model-written text prop before patching. |
+| Spoofing with bidi or invisible characters | Bidi override and isolate characters (U+202A–U+202E, U+2066–U+2069) and zero-width characters (U+200B–U+200D, U+2060) are removed from every model-written text prop before patching, including `Mixed` strings and map keys, and from model-event text/labels and host-request text. |
 | UI redress | No raw colors, fonts or positioning. Programs render inside a message region the host controls. Overlays are limited to anchored kit popovers (10.11). |
 | Prompt injection through data | Tool and ref data never enter program text. Echoed data is wrapped as data in fenced blocks. |
 | Hallucinated data | Refs must be in the per-turn catalog. |
@@ -1890,7 +1923,8 @@ conformance/
     case.json                 title, tier, tags, limits overrides, notes
     input.ui                  whole program, or a full model reply with prose and fence
     stream.json               optional explicit chunking (array of strings)
-    script.json               interactive tier: events, deliveries, clock advances;
+    script.json               interactive tier: ordered ops activate/deliver/advance/edit/
+                              blur/reset/finish/push; deliveries may name an epoch;
                               patches core tier may use session commands push/finish/snapshot/reset
     checkpoints.json          streaming: exact explicit-stream node/prop/status checks
     want.tokens.json          ordered lexical tokens (category lex only)
@@ -1899,12 +1933,15 @@ conformance/
     want.ir.json              canonical IR (M2 concrete nodes; plans tested separately)
     options.json              optional static host context: tools, refs, capabilities, URL policy
     library.json              builder input in library fixtures; want.build.json gives exact errors
-                              tag extend adds these definitions to std via extend()
+                              tag extend adds these definitions to std via extend(); runtime
+                              fixtures may use it the same way for custom actions
     paths.json                allocator probe in focused ir fixtures; want.paths.json gives paths
     want.diag.json            expected diagnostics
     want.patches.json         exact batches (category patches only)
     want.resolved.json        evaluated tree (interactive tier)
-    want.requests.json        expected host requests and model events
+    want.requests.json        expected host requests
+    want.events.json          expected model events
+    want.fields.json          expected per-field {path,error,touched}
     want.prompt.txt           golden prompt (category prompt)
     want.prompt.digest        expected xxh3-128 prompt digest (category prompt)
     prompt.json               PromptOptions input (category prompt)
@@ -1926,6 +1963,7 @@ If an implementation and a fixture disagree, the disagreement is treated as a sp
 - **IR** goldens are compact canonical JSON followed by one file-terminating LF, and are compared as canonical JSON: sorted keys, `{id, kind, role, props, children}`, absent props omitted, encoded as in 6.5. `children` includes every validated slot, including its empty array. Retained patch-tree comparisons normalize empty slots, since inserts do not carry empty slot declarations.
 - **Diagnostics** are compared as a multiset of `(code, stmt, path, recovery)`. `message` and `hint` are not compared, except in category `feedback`, which compares the rendered `ui-diag` text byte for byte.
 - **Patches** are compared exactly in category `patches`. Elsewhere they are checked by replay: applying them to an empty tree must give `want.ir.json` or `want.resolved.json`.
+- **Resolved trees** (runtime categories and `want.resolved.json`) use the retained-tree canonical JSON: `{id, kind, role, props, status, children}`, with evaluated values encoded as in 6.5. They are compared byte for byte after canonical encoding, like IR. Category `provenance` additionally encodes strings as `{"s":text,"prov":tag}`. Runtime fixtures MAY carry `want.requests.json`, `want.events.json` and `want.fields.json`; those compare canonical session requests, model events and per-field `{path,error,touched}` exactly.
 - **Prompts and the Library Spec** are compared byte for byte. `want.prompt.txt` ends with one LF.
 - **Feedback** is compared byte for byte as the full `ui-diag` block. A feedback fixture without `want.feedback.txt` expects no block.
 - **Stored messages** are compared as compact canonical JSON plus one terminating LF (`want.stored.json`). Program replay and event rendering are compared as exact text (`want.turn.txt`, `want.event.txt`).
@@ -1969,7 +2007,7 @@ For every chunking it checks:
 | `patches` | Op order, coalescing, `move`, `append_text`, epochs, snapshots. |
 | `state` | Declarations, typing of empty and null defaults, bindings, origins, undeclared reads. |
 | `forms` | Scopes, field checks and their order, submit inside and outside forms, touched state. |
-| `queries` | The request table, dependencies, debounce (virtual clock), stale deliveries, denial, failure, caps. |
+| `queries` | The request table, dependencies, the 300 ms debounce (including queued queries and its 299/300/301 ms boundaries), stale and cross-epoch deliveries, denial reverting to the declared default, failure, caps. |
 | `actions` | Plans, step order, gating while streaming, stale handles. |
 | `refs` | Catalog, resolution, unknown and invalid ids, size limits. |
 | `provenance` | Tagging, mixing, URL acceptance per tag, tool-argument approval flags. |
@@ -1983,7 +2021,7 @@ For every chunking it checks:
 ### 12.5 Tiers
 
 - **Core:** syntax, IR, patches and evaluator. No host involved.
-- **Interactive:** core plus `script.json`. The script contains `{"event": {...}}`, `{"deliver": {"request": "...", "result": ...}}` and `{"advance_ms": n}`, and the fixture expects requests, model events and final state.
+- **Interactive:** core plus `script.json`. The script is an ordered array of tagged ops: `{"op":"activate","node":"...","prop":"..."}`, `{"op":"edit","node":"...","value":...}`, `{"op":"blur","node":"..."}`, `{"op":"deliver","request":N,"epoch":E,"result":...}` or `{"op":"deliver","request":N,"error":"denied"|"failed"|"too_large"}`, `{"op":"advance","ms":N}`, `{"op":"reset"}`, `{"op":"finish"}`, and `{"op":"push","input":"..."}`. `epoch` is optional and defaults to the current epoch. Runners apply every returned patch batch through replay and compare requests, model events, field status and the final state.
 - **GPUI smoke** (non-normative): a headless GPUI test that applies the replay of selected fixtures with no panic. Visual snapshots are deferred.
 
 ### 12.6 Process rules
@@ -2127,8 +2165,15 @@ impl Session {
 
     // UI and host
     pub fn event(&mut self, ev: UiEvent) -> Update;
+    pub fn epoch(&self) -> u32;
     pub fn deliver(&mut self, id: RequestId, res: Result<Value, HostError>) -> Update;
+    pub fn deliver_from(&mut self, epoch: u32, id: RequestId,
+                        res: Result<Value, HostError>) -> Update;  // rejects other epochs
     pub fn advance_clock(&mut self, now_ms: u64) -> Update;  // debounce timers
+
+    // Runtime inspection
+    pub fn query_status(&self, name: &str) -> QueryStatus;
+    pub fn field_status(&self) -> &BTreeMap<String, FieldStatus>;
 
     // Inspection
     pub fn snapshot(&mut self) -> Update;                // reset + inserts, current epoch, next seq

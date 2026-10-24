@@ -1,0 +1,8 @@
+{
+  "title": "Say creates a host request and model event",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a77.8: text, context, label and node come from the activated node."
+}

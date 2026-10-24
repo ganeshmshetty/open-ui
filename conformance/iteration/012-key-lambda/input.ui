@@ -1,0 +1,2 @@
+rows=[{id:7},{id:8}]
+root=Column(each(rows, |r| Text(text(r.id)), key: |r, i| fmt("{}-{}", r.id, i)))

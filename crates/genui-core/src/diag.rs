@@ -270,7 +270,7 @@ impl Diagnostic {
                 DiagPhase::Query,
                 Recovery::StatementDropped,
             ),
-            QueryDenied => (Severity::Error, DiagPhase::Query, Recovery::KeptLastGood),
+            QueryDenied => (Severity::Error, DiagPhase::Query, Recovery::Defaulted),
             QueryFailed => (Severity::Error, DiagPhase::Query, Recovery::KeptLastGood),
             RefInvalid => (Severity::Error, DiagPhase::Ref, Recovery::ValueNulled),
             RefUnknown => (Severity::Error, DiagPhase::Ref, Recovery::ValueNulled),

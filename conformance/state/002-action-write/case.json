@@ -1,0 +1,1 @@
+{"title":"Action state write","tier":"core","tags":["runtime"],"notes":"SPEC §7.4: an explicit activate runs Set steps and re-evaluates dependent props."}

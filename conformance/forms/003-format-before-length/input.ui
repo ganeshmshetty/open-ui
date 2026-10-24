@@ -1,0 +1,5 @@
+$email="bad"
+finder=Form([email_f,go],on_submit:say("Create"))
+email_f=Input("Email",bind:$email,kind:"email",min_len:8)
+go=Button("Create",submit:true,on_click:say("Clicked"))
+root=Column([finder])

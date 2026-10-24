@@ -1,0 +1,8 @@
+{
+  "title": "Failed ref delivery nulls the prop",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a7\u00a74.3,7.7: denied/failed resolution is ref.unknown with ValueNulled."
+}

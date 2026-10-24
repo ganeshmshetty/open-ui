@@ -1,0 +1,1 @@
+root=Text(fmt("{}|{}|{}|{}|{}",len("héllo"),first([3,1,2]),last([3,1,2]),upper("ok"),join(["a","b"],"-")))

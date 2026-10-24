@@ -25,8 +25,6 @@ pub mod ir;
 pub mod message;
 /// Host-facing tool and ref catalog types (M5).
 pub mod protocol;
-/// Synchronous evaluator and host interaction (M4).
-pub mod runtime {}
 pub use message::ModelEvent;
 /// Component library model and builder (M2).
 #[path = "library.rs"]
@@ -35,6 +33,8 @@ pub mod r#lib;
 pub mod limits;
 /// Renderer-independent patch protocol (M3).
 pub mod patch;
+/// Synchronous evaluator and explicit state-writing action entry point (M4).
+pub mod runtime;
 pub mod validate;
 pub mod value;
 

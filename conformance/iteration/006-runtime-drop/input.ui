@@ -1,0 +1,2 @@
+rows=[{name:"ok",v:1},{name:"bad"}]
+root=Column([Text("head"), each(rows, |r| Stat(r.name, r.v))])

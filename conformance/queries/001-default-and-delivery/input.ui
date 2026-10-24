@@ -1,0 +1,2 @@
+query q=tool("known",{term:"a"},default:"pending")
+root=Text(q)

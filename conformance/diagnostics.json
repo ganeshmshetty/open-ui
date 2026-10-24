@@ -5,8 +5,14 @@
       "schema/012-cap-markdown-fallback",
       "schema/062-data-fallback-plan"
     ],
+    "expr.div_zero": [
+      "numbers/004-div-zero"
+    ],
     "expr.fmt_args": [
       "schema/025-fmt-count"
+    ],
+    "expr.index_oob": [
+      "expr/003-index-oob"
     ],
     "expr.lambda_misuse": [
       "grammar/023-lambda-misuse",
@@ -14,12 +20,14 @@
       "schema/026-lambda-error-stops-cascade"
     ],
     "expr.non_finite": [
-      "lex/027-finite-floats"
+      "lex/027-finite-floats",
+      "numbers/003-non-finite"
     ],
     "expr.overflow": [
       "grammar/030-number-overflow",
       "lex/026-integer-range",
-      "schema/028-literal-error-stops-cascade"
+      "schema/028-literal-error-stops-cascade",
+      "numbers/002-overflow"
     ],
     "expr.tainted_url": [
       "library/036-nullable-url-policy",
@@ -30,7 +38,8 @@
       "schema/009-builtin-arity",
       "schema/010-builtin-type",
       "schema/031-multiple-bad-actions",
-      "schema/060-emit-name-is-literal"
+      "schema/060-emit-name-is-literal",
+      "expr/007-runtime-type"
     ],
     "expr.unknown_fn": [
       "grammar/031-tool-outside-query",
@@ -56,6 +65,12 @@
       "statements/022-expression-depth",
       "statements/028-root-bracket-depth-zero"
     ],
+    "limit.event": [
+      "events/003-limit-event"
+    ],
+    "limit.fuel": [
+      "expr/009-fuel"
+    ],
     "limit.ir_depth": [
       "limits/002-depth-zero",
       "limits/003-ir-depth"
@@ -76,7 +91,8 @@
     ],
     "limit.state": [
       "limits/013-state-budget",
-      "limits/015-state-zero"
+      "limits/015-state-zero",
+      "state/004-state-byte-limit"
     ],
     "limit.stmt_count": [
       "statements/021-statement-count"
@@ -122,6 +138,12 @@
       "resolve/013-unresolved-child",
       "resolve/014-unresolved-value"
     ],
+    "query.denied": [
+      "queries/002-denied-keeps-default"
+    ],
+    "query.failed": [
+      "queries/003-failed-keeps-last-good"
+    ],
     "query.too_many": [
       "limits/010-query-budget",
       "limits/012-query-zero"
@@ -132,6 +154,9 @@
     "ref.invalid": [
       "schema/039-ref-id-invalid",
       "schema/040-ref-invalid"
+    ],
+    "ref.too_large": [
+      "refs/003-too-large"
     ],
     "ref.unknown": [
       "schema/041-ref-unknown"
@@ -219,6 +244,9 @@
     ],
     "state.const_default": [
       "schema/044-state-nonconstant"
+    ],
+    "state.type_write": [
+      "state/003-type-write"
     ],
     "state.undeclared": [
       "schema/045-state-undeclared"

@@ -1,0 +1,12 @@
+[
+  {
+    "op": "deliver",
+    "request": 1,
+    "result": "https://blocked.example/x"
+  },
+  {
+    "op": "activate",
+    "node": "root/children:@go",
+    "prop": "on_click"
+  }
+]

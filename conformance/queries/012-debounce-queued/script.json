@@ -1,0 +1,20 @@
+[
+  {
+    "op": "activate",
+    "node": "root/children:@go",
+    "prop": "on_click"
+  },
+  {
+    "op": "advance",
+    "ms": 299
+  },
+  {
+    "op": "advance",
+    "ms": 300
+  },
+  {
+    "op": "deliver",
+    "request": 1,
+    "result": "A"
+  }
+]

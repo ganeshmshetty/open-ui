@@ -1,0 +1,8 @@
+{
+  "title": "Denied query keeps its default",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a77.5: query.denied is KeptLastGood and the default stays visible."
+}

@@ -1,0 +1,1 @@
+{"title":"Query name resolves to its default","tier":"core","tags":["runtime"],"notes":"SPEC §§4.6,7.5: runtime reads the declared default until a host delivery."}

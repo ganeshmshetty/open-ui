@@ -1,0 +1,2 @@
+$big=1e308
+root=Stat("finite",$big*10)

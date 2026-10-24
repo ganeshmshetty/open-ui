@@ -1,0 +1,8 @@
+{
+  "title": "Deliveries from an older epoch are dropped",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a7\u00a76.3,7.5: request ids restart after reset, so deliveries carry an epoch."
+}

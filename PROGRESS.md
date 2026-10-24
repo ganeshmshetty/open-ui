@@ -10,7 +10,7 @@ A milestone is complete only after its acceptance checks pass and CI is green.
 | M1 — Batch syntax | Complete | 124 fixtures / 28,225 chunkings; 23 tests including 2,048 generated round trips; four clean 600-second fuzz campaigns; Linux/macOS CI green. |
 | M2 — Library, validation, IR and limits | Complete, including tree and quality gates | 295 fixtures / 66,772 chunkings / 400 permutations; 66 Rust + 10 gate tests; 8 CLI fixtures; 24 exemplars; renewed parser/validator ASan 601s each; 609 mutations audited; Linux/macOS/quality and mutation CI green. |
 | M3 — Streaming and patches | Complete (mutation advisory) | CI green; fresh 601 s fuzz; 100k property; fixtures/replay. Mutation survivors recorded as backlog per the 2026-10-24 gate change. |
-| M4 — Runtime | Not started | Evaluation and interactive fixture categories. |
+| M4 — Runtime | Complete for SPEC §14.1 | Evaluator, state, actions, queries, refs, events, forms, provenance, data-dependent nodes and runtime recovery; runtime fixtures and exact resolved/request/event/field goldens pass. Deferred: tool auto-run and some form scopes inside `each` (docs/milestones/M4.md). |
 | M5 — Prompt, feedback and messages | Complete for SPEC §14.1; ROADMAP item 4 open | `prompt`, `feedback` and `message` pass; 375 fixtures / 83,719 chunkings / 430 permutations; 386 tests; exact prompt bytes on Linux/macOS CI; 15 new fixtures. Model-evaluation recordings still need model access. |
 | M6 — GPUI skeleton | Not started | Live streaming demo and recorded performance. |
 | M7 — Inputs and forms | Not started | Stable editing, keyboard form demo and accessibility. |
@@ -1148,6 +1148,199 @@ mutation never blocks, and adds a demo-first rule: each milestone must end with 
 runnable user-visible demo. ROADMAP items 19–20 add a streaming-dashboard vertical slice and the
 scheduled mutation workflow; chess is explicitly not a milestone. The 32-shard run was cancelled once the new contract
 was recorded; its survivor data remains in the repository for later triage.
+
+## M4 slice 1 — runtime evaluation foundation (2026-10-23)
+
+Fixtures were authored before implementation: `numbers` (6), `expr` (9), `state`
+(4) and `actions` (1), each with a canonical `want.resolved.json` retained tree
+and exact static-plus-runtime diagnostics. Existing streaming checkpoint 029 was
+migrated from the retired M3 `deferred` object to the evaluated string because
+SPEC §5.5 already requires M4 to send resolved values; no other golden changed.
+
+Implemented a UI-free tree-walking evaluator over validated expressions:
+literals, names, state reads, lists/maps, checked Int and finite Float arithmetic,
+comparison/logic with short-circuiting, lazy `if`/`coalesce`, member/index,
+lambdas with locals, `map`/`filter`/stable `sort_by`, aggregation, text/format
+builtins, `ref()` placeholders, query-default reads and per-prop fuel. Errors map
+to `expr.overflow`, `expr.non_finite`, `expr.div_zero`, `expr.index_oob`,
+`expr.type`, `expr.unknown_fn` and `limit.fuel` with the §4.3 recovery. Strings
+honour `max_string_bytes`; list producers honour `max_list_len`.
+
+`Session` now owns the runtime state store and evaluated props, sends evaluated
+Dynamic values in live patches, exposes `runtime_diagnostics()`, `resolved()` and
+`action_handle(path, prop)`, and adds an explicit `activate(node, handle)` entry.
+Activation is inert before `finish()` or for a stale epoch/handle. `set`/`restore`
+run in order with type checks (`state.type_write`) and total byte accounting
+(`limit.state`); `refresh`/`say`/`open`/`emit` are returned as deferred steps and
+are **not** dispatched. Validation and streaming still never execute actions.
+
+Explicitly not implemented in this slice: host query dispatch and delivery,
+ref resolution/delivery, model events and `limit.event`, forms/field status,
+provenance mixing and URL policy enforcement, and `each`/node-producing
+`if`/`coalesce` instantiation. `each` in a value position remains a runtime
+`expr.type` error. The existing I7 review blocker and M3 acceptance state are
+unchanged by this slice.
+
+Local gates: `cargo fmt`, workspace Clippy `-D warnings`, `cargo test --workspace`
+(138 tests: 82 core, 47 conformance, 5 std, 4 CLI/quality, plus empty/doc
+targets), 380 fixtures / 89,161 chunkings / 430 seeded permutations,
+`genui-cli fixtures`, `genui-cli spec-check` (3 programs, 4 fragments, 24
+exemplars) and the `serde_json/preserve_order` workspace tests. No fuzz or
+mutation campaign was run.
+
+
+## M4 slice 2 — runtime host boundary (2026-10-23)
+
+Fixtures were authored before each fix (and observed failing where behavior was
+wrong): `queries` (5), `refs` (4), `events` (2), `forms` (5), `provenance` (6)
+and `actions/002`. They use exact `want.resolved.json` (provenance trees encode
+`{"s":text,"prov":tag}`), `want.diag.json`, and optional `want.requests.json`,
+`want.events.json` and `want.fields.json`.
+
+Implemented:
+
+- Accepted queries request once at `finish()` in name order, up to
+  `max_concurrent_requests`; the rest queue and pump on delivery. Dependency
+  changes debounce for 300 ms through `advance_clock`. A delivery is accepted only
+  for the current `(stmt, args_hash)`; stale, unknown and cross-epoch ids are
+  dropped. Results are tagged `Tool`, capped by `max_resolved_data_bytes`, and
+  `query.denied`/`query.failed` keep the default or last good value. Request status
+  is exposed via `query_status`.
+- `ref()` validates `[A-Za-z0-9_.:-]{1,128}`, stays a `Ref` placeholder before
+  delivery, and requests only catalog ids that reach a prop. Delivered data is
+  tagged `Host`; denial/failure is `ref.unknown`, size or
+  `max_ref_resolutions` overflow is `ref.too_large`, and a nested ref is
+  `ref.invalid`. No resolution happens before delivery.
+- `UiEvent::{Activate,Edit,Blur}` and `deliver` are the runtime entries. `say`,
+  `open`, declared custom actions and `refresh` become epoch-bound
+  `HostRequest`s; `say`/custom actions also produce a `ModelEvent` with the
+  activated node's visible label. `limit.event` truncates by dropping `ctx` then
+  trimming text. `open` enforces provenance and the host URL allowlist
+  (`expr.tainted_url`). Host effects are never dispatched internally.
+- Field registry by nearest `Form`/page scope with the §2.14 fixed check order;
+  failed submit marks scope fields touched and runs no step. A submit button runs
+  its own `on_click` first, then the form's `on_submit`. Field status is exposed
+  by canonical node path; the renderer props remain M6 work.
+- Resolved trees are unchanged for existing categories; runtime fixtures compare
+  the retained tree and provenance fixtures compare the tagged projection. Stream
+  equality, provisional isolation and the absence of streaming host effects are
+  still checked by the shared oracle.
+
+Bugs found while authoring fixtures (fixed with the fixture present): debounce was
+restarted on every clock advance; delivered values did not mark the wire tree
+dirty; multiple ref rejections re-requested the same id forever; `say` after `set`
+used the activated node's statement for the form's `on_submit`; `fmt` lost mixed
+provenance; oversized events trimmed visible text before context.
+
+Gates: `cargo fmt`, workspace Clippy `-D warnings`, `cargo test --workspace`
+(88 core + 47 conformance + 5 std + 4 CLI/quality tests and empty doc targets),
+`--features serde_json/preserve_order`, 404 fixtures / 96,248 chunkings / 430
+seeded permutations, `genui-cli fixtures`, and `spec-check` (3 programs, 4
+fragments, 24 exemplars). `query.denied`, `query.failed`, `ref.too_large` and
+`limit.event` moved from deferred to covered; only `lib.mismatch` (M5) and
+`render.panic` (M6) remain deferred.
+
+Remaining M4 work: `each`/node-producing `if`/`coalesce` instantiation, synthetic
+`Status`/field props on the wire, `ToolDescriptor`-driven `auto_run`/argument
+shapes, URL policy for tool arguments, form-scope rendering semantics at M6, and
+fuzz/mutation acceptance for this changed runtime source. M3's I7/review state is
+unchanged by this slice.
+
+## M4 slice 3 — data-dependent nodes and runtime recovery (2026-10-23)
+
+Fixtures first: the new `iteration` category has 12 cases (`001`–`012`) covering
+lambda/index keys, field keys and canonical interleaving, node-producing
+`if`/`coalesce`, nested `each` through a statement template, duplicate and bad
+keys, runtime child drop, `min_items` parent drop, node-budget exhaustion,
+budget rollback after a drop, keyed removal through an action, action plans
+that capture element locals, and key lambdas that bind item and index. Each case runs every §12.3 chunking with exact
+`want.resolved.json` and `want.diag.json`; `009` also has an activation script
+and `011` an interactive script.
+
+Implemented:
+
+- `runtime/instantiate.rs` walks the validated tree in canonical order and
+  evaluates retained `each`/`if`/`coalesce` plans into an expanded IR projection.
+  Static validation IR is untouched (`Session::ir()` still equals batch); patches,
+  replay, field lookup and resolved trees use `Session::live_ir()`/`Resolved::ir()`.
+- `SlotPlan`/`Node` retain a source element index. Concrete children and plans
+  merge by that index, so mixed lists such as `[Text, each(...), Text]` keep
+  source order. Element paths use §5.2 index or typed string/integer keys;
+  duplicate keys fall back to `#index` (`schema.dup_key`) and non-string/integer
+  keys to `#index` (`schema.bad_key`).
+- Runtime instances consume `max_nodes`/`max_ir_depth` in the same walk. A
+  dropped subtree releases its allocation before the next sibling; exceeding a
+  limit omits the remaining children of the directly affected slot.
+- Runtime props apply the §4.4 ladder: failure keeps its own diagnostic, an
+  argument default is used next, an optional argument is omitted, otherwise the
+  node is dropped. A required non-nullable value that is `Null` with no default
+  reports `schema.missing_required` (`NodeDropped`). Slot `min_items` drops the
+  parent after plan expansion.
+- Action props inside `each` reuse a matching static template when present and
+  otherwise rebuild typed steps from the validated expression, interning step
+  arguments into the runtime IR. The plan captures the element lambda environment
+  and is keyed by the concrete element path.
+- Field nodes now carry synthetic `error`/`touched` resolved props and nodes
+  whose props read a query carry an aggregated synthetic `status` prop. They are
+  not library arguments and never visible to expressions. The streaming oracle
+  ignores these session-owned props when comparing batch replay.
+
+Changed existing goldens deliberately, paired with this spec change: six runtime
+fixtures whose required prop now drops the node (`expr/003`, `expr/007`,
+`expr/009`, `numbers/002–004`) now resolve to `null`; forms fixtures gain
+`error`/`touched`; query fixtures gain `status`; one patch golden gains the field
+props. No golden was edited to hide an unexplained failure.
+
+Spec changes are in §2.10–2.11, §4.4, §5.5, §7.3–7.5 and CHANGELOG. Gates:
+`cargo fmt --all -- --check`; workspace Clippy `-D warnings`; `cargo test
+--workspace --locked` and with `--features serde_json/preserve_order` (90 core,
+47 conformance, 5 std, plus CLI/quality and doc targets); `genui-cli fixtures`
+416 fixtures / 99,887 chunkings / 430 permutations; `spec-check` 3 programs,
+4 fragments and 24 exemplars. No fuzz or mutation campaign was run for this
+slice; M3's I7 review blocker and acceptance state are unchanged.
+
+Remaining M4 work: `ToolDescriptor`-driven `auto_run` and argument shapes, URL
+policy for tool arguments, form-scope rendering semantics at M6, and fuzz/mutation
+acceptance for this changed runtime source. Full-form scopes inside `each` have
+not been exercised; action plans capture locals but a form submit plan's
+`submit_scope` is still the static node identity.
+
+## M4 slice 4 — independent-review fixes (2026-10-23)
+
+Fixtures were added before each fix and observed failing first: boundary debounce
+`queries/007–009`, `010-denied-refresh-default`, `011-reset-cross-epoch`,
+`012-debounce-queued`, `events/002-open-emit`, `004-label-only-limit`,
+`005-zero-limit`, `refs/005-denied`, `006-failed`, dynamic form cases
+`forms/006–010`, and Tool URL policy `provenance/007–008`.
+
+Fixed:
+
+- **B1.** `query.denied` now uses `Defaulted`; a denied refresh clears the last
+  result and shows the declared default. `query.failed` still keeps last good.
+  Existing `queries/002` golden updated with the recovery contract change.
+- **B2.** Pending requests carry their epoch. `deliver_from` drops reused ids from
+  an older epoch. Script ops `reset`, `finish` and `push` support the regression.
+- **B3.** Event sizing measures every event and reports exactly one `limit.event`
+  for label-only, param-only and zero-byte limits. Text trimming is one pass, not
+  repeated canonical serialization.
+- **B4.** Field registry and submit/form props read evaluated values, so dynamic
+  `required`, `kind`, `min_len`, `max_len`, `min`/`max`, `bind`, `submit` and
+  `on_submit` work. Failed submit/blur now emits the touched synthetic prop.
+- **B5.** Ref denial/failure/size/invalid replace the placeholder with `Null`
+  (`ValueNulled`); required nodes then drop under `schema.missing_required`.
+
+Also fixed: canonical §6.5 `value_bytes`; one sanitizer covers `Mixed` strings,
+map keys, event text/label and request text; Tool-provenance URLs pass the host
+`UrlPolicy`; debounce starts at the dependency change, cancels on revert, and
+applies to queued queries; repeated independent host diagnostics are kept;
+runtime fixtures reject unexpected requests/events when want files are absent and
+replay every scripted patch batch (G6). Specs updated in §§4.3,7.5,7.7–7.8,11,
+12.1,12.4–12.5,13 and CHANGELOG.
+
+Gates for this slice are recorded in the final review report; M3's I7 review
+blocker and acceptance state are unchanged. Remaining M4 work is unchanged:
+`ToolDescriptor`-driven auto-run/argument shapes, full form scopes inside `each`,
+and fuzz/mutation acceptance for the changed runtime source.
 
 ## M5 — Prompt, feedback, stored messages and events
 

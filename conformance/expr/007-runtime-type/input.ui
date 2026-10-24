@@ -1,0 +1,1 @@
+root=Stat("bad",sum(map([1,2],|x|if(x==1,x,"a"))))

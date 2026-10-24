@@ -1,0 +1,2 @@
+$max=9223372036854775807
+root=Stat("overflow",$max+1)

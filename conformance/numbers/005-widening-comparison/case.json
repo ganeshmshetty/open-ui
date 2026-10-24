@@ -1,0 +1,1 @@
+{"title":"Int/Float widening and comparison","tier":"core","tags":["runtime"],"notes":"SPEC §2.6: arithmetic widens Int, equality compares numerically."}

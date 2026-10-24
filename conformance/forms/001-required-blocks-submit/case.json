@@ -1,0 +1,8 @@
+{
+  "title": "Required field blocks submit",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a7\u00a72.14,7.3: failed validation marks scope fields touched and runs no step."
+}

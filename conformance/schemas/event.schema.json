@@ -8,6 +8,8 @@
     "source": { "type": "string" },
     "kind": { "type": "string" },
     "text": { "type": ["string", "null"] },
+    "name": { "type": ["string", "null"] },
+    "params": {},
     "label": { "type": "string" },
     "ctx": {},
     "node": { "type": ["string", "null"] },

@@ -1,0 +1,8 @@
+{
+  "title": "Format check precedes length",
+  "tier": "core",
+  "tags": [
+    "runtime"
+  ],
+  "notes": "SPEC \u00a72.14: checks run required, format, length, range."
+}

@@ -1,0 +1,1 @@
+{"title":"Runtime type error through a dynamic list","tier":"core","tags":["runtime"],"notes":"SPEC §§2.6,2.7,4.3: sum over a mixed dynamic list is expr.type."}

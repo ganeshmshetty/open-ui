@@ -1,5 +1,12 @@
 # Spec changelog
 
+## 2026-10-24 — Mutation campaign sharding adjustment (§12.8)
+
+- Split the complete mutation campaign over thirty-two disjoint CI shards. With
+  thirty-two shards the repeated runner shutdown on the `syntax/source.rs` heavy
+  shard is avoided by halving each job's mutant count; the inventory, per-mutant
+  timeout and review rules are unchanged.
+
 ## 2026-10-23 — Mutation campaign sharding (§12.8)
 
 - Split the complete mutation campaign over sixteen disjoint CI shards instead of

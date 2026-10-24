@@ -2012,7 +2012,7 @@ deletions and renames; a later spec edit cannot excuse an earlier golden change.
 The milestone-only mutation workflow runs manually or on an explicit
 `[mutation-gate]` push, and checks all milestone syntax/IR/patch/Session/canonical mutants with workspace
 tests in an isolated project-only copy. Results, source hashes, tool version and
-any survivor rationale are retained in milestone metadata. Sixteen CI shards must
+any survivor rationale are retained in milestone metadata. Thirty-two CI shards must
 cover the frozen inventory exactly once and use identical current source hashes;
 each baseline must pass, and every survivor needs a source-matched rationale.
 Build timeouts fail the gate; test timeouts are killed mutants under the mutation

@@ -12,6 +12,8 @@ use crate::{
 use genui_core::{
     ir::{NodeStatus, Role},
     patch::{NodeInit, Op, PatchBatch},
+    runtime::{StateOrigin, StateValue},
+    value::Value as CoreValue,
 };
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
@@ -20,6 +22,7 @@ pub struct StateSheet {
     pub tree: RetainedTree,
     pub overrides: StateOverrides,
     pub ops: Vec<Op>,
+    pub state: BTreeMap<String, StateValue>,
 }
 
 struct Scene {
@@ -237,6 +240,104 @@ pub fn build() -> StateSheet {
     }
     scene.add(Some(&layout), "Divider", json!({}));
 
+    // Inputs and forms.
+    let forms = scene.add(Some(&root), "Card", card("Inputs and forms"));
+    let form = scene.add(Some(&forms), "Form", json!({}));
+    scene.add(
+        Some(&form),
+        "Input",
+        json!({
+            "label": "Email",
+            "bind": {"bind": "$email"},
+            "kind": "email",
+            "placeholder": "you@example.com",
+            "required": true,
+            "max_len": {"i": 80}
+        }),
+    );
+    scene.add(
+        Some(&form),
+        "Input",
+        json!({
+            "label": "Work email (invalid)",
+            "bind": {"bind": "$bad_email"},
+            "kind": "email",
+            "required": true,
+            "error": "format",
+            "touched": true
+        }),
+    );
+    scene.add(
+        Some(&form),
+        "TextArea",
+        json!({
+            "label": "Delivery notes",
+            "bind": {"bind": "$notes"},
+            "placeholder": "Anything the courier should know?",
+            "rows": {"i": 3},
+            "max_len": {"i": 500}
+        }),
+    );
+    scene.add(
+        Some(&form),
+        "Select",
+        json!({
+            "label": "Region",
+            "options": ["North", "South", "East", "West"],
+            "bind": {"bind": "$region"},
+            "placeholder": "Choose a region"
+        }),
+    );
+    scene.add(
+        Some(&form),
+        "Checkbox",
+        json!({"label": "Email me product updates", "bind": {"bind": "$updates"}}),
+    );
+    scene.add(
+        Some(&form),
+        "CheckboxGroup",
+        json!({
+            "label": "Topics",
+            "options": ["Releases", "Incidents", "Research"],
+            "bind": {"bind": "$topics"}
+        }),
+    );
+    scene.add(
+        Some(&form),
+        "RadioGroup",
+        json!({
+            "label": "Delivery speed",
+            "options": ["Standard", "Express"],
+            "bind": {"bind": "$speed"}
+        }),
+    );
+    scene.add(
+        Some(&form),
+        "Switch",
+        json!({"label": "Notifications", "bind": {"bind": "$notify"}}),
+    );
+    let disabled = scene.add(
+        Some(&form),
+        "Input",
+        json!({
+            "label": "Disabled input",
+            "bind": {"bind": "$disabled"},
+            "placeholder": "Unavailable"
+        }),
+    );
+    overrides.insert(disabled, VisualState::Disabled);
+    let disabled_switch = scene.add(
+        Some(&form),
+        "Switch",
+        json!({"label": "Disabled switch", "bind": {"bind": "$disabled_switch"}}),
+    );
+    overrides.insert(disabled_switch, VisualState::Disabled);
+    scene.add(
+        Some(&form),
+        "Button",
+        json!({"label": "Save changes", "tone": "primary", "submit": true}),
+    );
+
     // Content.
     let content = scene.add(Some(&root), "Card", card("Content"));
     for tone in ["info", "success", "warning", "danger"] {
@@ -417,19 +518,7 @@ pub fn build() -> StateSheet {
         "Row",
         json!({"gap": space(2), "wrap": true}),
     );
-    for kind in [
-        "Input",
-        "TextArea",
-        "Select",
-        "Checkbox",
-        "CheckboxGroup",
-        "RadioGroup",
-        "Switch",
-        "Form",
-        "List",
-        "Table",
-        "Tabs",
-    ] {
+    for kind in ["List", "Table", "Tabs"] {
         scene.add(Some(&deferred_row), kind, json!({}));
     }
 
@@ -441,10 +530,42 @@ pub fn build() -> StateSheet {
         ops: ops.clone(),
     };
     let _ = tree.apply(&batch);
+    let mut state = BTreeMap::new();
+    for (name, value) in [
+        ("email", CoreValue::from("ada@example.com")),
+        ("bad_email", CoreValue::from("ada")),
+        (
+            "notes",
+            CoreValue::from("Leave with the concierge if I am out."),
+        ),
+        ("region", CoreValue::from("North")),
+        ("updates", CoreValue::Bool(true)),
+        (
+            "topics",
+            CoreValue::List(std::sync::Arc::new(vec![
+                CoreValue::from("Releases"),
+                CoreValue::from("Research"),
+            ])),
+        ),
+        ("speed", CoreValue::from("Express")),
+        ("notify", CoreValue::Bool(true)),
+        ("disabled", CoreValue::from("Not available")),
+        ("disabled_switch", CoreValue::Bool(false)),
+    ] {
+        state.insert(
+            name.to_string(),
+            StateValue {
+                value,
+                rev: 1,
+                origin: StateOrigin::Default,
+            },
+        );
+    }
     StateSheet {
         tree,
         overrides,
         ops,
+        state,
     }
 }
 
@@ -482,7 +603,10 @@ mod tests {
         for kind in crate::components::IMPLEMENTED {
             assert!(kinds.contains(kind), "missing implemented {kind}");
         }
-        for kind in ["Input", "Form", "List", "Table", "Tabs"] {
+        for kind in ["Input", "Form"] {
+            assert!(kinds.contains(&kind), "missing implemented {kind}");
+        }
+        for kind in ["List", "Table", "Tabs"] {
             assert!(kinds.contains(&kind), "missing deferred {kind}");
         }
         assert!(

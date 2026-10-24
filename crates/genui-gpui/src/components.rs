@@ -15,15 +15,35 @@ use gpui_kit::{
 
 /// Components this milestone draws for real (inputs and data tables are M7/M8).
 pub const IMPLEMENTED: &[&str] = &[
-    "Column", "Row", "Grid", "Card", "Divider", "Heading", "Text", "Markdown", "Code", "Badge",
-    "Alert", "Image", "Button", "Stat", "Facts", "Chart",
+    "Column",
+    "Row",
+    "Grid",
+    "Card",
+    "Divider",
+    "Heading",
+    "Text",
+    "Markdown",
+    "Code",
+    "Badge",
+    "Alert",
+    "Image",
+    "Button",
+    "Form",
+    "Input",
+    "TextArea",
+    "Select",
+    "Checkbox",
+    "CheckboxGroup",
+    "RadioGroup",
+    "Switch",
+    "Stat",
+    "Facts",
+    "Chart",
 ];
 
 /// A clearly scoped placeholder for a component owned by a later milestone.
 pub fn deferred_milestone(kind: &str) -> Option<&'static str> {
     match kind {
-        "Form" | "Input" | "TextArea" | "Select" | "Checkbox" | "CheckboxGroup" | "RadioGroup"
-        | "Switch" => Some("M7"),
         "List" | "Table" | "TableColumn" | "Tabs" | "Tab" => Some("M8"),
         _ => None,
     }
@@ -615,8 +635,8 @@ mod tests {
             "RadioGroup",
             "Switch",
         ] {
-            assert_eq!(deferred_milestone(kind), Some("M7"), "{kind}");
-            assert!(!is_implemented(kind));
+            assert_eq!(deferred_milestone(kind), None, "{kind}");
+            assert!(is_implemented(kind));
         }
         for kind in ["List", "Table", "TableColumn", "Tabs", "Tab"] {
             assert_eq!(deferred_milestone(kind), Some("M8"), "{kind}");

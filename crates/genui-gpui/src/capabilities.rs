@@ -1,8 +1,8 @@
 //! Renderer capabilities (SPEC §10.2).
 //!
 //! The same flags drive `genui-cli`/`Session` validation and the prompt's
-//! fallbacks. M6 renders charts and markdown, shows image placeholders until
-//! the M8 loader, keeps code highlighting off, and leaves text input to M7.
+//! fallbacks. M7 renders text input, charts and markdown, shows image
+//! placeholders until the M8 loader, and keeps code highlighting off.
 
 use std::collections::BTreeSet;
 
@@ -17,19 +17,27 @@ pub struct Capabilities {
 
 impl Default for Capabilities {
     fn default() -> Self {
-        Self::m6()
+        Self::m7()
     }
 }
 
 impl Capabilities {
-    /// What the M6 renderer can actually draw.
-    pub const fn m6() -> Self {
+    /// What the M7 renderer can actually draw.
+    pub const fn m7() -> Self {
         Self {
             charts: true,
             images: true,
             markdown: true,
             code_highlight: false,
+            text_input: true,
+        }
+    }
+
+    /// The M6 capability set, kept for comparisons and historical tests.
+    pub const fn m6() -> Self {
+        Self {
             text_input: false,
+            ..Self::m7()
         }
     }
 
@@ -68,18 +76,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn m6_capabilities_are_explicit_and_match_the_validation_names() {
-        let caps = Capabilities::m6();
+    fn m7_capabilities_are_explicit_and_match_the_validation_names() {
+        let caps = Capabilities::m7();
         assert!(caps.charts);
         assert!(caps.images);
         assert!(caps.markdown);
         assert!(!caps.code_highlight);
-        assert!(!caps.text_input);
+        assert!(caps.text_input);
         assert_eq!(
             caps.names(),
-            BTreeSet::from(["charts".to_string(), "images".into(), "markdown".into()])
+            BTreeSet::from([
+                "charts".to_string(),
+                "images".into(),
+                "markdown".into(),
+                "text_input".into(),
+            ])
         );
         let options = caps.validation_options();
-        assert!(!options.capabilities.contains("text_input"));
+        assert!(options.capabilities.contains("text_input"));
+        assert!(!Capabilities::m6().text_input);
     }
 }

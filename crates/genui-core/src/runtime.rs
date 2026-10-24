@@ -44,6 +44,15 @@ pub struct StateSlot {
     pub default: Value,
     pub rev: u64,
 }
+/// One bound slot as the renderer needs it (§10.4): the value, its revision and
+/// whether this revision came from the user. The renderer uses `origin` to
+/// decide whether a store-to-widget push is its own echo.
+#[derive(Clone, Debug, PartialEq)]
+pub struct StateValue {
+    pub value: Value,
+    pub rev: u64,
+    pub origin: StateOrigin,
+}
 
 /// Runtime state is plain data so the host can snapshot it (§7.2).
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -120,6 +129,22 @@ impl StateStore {
     }
     pub fn value(&self, name: &str) -> Option<&Value> {
         self.slots.get(name).map(|slot| &slot.value)
+    }
+    /// Renderer-facing snapshot of every slot (§10.4). State is plain data.
+    pub fn values(&self) -> BTreeMap<String, StateValue> {
+        self.slots
+            .iter()
+            .map(|(name, slot)| {
+                (
+                    name.clone(),
+                    StateValue {
+                        value: slot.value.clone(),
+                        rev: slot.rev,
+                        origin: slot.origin,
+                    },
+                )
+            })
+            .collect()
     }
     pub fn iter(&self) -> impl Iterator<Item = (&String, &StateSlot)> {
         self.slots.iter()

@@ -1206,6 +1206,10 @@ Each field registers `(form scope, state key, kind, required, min_len, max_len, 
 - The renderer reads field status through resolved props (`error`, `touched`) and never decides validity itself. These are synthetic resolved props, not library arguments, and are never visible to expressions.
 - A field becomes touched on blur or on a failed submit.
 - `FieldErrorCode` is one of `required`, `format`, `too_short`, `too_long`, `too_small` or `too_large`. The renderer turns it into localized text.
+- The runtime also exposes a renderer snapshot of every bound slot:
+  `Session::state_values() -> BTreeMap<String, StateValue>`, where
+  `StateValue { value, rev, origin }`. The renderer uses `rev` and `origin` to
+  apply the §10.4 store-to-widget rule. It never writes state itself.
 
 ### 7.4 Action plans
 
@@ -1230,6 +1234,14 @@ The renderer sends `UiEvent::Activate { node, action }`, where `action` is the p
    - `Refresh` marks its query stale and re-requests it (7.5).
    - `Say`, `Open` and `Emit` create `HostRequest`s carrying `RequestOrigin::UserGesture { node }`.
 5. Each step's arguments are evaluated when that step starts, so earlier `Set`s are visible. Each step is fuel-metered.
+
+A submit `Button` with no `on_click` has no plan of its own. The renderer sends
+the enclosing `Form`'s `on_submit` handle with the button's path. The session
+accepts that handle for the button only when the button is a `submit: true`
+button in exactly that form and the plan's `submit_scope` is the form. A button
+with both `on_click` and `submit: true` runs its own plan first and then the form
+plan, as before. `Session::action_handle(path, "submit")` returns that form
+handle for a submit button, which is the convenience hosts and tests use.
 
 ### 7.5 Queries
 
@@ -1323,11 +1335,17 @@ Before delivery the ref id is validated against the catalog and the prop keeps a
 
 ```rust
 pub enum UiEvent {
-    Activate { node: NodeId, action: ActionPlanId },   // button click, form submit
-    Edit     { node: NodeId, value: Value },           // input, select, checkbox, radio, switch, tab
-    Blur     { node: NodeId },
+    Activate { node: NodePath, action: ActionHandle }, // button click, form submit
+    Edit     { node: NodePath, value: Value },         // input, select, checkbox, radio, switch, tab
+    Blur     { node: NodePath },
 }
 ```
+
+A renderer identifies nodes by their stable path, the identity used on the patch
+wire (§6.5). `Session::event` resolves that path to the current IR `NodeId`;
+unknown paths are inert. The view constructs `ActionHandle` from the node's
+resolved action prop plus the epoch of the applied batch, so a stale handle can
+never activate a plan from an older epoch.
 
 Events that leave the process become `ModelEvent`s once the host lets them through:
 
@@ -1724,6 +1742,22 @@ impl UiView {
     /// Fallback for callers without window access: applied at the start of the next render
     /// (may show one frame later).
     pub fn enqueue(&mut self, batch: PatchBatch, cx: &mut Context<Self>);
+    /// Push the session's `$state` snapshot into bound widgets (§10.4).
+    pub fn sync_state(&mut self, values: BTreeMap<String, StateValue>,
+                      window: &mut Window, cx: &mut Context<Self>);
+    /// Focus the view's tab group; Tab then enters the first control.
+    pub fn focus_root(&mut self, window: &mut Window, cx: &mut Context<Self>);
+    pub fn focus_handle_for(&self, path: &str, cx: &App) -> Option<FocusHandle>;
+    /// Frozen state (§7.9): the tree stays, controls render disabled and emit nothing.
+    pub fn freeze(&mut self, cx: &mut Context<Self>);
+    pub fn thaw(&mut self, cx: &mut Context<Self>);
+    pub fn is_frozen(&self) -> bool;
+    /// Host extension for a custom component kind (§10.14).
+    pub fn with_extension(self, kind: impl Into<String>,
+        builder: impl Fn(&ExtensionNode, &mut Window, &mut App) -> AnyElement + 'static) -> Self;
+    pub fn register_extension(&mut self, kind: impl Into<String>,
+        builder: impl Fn(&ExtensionNode, &mut Window, &mut App) -> AnyElement + 'static,
+        cx: &mut Context<Self>);
     pub fn capabilities() -> Capabilities;
 }
 ```
@@ -1737,8 +1771,12 @@ impl UiView {
 
 **Event delivery.**
 
-- The host subscribes with `cx.subscribe(&view, |host, view, ev: &UiEvent, cx| ...)`.
-- It passes each event to the `Session` and enqueues the returned patches.
+- The host subscribes with `cx.subscribe` or `cx.subscribe_in(&view, window, |host, view, ev: &UiEvent, window, cx| ...)`.
+- It passes each event to `Session::event`, applies the returned patches before
+  the next frame, and calls `sync_state(session.state_values(), window, cx)`.
+- The view emits the core `UiEvent` itself; there is no renderer-specific event
+  type. Subscribers run after the input entity's update, so applying patches from
+  the callback does not re-enter `UiView` while it is borrowed.
 - Nothing crosses threads. The view and its closures live on GPUI's foreground thread.
 
 **Setup the host must do.**
@@ -1778,13 +1816,13 @@ These names were checked on docs.rs for `gpui-component 0.8.0` and `gpui-pre 0.3
 | `Alert` | `alert::Alert` (`AlertVariant`) with explicit tone `bg`/`fg`/`border` overrides | |
 | `Image` | `gpui::img(ImageSource::Image(Arc<Image>))` | Bytes come from the host loader, never `ImageSource::Resource(Uri)`. Shows `alt` while pending or on failure. |
 | `Button` | `button::Button` | Tone: primary→`Primary`, secondary→`Default`, ghost→`Ghost`, danger→`Danger`. Disabled while gated or streaming. |
-| `Form` | `form::v_form()`, `form::Field` | Layout of labels and errors only. Validity comes from the core. |
+| `Form` | A styled `v_flex` built to DESIGN §6 rule 7 | Fields use a 12 px gap, a 6 px label gap, a 4 px error gap and a 16 px submit gap. Kit `form::Field` uses a different 4/2 px rhythm and a muted description, so M7 draws the DESIGN anatomy directly. Validity comes from the core. |
 | `Input` | `input::Input` over `Entity<InputState>` | `content_type` follows `kind` where supported. |
 | `TextArea` | `input::Textarea` over `Entity<TextareaState>` | gpui-kit 0.8 splits multi-line input into its own widget. |
-| `Select` | `select::Select` over `Entity<SelectState>` | Needs a `SearchableListDelegate` adapter over `options`, and the kit `Root` overlay. |
-| `Checkbox`, `CheckboxGroup` | `checkbox::Checkbox` (one per option for the group) | |
-| `RadioGroup` | `radio::RadioGroup`, `radio::Radio` | |
-| `Switch` | `switch::Switch` | Not `button::Toggle`, which is a toggle button. |
+| `Select` | `select::Select` over `Entity<SelectState>` with `SearchableVec<String>` | Uses the kit `Root` overlay. M7 draws a DESIGN shell and chevron; the kit caret is made transparent because icon assets are not guaranteed in headless captures. |
+| `Checkbox`, `CheckboxGroup` | `base::Checkbox` with a DESIGN 16 px accent box (one per option) | The component checkbox uses the theme `primary` (black) for the fill; DESIGN §7 requires `accent`. M7 draws the box and check itself. |
+| `RadioGroup` | `base::RadioGroup`, `base::Radio` with a DESIGN 16 px dot | Arrow-key movement is implemented by the renderer; the pinned base group has no arrow bindings. |
+| `Switch` | `base::Switch` with a 32×18 track and a 14 px thumb | Not the component `Switch` (36×20) and not `button::Toggle`. |
 | `List` | `v_flex` of children. Above 100 items, `list::List` with a `ListDelegate` adapter over IR children. | |
 | `Table` | `table::DataTable` over `Entity<TableState<D>>` with a `TableDelegate` adapter | Rows are text cells only. |
 | `Stat` | `v_flex` of a caption label, a tabular value, and a custom tone `Tag` for the delta | Layout and number formats per DESIGN.md §6.12 and §7. |
@@ -1794,18 +1832,45 @@ These names were checked on docs.rs for `gpui-component 0.8.0` and `gpui-pre 0.3
 
 ### 10.4 Focus and input handling
 
-- **Focus handles.** Focusable nodes own a `FocusHandle`, created when the node is first rendered and kept for the node's lifetime. Because `NodeId`s are stable, a rebuild at the same path keeps the view and its focus.
-- **Syncing input values.** The kit widget's own state (`InputState`, and the others) holds the text, cursor, selection and IME composition. Sync follows three rules:
-  - **Widget to store.** On the widget's change event, send `UiEvent::Edit` with the node id. The session writes the bound state with `User` origin.
-  - **Store to widget.** Only when the bound slot's `rev` changes because of a non-`User` origin, such as an action or a `restore`. The view keeps the last `rev` it pushed, so its own echoes are ignored.
-  - **While focused,** the widget's text is authoritative. Store-to-widget sync is deferred until blur, unless it was caused by an action the user just triggered.
-- **Removing a focused node** moves focus to the nearest remaining focusable ancestor, or clears focus.
-- **Readiness.** Inputs become editable once their node is sealed. Buttons stay disabled until the stream finishes (7.4).
+- **Focus handles.** Focusable nodes own a `FocusHandle`, created when the node's
+  entity is created and kept for its lifetime. `UiView::focus_root` focuses the
+  view's tab group; the host calls it when the message receives keyboard focus.
+  Path-to-handle lookup is available through `focus_handle_for`.
+- **Syncing input values.** The kit widget's own state (`InputState`, and the
+  others) holds the text, cursor, selection and IME composition. Sync follows
+  three rules:
+  - **Widget to store.** On the widget's change event, send `UiEvent::Edit` with
+    the node path and a `User`-provenance value. The session writes the bound state.
+  - **Store to widget.** Only when the bound slot's `rev` changes because of a
+    non-`User` origin, such as an action or a `restore`. The view keeps the last
+    `rev` it pushed, so its own echoes are ignored.
+  - **While focused,** the widget's text is authoritative. Store-to-widget sync
+    is deferred until blur, unless it was caused by an action the user just
+    triggered.
+  The host calls `sync_state(session.state_values(), window, cx)` after each
+  session update and once after loading. Initial values arrive this way. An
+  initial or restored `User` value is not the view's own echo: it is applied
+  when the widget is not focused, so a thawed message shows its saved text.
+- **Typed text survives rebuilds.** `set_props`, `append_text`, status changes
+  and parent re-renders only notify the input entity. They never recreate its
+  widget state, so the text, cursor, selection and focus stay put.
+- **Removing a focused node** moves focus to the nearest remaining focusable
+  ancestor, or clears focus. Unknown or removed paths are ignored.
+- **Readiness.** Inputs become editable once their node is sealed. Buttons stay
+  disabled until the stream finishes (7.4). Frozen views render every control
+  disabled and emit no events.
 - **Keyboard.**
-  - Tab order follows tree order.
-  - Arrow keys are handled by the kit widgets.
+  - Tab order follows tree order. The renderer removes the kit Root's global Tab
+    binding and the input-local indent binding, then handles Tab and Shift-Tab
+    itself: it emits `Blur` for the field it leaves and calls
+    `Window::focus_next`/`focus_prev`.
+  - A pointer click focuses the field and emits `Blur` for the previous field.
+  - Arrow keys move the Select menu (kit) and the RadioGroup selection
+    (renderer). Enter/Space activate buttons, checkboxes and switches.
   - `Enter` on a focused button activates it.
-  - `Enter` in a single-line field submits only when the form has exactly one `submit: true` button.
+  - `Enter` in a single-line field submits only when the form has exactly one
+    `submit: true` button. With none or several, Enter stays in the field.
+  - `Escape` clears focus and emits `Blur` for the focused field.
 
 ### 10.5 Theming
 
@@ -1878,7 +1943,30 @@ gpui-pre       = "=0.3.9"   # the exact version gpui-kit 0.8.0 pins
 
 gpui-pre 0.3.9 exports `gpui::Role` and an accesskit integration (`A11ySubtreeBuilder`, `on_a11y_action`), and kit inputs accept `role` and `aria_label`.
 
-Phase 1 maps IR roles to `gpui::Role` for `Heading`, `Button`, `TextInput`, `Checkbox`, `Switch` and `Select`, and labels them from the IR. Coverage on each platform is *unverified* and is measured in M7. Full coverage is phase 2.
+M7 maps every phase-1 control and form to an accesskit role:
+
+| IR | accesskit | Name and value source |
+| --- | --- | --- |
+| `Heading` | `Role::Heading` | `text`; `level` becomes the heading level. |
+| `Button` | `Role::Button` | `label`; `on_click` exposes the Click action. |
+| `Input` | `TextInput`, or `EmailInput`/`UrlInput` by `kind` | `label`; the current text is the value. |
+| `TextArea` | `MultilineTextInput` | `label`; the current text is the value. |
+| `Select` | `ComboBox` | `label`; the selected option title is the value. |
+| `Checkbox` | `CheckBox` | `label`; checked state is `Toggled`. |
+| `CheckboxGroup` | `Group` with `CheckBox` children | group `label`; each option is labelled separately. |
+| `RadioGroup` | `RadioGroup` with `RadioButton` children | group `label`; each option reports checked/selected and its position. |
+| `Switch` | `Switch` | `label`; checked state is `Toggled`. |
+| `Form` | `Form` | form fields are labelled individually. |
+
+Labels come from the IR. Visible errors are text and are not encoded as color
+alone. Values and toggles are written through the pinned GPUI APIs
+(`aria_label`, `aria_value`, `aria_toggled`, `role`). `Element::write_a11y_info`
+is the measurement surface in tests.
+
+Coverage on each OS is **unverified**: the pinned test platform has no
+accessibility adapter, so `Window::debug_a11y_tree_json` is empty in tests.
+M7 measures the pinned accesskit projection instead. Full OS-level coverage
+remains phase 2.
 
 ### 10.11 Overlays
 
@@ -1906,6 +1994,30 @@ It never mutates the program, adds no protocol messages, and is bounded (120
 tree lines, 16 patch entries, 24 diagnostics). The gallery enables it with
 `--inspector`; the dashboard's windowed demo can show the same panel through
 `DemoStage`. A host MAY omit it from release builds.
+
+### 10.14 Host component extensions (M7)
+
+A host that extends its `Library` (§8.5) can draw the new component kind without
+changing the std catalog or the renderer:
+
+```rust
+let view = UiView::new(theme, window, cx)
+    .with_extension("Gauge", |node, window, cx| {
+        // node: id, kind, role, props, status
+        gauge_element(&node.props, window, cx)
+    });
+```
+
+- A builder is looked up by component kind before the deferred/unknown fallback.
+  The extension receives the retained node's id, kind, role, props and status.
+- Extensions are **leaf** components in phase 1. Children remain owned by the
+  renderer's slot pipeline; an extension renders its own data rather than
+  traversing IR children.
+- The builder owns its GPUI drawing, including accessibility metadata. It must
+  not do I/O on the foreground path.
+- Registration is host-owned state. Nothing is added to the patch protocol or
+  the IR.
+- Panic containment for extension builders is M8 work (§10.8).
 
 ---
 
@@ -2090,8 +2202,9 @@ Conformance fixtures prove the core. These checks prove the whole system works a
 | `genui-cli prompt [--digest] [options.json]` | M5 | Prints the exact static prompt for the std library, or its digest, optionally with a `PromptOptions` JSON file. |
 | `genui-cli feedback <file.ui>` | M5 | Prints the exact `ui-diag` block for a program, or `(no model feedback)`. |
 | `genui-cli message <file.ui> [digest] [--cut] [--replay]` | M5 | Prints the canonical stored message, or its model-facing replay with `--replay`. `--cut` records an unfinished stream. |
-| Scripted GPUI interaction tests | M7 | Headless GPUI tests (the gpui test context) that load a program, simulate clicks, typing, selection, submit and focus changes, and assert the exact `UiEvent`s, state and resulting patches. Behaviour is tested here, not by looking at screenshots. |
+| Scripted GPUI interaction tests | M7 | Headless GPUI tests in `crates/genui-gpui/tests/interaction.rs`. They load a program, simulate clicks, typing, selection, submit, Tab/Shift-Tab, Enter/Escape and focus changes, and assert the exact `UiEvent`s, session state and patches. Twelve tests cover every input, validation, submit-only forms, streaming/frozen gates, rebuild survival, host extensions and the accesskit projection. The keyboard-only test runs the form-demo example itself. Behaviour is tested here, not by looking at screenshots. |
 | Gallery app and screenshot loop (backend: gpui-kit's test-support `Window::render_to_image`; M6 uses `HeadlessAppContext` so captures are deterministic and offscreen, and also supports a normal window; capture timing is excluded from performance numbers) | M6 | A demo binary renders every `examples/*.ui` and a per-component state sheet (all states from DESIGN.md §7) in light and dark. `--screenshot <dir>` writes one PNG per example and mode. At the end of M6, M7 and M8, the screenshot set is reviewed against DESIGN.md; each finding is fixed or logged in PROGRESS.md with a reason. Screenshots are not golden-compared in phase 1. |
+| Form demo | M7 | `form-demo` loads `examples/25-form-controls.ui`, acts as the host for `UiEvent` delivery and state sync, and prints each event/request/model event. `--screenshot DIR` writes light/dark PNGs with the headless test-support backend; `--headless`/`--self-test` are a CI smoke. It is the runnable demo behind the M7 done-when. |
 | Real-model loop | M8 | The sample host streams a live model reply into the UI. The run is recorded as a transcript (prompt, chunks with timing, events) and replayed deterministically. Screenshots are taken at 25%, 50%, 75% and 100% of the stream to check that partial UIs look intentional. |
 
 `tree` uses genui-std and the default host policy (no tool/ref catalog). It reads
@@ -2195,7 +2308,8 @@ impl Session {
     pub fn reset(&mut self) -> Update;                       // new epoch
 
     // UI and host
-    pub fn event(&mut self, ev: UiEvent) -> Update;
+    pub fn event(&mut self, ev: UiEvent) -> Update;          // paths resolve to NodeIds
+    pub fn node_id(&self, path: &NodePath) -> Option<NodeId>;
     pub fn epoch(&self) -> u32;
     pub fn deliver(&mut self, id: RequestId, res: Result<Value, HostError>) -> Update;
     pub fn deliver_from(&mut self, epoch: u32, id: RequestId,
@@ -2205,6 +2319,7 @@ impl Session {
     // Runtime inspection
     pub fn query_status(&self, name: &str) -> QueryStatus;
     pub fn field_status(&self) -> &BTreeMap<String, FieldStatus>;
+    pub fn state_values(&self) -> BTreeMap<String, StateValue>; // value, rev, origin
 
     // Inspection
     pub fn snapshot(&mut self) -> Update;                // reset + inserts, current epoch, next seq

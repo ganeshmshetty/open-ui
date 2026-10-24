@@ -1,0 +1,23 @@
+M7 gates — 2026-10-24, macOS arm64, Rust 1.99.0
+
+cargo fmt --all -- --check                                  PASS
+cargo clippy --workspace --all-targets -- -D warnings        PASS
+cargo clippy -p genui-gpui --all-targets --features screenshot -- -D warnings
+                                                            PASS
+cargo test --workspace                                      PASS
+  476 tests, 0 failed, 0 ignored
+  core 343 · conformance 49 · gpui 51 unit + 12 interaction + 1 replay
+  prompt 10 · std 5 · cli 5 · doc tests 0
+cargo test -p genui-gpui --features screenshot              PASS
+  51 unit · freshness 1 · interaction 12 · replay 1
+cargo run -q -p genui-cli -- fixtures                       PASS
+  452 fixtures, 106,634 chunkings, 430 seeded permutations
+cargo run -q -p genui-cli -- spec-check                     PASS
+  3 ui programs, 4 fragments, 25 exemplar programs
+gallery --list                                              26 items, 0 warnings
+gallery --screenshot /tmp/genui-m7-gallery-final2 --mode both
+                                                            52 PNGs
+form-demo --self-test                                       PASS
+  13 nodes; all 8 M7 controls; 8 bound state fields
+form-demo --screenshot --mode both                          2 PNGs
+scripted keyboard-only demo run                             PASS

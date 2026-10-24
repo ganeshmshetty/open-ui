@@ -12,8 +12,10 @@
 pub mod capabilities;
 pub mod chart;
 pub mod components;
+pub mod controls;
 pub mod demo;
 pub mod examples;
+pub mod extensions;
 pub mod format;
 pub mod inspector;
 pub mod layout;

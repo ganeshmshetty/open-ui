@@ -37,6 +37,15 @@ impl VisualState {
 pub type StateOverrides = BTreeMap<String, VisualState>;
 
 /// The default visual state for a node before any gallery override.
+/// Map the session's synthetic `status` prop (§§7.3,7.5) onto loading/error.
+pub fn data_state(props: &crate::props::Props) -> Option<VisualState> {
+    match props.get("status").and_then(|value| value.as_str()) {
+        Some("requested" | "refreshing") => Some(VisualState::Loading),
+        Some("denied" | "failed") => Some(VisualState::Error),
+        _ => None,
+    }
+}
+
 pub fn state_of(status: NodeStatus) -> VisualState {
     match status {
         NodeStatus::Partial => VisualState::Partial,
@@ -126,6 +135,22 @@ pub fn row_is_toolbar(children: &[String]) -> bool {
 mod tests {
     use super::*;
     use crate::theme::test_px;
+
+    #[test]
+    fn synthetic_status_maps_to_loading_and_error() {
+        let mut requested = crate::props::Props::new();
+        requested.insert("status".into(), serde_json::json!("requested"));
+        assert_eq!(data_state(&requested), Some(VisualState::Loading));
+        let mut refreshing = crate::props::Props::new();
+        refreshing.insert("status".into(), serde_json::json!("refreshing"));
+        assert_eq!(data_state(&refreshing), Some(VisualState::Loading));
+        let mut failed = crate::props::Props::new();
+        failed.insert("status".into(), serde_json::json!("failed"));
+        assert_eq!(data_state(&failed), Some(VisualState::Error));
+        let mut ready = crate::props::Props::new();
+        ready.insert("status".into(), serde_json::json!("ready"));
+        assert_eq!(data_state(&ready), None);
+    }
 
     #[test]
     fn grid_drops_columns_until_cells_are_wide_enough() {

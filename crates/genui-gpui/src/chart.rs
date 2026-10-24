@@ -622,11 +622,10 @@ impl Render for ChartView {
             let Some(entry) = tree.get(&self.id) else {
                 return div().into_any_element();
             };
-            let state = self
-                .overrides
-                .get(&self.id)
-                .copied()
-                .unwrap_or_else(|| crate::layout::state_of(entry.status));
+            let state = self.overrides.get(&self.id).copied().unwrap_or_else(|| {
+                crate::layout::data_state(&entry.props)
+                    .unwrap_or_else(|| crate::layout::state_of(entry.status))
+            });
             (entry.props.clone(), state)
         };
         let model = ChartModel::from_props(&props);

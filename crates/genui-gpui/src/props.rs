@@ -172,8 +172,11 @@ pub fn strings(props: &Props, key: &str) -> Vec<String> {
         .collect()
 }
 
-/// The status wire value (`{"status":"loading"}`), when present.
+/// The synthetic `status` wire prop or a nested `{"status":...}` value.
 pub fn data_status(props: &Props, key: &str) -> Option<String> {
+    if let Some(status) = props.get("status").and_then(Value::as_str) {
+        return Some(status.to_string());
+    }
     let Value::Object(map) = props.get(key)? else {
         return None;
     };

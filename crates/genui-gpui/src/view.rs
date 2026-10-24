@@ -9,7 +9,9 @@ use crate::{
     capabilities::Capabilities,
     chart::{self, ChartModel, ChartView},
     components,
-    layout::{StateOverrides, VisualState, Widths, inset_width, row_cell_width, state_of},
+    layout::{
+        StateOverrides, VisualState, Widths, data_state, inset_width, row_cell_width, state_of,
+    },
     metrics::{Metrics, PatchSummary},
     props::Props,
     theme::{Radius, TextRole, UiTheme},
@@ -454,7 +456,7 @@ impl NodeView {
         self.overrides
             .get(&self.id)
             .copied()
-            .unwrap_or_else(|| state_of(entry.status))
+            .unwrap_or_else(|| data_state(&entry.props).unwrap_or_else(|| state_of(entry.status)))
     }
 
     fn child_widths(&self, entry: &NodeEntry, width: Pixels) -> (Vec<String>, Vec<Pixels>) {
@@ -500,11 +502,10 @@ impl NodeView {
         let Some(entry) = self.tree.borrow().get(id).cloned() else {
             return div().into_any_element();
         };
-        let state = self
-            .overrides
-            .get(id)
-            .copied()
-            .unwrap_or_else(|| state_of(entry.status));
+        let state =
+            self.overrides.get(id).copied().unwrap_or_else(|| {
+                data_state(&entry.props).unwrap_or_else(|| state_of(entry.status))
+            });
         // Containers are entities so a change notifies only their subtree
         // (SPEC §10.1). Leaves are built inline by their parent.
         let mut element = if let Some(entity) = self.containers.borrow().get(id).cloned() {
@@ -718,10 +719,9 @@ impl Render for ImageView {
             };
             (
                 entry.props.clone(),
-                self.overrides
-                    .get(&self.id)
-                    .copied()
-                    .unwrap_or_else(|| state_of(entry.status)),
+                self.overrides.get(&self.id).copied().unwrap_or_else(|| {
+                    data_state(&entry.props).unwrap_or_else(|| state_of(entry.status))
+                }),
             )
         };
         let width = self.widths.get(&self.id, self.theme.message_max_width());

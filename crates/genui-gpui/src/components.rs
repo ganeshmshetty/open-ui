@@ -242,7 +242,10 @@ pub fn markdown(theme: &UiTheme, id: &str, source: &str) -> AnyElement {
                 ElementId::Name(SharedString::from(format!("genui-markdown-{id}"))),
                 props::sanitize_text(source),
             )
-            .style(text_style),
+            .style(text_style)
+            // Model content is untrusted and the renderer performs no I/O
+            // (SPEC §10.12): links are inert until the host installs a policy.
+            .on_link_click(|_, _, _, _| {}),
         )
         .into_any_element()
 }
@@ -274,6 +277,7 @@ pub fn code(theme: &UiTheme, id: &str, props: &Props) -> AnyElement {
                 fence,
             )
             .style(text_style)
+            .on_link_click(|_, _, _, _| {})
             .code_block_actions(move |block, _window, _cx| {
                 let copy_id = copy_id.clone();
                 let code = block.code();

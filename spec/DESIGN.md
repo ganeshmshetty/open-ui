@@ -1,6 +1,6 @@
 # Design Language
 
-Status: **draft 0.2**. Companion to `SPEC.md`. It defines how the phase-1 standard library (SPEC §8.8) looks and behaves on screen. The GPUI renderer MUST implement it, and later renderers map it to their own medium (§6.1 covers terminals).
+Status: **draft 0.3**. Companion to `SPEC.md`. M6 implemented this document in `genui-gpui::theme`; the 0.3 revision fixes the danger text contrast and records the M6 implementation review. It defines how the phase-1 standard library (SPEC §8.8) looks and behaves on screen. The GPUI renderer MUST implement it, and later renderers map it to their own medium (§6.1 covers terminals).
 
 Sources: three observation reports in `research/design/`:
 
@@ -113,9 +113,9 @@ Each tone has a `fg` for text and icons, a `bg` for tinted fills (badge and aler
 | `info` | `#1d4ed8` / `#eff6ff` / `#bfdbfe` | `#93c5fd` / `#0f1d33` / `#1e3a5f` |
 | `success` | `#15803d` / `#f0fdf4` / `#bbf7d0` | `#86efac` / `#0d2416` / `#1a4d2e` |
 | `warning` | `#b45309` / `#fffbeb` / `#fde68a` | `#fcd34d` / `#2b1f08` / `#5c4210` |
-| `danger` | `#dc2626` / `#fef2f2` / `#fecaca` | `#fca5a5` / `#2d0f0f` / `#5c1d1d` |
+| `danger` | `#c81e1e` / `#fef2f2` / `#fecaca` | `#fca5a5` / `#2d0f0f` / `#5c1d1d` |
 
-All `fg`-on-`bg` and `fg`-on-`background` pairs MUST meet WCAG AA, 4.5:1 for text. The theme module's unit tests check contrast for every pair, in both modes.
+All `fg`-on-`bg` and `fg`-on-`background` pairs MUST meet WCAG AA, 4.5:1 for text. The theme module's unit tests check contrast for every pair, in both modes. The M6 tests measure `#dc2626` on `#fef2f2` at 4.41:1, so the light danger text is `#c81e1e` (5.24:1); every other documented pair passes as written.
 
 ### 4.3 Chart palette
 

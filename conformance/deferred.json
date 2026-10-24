@@ -1,6 +1,6 @@
 {
   "render.panic": {
-    "milestone": "M6",
-    "reason": "Requires a renderer subtree boundary and renderer failure."
+    "milestone": "M8",
+    "reason": "Requires the renderer subtree panic boundary and quarantine owned by M8 (SPEC §10.8, §14.1)."
   }
 }

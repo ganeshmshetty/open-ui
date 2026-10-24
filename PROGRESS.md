@@ -1,6 +1,6 @@
 # Progress
 
-Updated: 2026-10-23. Milestones follow SPEC §14.1 in order. Update this file after
+Updated: 2026-10-24. Milestones follow SPEC §14.1 in order. Update this file after
 **every milestone**, recording acceptance evidence and any remaining limitations.
 A milestone is complete only after its acceptance checks pass and CI is green.
 

@@ -67,7 +67,6 @@ production for state/query allocation, with stop, rollback and deferred-dirty-su
 tests. General node tasks/visible projection and dirty source inference remain
 implementation work; the owner requirement and acceptance conditions are unchanged.
 
-<<<<<<< HEAD
 ## M5 defaults recorded while implementing the contract
 
 | Question | Options | Recommended default / action | Status |
@@ -172,7 +171,7 @@ evaluation set and transcript measurements remain open in `docs/milestones/M5.md
 - **Debounce base.** The 300 ms timer starts from the virtual clock at the
   dependency change (the clock before the observing `advance_clock`), cancels
   when arguments revert, and applies to queued queries.
-=======
+
 ## M6 renderer defaults recorded while implementing DESIGN/§10
 
 | Question | Options | Recommended default / action | Status |
@@ -183,4 +182,3 @@ evaluation set and transcript measurements remain open in `docs/milestones/M5.md
 | How should Markdown inline code and links look when the pinned TextView overrides the requested colors? | Custom Markdown renderer; accept and log; more theme overrides | Accept and log for M6. The TextView still paints inline code with an accent tint and links inherit the foreground in the captured light/dark set. A custom renderer or a pin-supported style fix is M8 work. | Logged |
 | Is `render.panic` an M6 or M8 code? | M6; M8 | M8. The milestone table assigns panic containment to M8; M6 has no subtree panic boundary and does not claim one. | `conformance/deferred.json` and SPEC §12.6 updated |
 | Should `rust-toolchain.toml` select 1.99.0? | Keep `stable` (locally 1.94, which cannot build gpui-pre); select 1.99.0 | Select 1.99.0. Core's 1.94 MSRV is recorded in the §1.2 matrix; the renderer needs the newer stable. | Adopted |
->>>>>>> fa0c005 (docs(m6): completion report, screenshot evidence and measured gaps (SPEC §14.1 M6))

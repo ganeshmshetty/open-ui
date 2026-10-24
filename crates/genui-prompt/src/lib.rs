@@ -99,7 +99,7 @@ pub fn generate(spec: &LibrarySpec, options: &PromptOptions) -> Prompt {
     if !components.is_empty() {
         sections.push(components_section(spec, &components));
     }
-    sections.push(expressions_section(spec));
+    sections.push(expressions_section(spec, options));
     sections.push(state_forms_actions_section(spec, options));
     if options.features.queries || options.features.refs {
         sections.push(data_section(spec, options));
@@ -204,11 +204,14 @@ fn components_section(spec: &LibrarySpec, components: &[&ComponentDef]) -> Strin
     text
 }
 
-fn expressions_section(spec: &LibrarySpec) -> String {
+fn expressions_section(spec: &LibrarySpec, options: &PromptOptions) -> String {
     let mut text = String::from(
         "## S5 Expressions and functions\n\nLiterals: \"text\", numbers, true, false, null, [a, b], {key: value}.\nOperators: + - * / % == != < <= > >= && || !. + joins strings; do not mix other types.\nConditional and iteration: if(condition, then, else), each(list, |item, index| node, key: \"field\").\nBuiltins:",
     );
     for (signature, doc) in BUILTIN_DOCS {
+        if signature.starts_with("ref(") && !options.features.refs {
+            continue;
+        }
         text.push_str("\n- ");
         text.push_str(signature);
         text.push_str(" - ");

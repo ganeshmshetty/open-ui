@@ -86,7 +86,6 @@ Builtins:
 - lower(text: text) -> text - Convert to lower case.
 - contains(haystack: text, needle: text) -> bool - True when the haystack contains the needle.
 - join(list: list, separator: text) -> text - Join text elements with a separator.
-- ref(id: text) -> data - Read a host reference by its catalog id.
 
 ## S6 State, forms and actions
 

@@ -101,6 +101,20 @@ impl StateStore {
         }
         changed
     }
+    /// Apply a persisted snapshot after declaration sync (§7.9). Unknown names
+    /// and writes rejected by type or size keep the declaration default.
+    pub fn restore_values(
+        &mut self,
+        values: &BTreeMap<String, Value>,
+        limits: &Limits,
+        library: &Library,
+    ) {
+        for (name, value) in values {
+            if self.slots.contains_key(name) {
+                let _ = self.write(name, value.clone(), StateOrigin::User, limits, library);
+            }
+        }
+    }
     pub fn get(&self, name: &str) -> Option<&StateSlot> {
         self.slots.get(name)
     }

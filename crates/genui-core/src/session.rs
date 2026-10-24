@@ -1499,7 +1499,15 @@ impl Session {
                 .filter(|diagnostic| !diagnostic.provisional)
                 .cloned()
                 .collect(),
-            state: self.restored_state.clone(),
+            state: {
+                let values: std::collections::BTreeMap<_, _> = self
+                    .runtime
+                    .state
+                    .iter()
+                    .map(|(name, slot)| (name.clone(), slot.value.clone()))
+                    .collect();
+                (!values.is_empty()).then_some(StateSnapshot { v: 1, values })
+            },
         }
     }
     /// Re-parse a stored program and restore its state snapshot (SPEC §7.9).
@@ -1512,6 +1520,19 @@ impl Session {
             session.push(program.as_bytes());
         }
         session.finish();
+        if let Some(state) = stored.state.clone() {
+            session.runtime.state.restore_values(
+                &state.values,
+                &session.options.validation.limits,
+                &session.options.library,
+            );
+            session.restored_state = Some(state);
+            session.mark_tree_dirty();
+            session.evaluate();
+            session.pump_queries(false);
+            session.evaluate();
+            session.update(false, false);
+        }
         if let Some(diagnostic) = stored.library_mismatch(session.options.library.spec()) {
             session.extracted_diagnostics.extend_raw([diagnostic]);
         }
@@ -3244,6 +3265,31 @@ mod tests {
                 .count(),
             2
         );
+    }
+
+    #[test]
+    fn stored_message_captures_live_state_and_restore_applies_it() {
+        let source = "$n=1\ngo=[set($n,7)]\nroot=Stack([Text(text($n)),Control(on_click:go)])";
+        let mut live = session(source, &[], &[]);
+        live.finish();
+        let path = crate::ir::NodePath("root/children:#1".into());
+        let handle = live.action_handle(&path, "on_click").unwrap();
+        let node = live
+            .live_ir()
+            .nodes
+            .values()
+            .find(|node| node.path == path)
+            .unwrap()
+            .id;
+        live.activate(node, &handle);
+        assert_eq!(text_at(&live, "root/children:#0").as_deref(), Some("7"));
+        let stored = live.stored_message();
+        assert_eq!(
+            stored.state.as_ref().unwrap().values.get("n"),
+            Some(&crate::value::Value::Int(7))
+        );
+        let restored = Session::restore(&stored, SessionOptions::program(library()));
+        assert_eq!(text_at(&restored, "root/children:#0").as_deref(), Some("7"));
     }
 
     #[test]

@@ -318,8 +318,10 @@ mod tests {
     }
     #[test]
     fn the_statement_budget_allows_exactly_the_configured_count() {
-        let mut limits = SyntaxLimits::default();
-        limits.max_stmt_count = 1;
+        let limits = SyntaxLimits {
+            max_stmt_count: 1,
+            ..Default::default()
+        };
         let mut parser = StreamingParser::new(limits);
         parser.push(b"a=1\n");
         assert!(
@@ -362,9 +364,11 @@ mod tests {
     }
     #[test]
     fn scanner_and_parser_depth_diagnostics_both_survive_sealing() {
-        let mut limits = SyntaxLimits::default();
-        limits.max_bracket_depth = 1;
-        limits.max_expr_depth = 1;
+        let limits = SyntaxLimits {
+            max_bracket_depth: 1,
+            max_expr_depth: 1,
+            ..Default::default()
+        };
         let mut parser = StreamingParser::new(limits);
         parser.push(b"root=[[a]]\n");
         parser.finish();

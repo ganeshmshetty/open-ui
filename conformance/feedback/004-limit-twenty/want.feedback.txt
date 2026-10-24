@@ -1,0 +1,22 @@
+```ui-diag
+schema.unknown_arg at n0.bogus0: unknown argument "bogus0"; hint Text(text: text; size: text_size = "md", tone: tone = "neutral", bold: bool = false, mono: bool = false); argument omitted
+schema.unknown_arg at n1.bogus1: unknown argument "bogus1"; hint Text(text: text; size: text_size = "md", tone: tone = "neutral", bold: bool = false, mono: bool = false); argument omitted
+schema.unknown_arg at n10.bogus10: unknown argument "bogus10"; hint Text(text: text; size: text_size = "md", tone: tone = "neutral", bold: bool = false, mono: bool = false); argument omitted
+schema.unknown_arg at n11.bogus11: unknown argument "bogus11"; hint Text(text: text; size: text_size = "md", tone: tone = "neutral", bold: bool = false, mono: bool = false); argument omitted
+schema.unknown_arg at n12.bogus12: unknown argument "bogus12"; hint Text(text: text; size: text_size = "md", tone: tone = "neutral", bold: bool = false, mono: bool = false); argument omitted
+schema.unknown_arg at n13.bogus13: unknown argument "bogus13"; hint Text(text: text; size: text_size = "md", tone: tone = "neutral", bold: bool = false, mono: bool = false); argument omitted
+schema.unknown_arg at n14.bogus14: unknown argument "bogus14"; hint Text(text: text; size: text_size = "md", tone: tone = "neutral", bold: bool = false, mono: bool = false); argument omitted
+schema.unknown_arg at n15.bogus15: unknown argument "bogus15"; hint Text(text: text; size: text_size = "md", tone: tone = "neutral", bold: bool = false, mono: bool = false); argument omitted
+schema.unknown_arg at n16.bogus16: unknown argument "bogus16"; hint Text(text: text; size: text_size = "md", tone: tone = "neutral", bold: bool = false, mono: bool = false); argument omitted
+schema.unknown_arg at n17.bogus17: unknown argument "bogus17"; hint Text(text: text; size: text_size = "md", tone: tone = "neutral", bold: bool = false, mono: bool = false); argument omitted
+schema.unknown_arg at n18.bogus18: unknown argument "bogus18"; hint Text(text: text; size: text_size = "md", tone: tone = "neutral", bold: bool = false, mono: bool = false); argument omitted
+schema.unknown_arg at n19.bogus19: unknown argument "bogus19"; hint Text(text: text; size: text_size = "md", tone: tone = "neutral", bold: bool = false, mono: bool = false); argument omitted
+schema.unknown_arg at n2.bogus2: unknown argument "bogus2"; hint Text(text: text; size: text_size = "md", tone: tone = "neutral", bold: bool = false, mono: bool = false); argument omitted
+schema.unknown_arg at n20.bogus20: unknown argument "bogus20"; hint Text(text: text; size: text_size = "md", tone: tone = "neutral", bold: bool = false, mono: bool = false); argument omitted
+schema.unknown_arg at n21.bogus21: unknown argument "bogus21"; hint Text(text: text; size: text_size = "md", tone: tone = "neutral", bold: bool = false, mono: bool = false); argument omitted
+schema.unknown_arg at n22.bogus22: unknown argument "bogus22"; hint Text(text: text; size: text_size = "md", tone: tone = "neutral", bold: bool = false, mono: bool = false); argument omitted
+schema.unknown_arg at n23.bogus23: unknown argument "bogus23"; hint Text(text: text; size: text_size = "md", tone: tone = "neutral", bold: bool = false, mono: bool = false); argument omitted
+schema.unknown_arg at n24.bogus24: unknown argument "bogus24"; hint Text(text: text; size: text_size = "md", tone: tone = "neutral", bold: bool = false, mono: bool = false); argument omitted
+schema.unknown_arg at n3.bogus3: unknown argument "bogus3"; hint Text(text: text; size: text_size = "md", tone: tone = "neutral", bold: bool = false, mono: bool = false); argument omitted
+schema.unknown_arg at n4.bogus4: unknown argument "bogus4"; hint Text(text: text; size: text_size = "md", tone: tone = "neutral", bold: bool = false, mono: bool = false); argument omitted
+```

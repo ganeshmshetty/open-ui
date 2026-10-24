@@ -1,0 +1,6 @@
+{
+  "title": "capability-gating",
+  "tier": "core",
+  "tags": ["golden", "gating"],
+  "notes": "SPEC §9.1/§8.6: only components whose requires set is available, and only examples that use them."
+}

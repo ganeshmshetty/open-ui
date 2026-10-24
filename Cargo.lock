@@ -477,6 +477,9 @@ name = "genui-prompt"
 version = "0.1.0"
 dependencies = [
  "genui-core",
+ "genui-std",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

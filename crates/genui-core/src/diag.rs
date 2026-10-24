@@ -197,6 +197,13 @@ pub struct Span {
     pub column: usize,
 }
 
+/// Internal feedback metadata, boxed so a diagnostic stays compact.
+#[derive(Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
+pub(crate) struct Feedback {
+    pub path: Option<String>,
+    pub detail: Option<String>,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Diagnostic {
@@ -213,6 +220,9 @@ pub struct Diagnostic {
     pub message: String,
     pub hint: Option<String>,
     pub provisional: bool,
+    /// Internal feedback metadata, never serialized.
+    #[serde(skip)]
+    pub(crate) feedback: Option<Box<Feedback>>,
 }
 
 impl Diagnostic {
@@ -419,7 +429,79 @@ impl Diagnostic {
             .into(),
             hint: None,
             provisional: false,
+            feedback: None,
         }
+    }
+
+    pub(crate) fn set_feedback_path(&mut self, path: String) {
+        self.feedback.get_or_insert_with(Default::default).path = Some(path);
+    }
+
+    pub(crate) fn set_feedback_detail(&mut self, detail: String) {
+        self.feedback.get_or_insert_with(Default::default).detail = Some(detail);
+    }
+
+    /// Codes eligible for model feedback (SPEC §4.3, column FB).
+    pub fn feedback_eligible(&self) -> bool {
+        use Code::*;
+        matches!(
+            self.code,
+            Version
+                | BadChar
+                | BadEscape
+                | UnterminatedString
+                | UnclosedBracket
+                | TrailingOperator
+                | StrayCloser
+                | MissingComma
+                | Trailing
+                | StmtShape
+                | BareComponent
+                | DupKey
+                | DuplicateName
+                | ReservedName
+                | Unresolved
+                | Cycle
+                | NoRoot
+                | UnknownComponent
+                | UnknownArg
+                | MissingRequired
+                | ExtraPositional
+                | DuplicateArg
+                | PositionalAfterNamed
+                | SchemaType
+                | Enum
+                | Range
+                | SlotKind
+                | MinItems
+                | BindTarget
+                | DuplicateKey
+                | BadKey
+                | UnknownFn
+                | ExprType
+                | Overflow
+                | DivZero
+                | NonFinite
+                | IndexOob
+                | LambdaMisuse
+                | FmtArgs
+                | TaintedUrl
+                | Undeclared
+                | ConstDefault
+                | UnknownTool
+                | TooManyQueries
+                | RefInvalid
+                | RefUnknown
+                | ProgramSize
+                | StmtSize
+                | StmtCount
+                | Depth
+                | IrDepth
+                | Nodes
+                | Fuel
+                | ListLen
+                | StringSize
+        )
     }
 }
 

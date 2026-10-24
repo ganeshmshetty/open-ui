@@ -1,0 +1,7 @@
+Here is the dashboard.
+
+```ui
+root = Column([Heading("Overview"), Text("All systems operational.")])
+```
+
+The layout is complete.

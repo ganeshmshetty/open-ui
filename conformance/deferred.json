@@ -7,10 +7,6 @@
     "milestone": "M4",
     "reason": "Indexing is evaluated against data in M4, even when its syntax is literal."
   },
-  "lib.mismatch": {
-    "milestone": "M5",
-    "reason": "Requires stored-message replay with a recorded library identity."
-  },
   "limit.event": {
     "milestone": "M4",
     "reason": "Requires construction of a gesture event, including resolved label and context."

@@ -1,0 +1,6 @@
+{
+  "title": "event-say",
+  "tier": "core",
+  "tags": ["event", "golden"],
+  "notes": "SPEC §§7.8,9.3: one ui-event fence with fixed field order, real label and context."
+}

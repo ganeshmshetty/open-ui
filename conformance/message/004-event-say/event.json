@@ -1,0 +1,10 @@
+{
+  "v": 1,
+  "source": "ui_event",
+  "kind": "say",
+  "text": "Recommend laptops",
+  "label": "Find laptops",
+  "ctx": {"budget": "mid", "use": ["coding"]},
+  "node": "root/children:@finder/children:@go",
+  "stmt": "go"
+}

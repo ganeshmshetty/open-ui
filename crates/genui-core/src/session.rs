@@ -3,6 +3,7 @@ use crate::{
     diag::{Code, Diagnostic},
     ir::{Ir, NodeStatus, Prop, PropValue},
     r#lib::Library,
+    message::{LibRef, ModelEvent, StateSnapshot, StoredMessage, StoredSegment},
     patch::{PatchBatch, Tree, strip_invisibles},
     syntax::{
         ast::{Expr, Statement, StatementKind},
@@ -28,6 +29,7 @@ pub struct SessionOptions {
     pub library: Arc<Library>,
     pub validation: Options,
     pub input: InputMode,
+    pub prompt_digest: String,
 }
 impl SessionOptions {
     pub fn new(library: Arc<Library>) -> Self {
@@ -35,6 +37,7 @@ impl SessionOptions {
             library,
             validation: Options::default(),
             input: InputMode::Message,
+            prompt_digest: String::new(),
         }
     }
     pub fn program(library: Arc<Library>) -> Self {
@@ -63,11 +66,6 @@ pub struct ProseDelta {
 pub enum HostRequest {
     Query { name: String },
     Ref { id: String },
-}
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct ModelEvent {
-    pub name: String,
-    pub payload: serde_json::Value,
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct Update {
@@ -158,6 +156,7 @@ pub struct Session {
     extractor: Option<Extractor>,
     program_bytes: usize,
     program_raw: Vec<u8>,
+    restored_state: Option<StateSnapshot>,
     prose_sent: BTreeMap<u32, usize>,
     segments: Vec<Segment>,
     extraction_diagnostics: crate::Diagnostics,
@@ -202,6 +201,7 @@ impl Session {
             extractor,
             program_bytes: 0,
             program_raw: Vec::new(),
+            restored_state: None,
             prose_sent: BTreeMap::new(),
             segments: Vec::new(),
             extraction_diagnostics: Default::default(),
@@ -248,6 +248,7 @@ impl Session {
             self.rejected = extractor.rejected();
             self.feed_program();
         } else {
+            self.program_raw.extend_from_slice(chunk);
             self.parser.push(chunk);
         }
         self.rebuild(false);
@@ -357,6 +358,95 @@ impl Session {
             SessionPhase::Streaming
         } else {
             SessionPhase::Waiting
+        }
+    }
+    /// Final static feedback for the next model turn (SPEC §4.6), or `None`.
+    pub fn feedback(&self) -> Option<String> {
+        crate::feedback::render(self.diagnostics(), &self.options.library)
+    }
+    /// CommonMark fallback derived from the current IR and prose segments (SPEC §4.7).
+    pub fn fallback_text(&self) -> String {
+        let mut text = String::new();
+        let segments = self.segments_for_storage();
+        let mut rendered_program = false;
+        for segment in &segments {
+            match segment {
+                StoredSegment::Markdown { text: markdown } => text.push_str(markdown),
+                StoredSegment::Program { .. } if !rendered_program => {
+                    rendered_program = true;
+                    if !text.is_empty() && !text.ends_with('\n') {
+                        text.push('\n');
+                    }
+                    text.push_str(&crate::fallback::render(
+                        &self.current.ir,
+                        &self.options.library,
+                    ));
+                }
+                StoredSegment::Program { .. } => {}
+            }
+        }
+        text
+    }
+    /// The stored form of this message (SPEC §9.2). Programs remain source text.
+    pub fn stored_message(&self) -> StoredMessage {
+        StoredMessage {
+            v: 1,
+            segments: self.segments_for_storage(),
+            lib: LibRef::of(self.options.library.spec()),
+            prompt_digest: self.options.prompt_digest.clone(),
+            complete: self.finished,
+            fallback_text: self.fallback_text(),
+            diagnostics: self
+                .diagnostics()
+                .iter()
+                .filter(|diagnostic| !diagnostic.provisional)
+                .cloned()
+                .collect(),
+            state: self.restored_state.clone(),
+        }
+    }
+    /// Re-parse a stored program and restore its state snapshot (SPEC §7.9).
+    pub fn restore(stored: &StoredMessage, mut options: SessionOptions) -> Session {
+        options.input = InputMode::Program;
+        options.prompt_digest = stored.prompt_digest.clone();
+        let mut session = Session::new(options);
+        session.restored_state = stored.state.clone();
+        if let Some(program) = stored.program_text() {
+            session.push(program.as_bytes());
+        }
+        session.finish();
+        if let Some(diagnostic) = stored.library_mismatch(session.options.library.spec()) {
+            session.extracted_diagnostics.extend_raw([diagnostic]);
+        }
+        session
+    }
+    /// The restored state snapshot, retained for M4's state runtime.
+    pub fn restored_state(&self) -> Option<&StateSnapshot> {
+        self.restored_state.as_ref()
+    }
+    fn segments_for_storage(&self) -> Vec<StoredSegment> {
+        let major = self.options.library.spec().language_major;
+        if let Some(extractor) = &self.extractor {
+            return extractor
+                .segments()
+                .iter()
+                .map(|segment| stored_segment(segment, major))
+                .collect();
+        }
+        if !self.segments.is_empty() {
+            return self
+                .segments
+                .iter()
+                .map(|segment| stored_segment(segment, major))
+                .collect();
+        }
+        if self.program_raw.is_empty() {
+            Vec::new()
+        } else {
+            vec![StoredSegment::Program {
+                text: String::from_utf8_lossy(&self.program_raw).into_owned(),
+                major,
+            }]
         }
     }
     fn empty_update(&self) -> Update {
@@ -995,6 +1085,16 @@ fn key(s: &Statement) -> String {
         format!("${}", s.name)
     } else {
         s.name.clone()
+    }
+}
+
+fn stored_segment(segment: &Segment, major: u32) -> StoredSegment {
+    match segment {
+        Segment::Markdown(text) => StoredSegment::Markdown { text: text.clone() },
+        Segment::Program(text) => StoredSegment::Program {
+            text: text.clone(),
+            major,
+        },
     }
 }
 pub(crate) fn dependencies(e: &Expr, out: &mut BTreeSet<String>) {

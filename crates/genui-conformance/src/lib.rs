@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 
 pub mod chunks;
+mod m5;
 pub mod properties;
 mod semantic;
 pub mod spec_check;
@@ -76,6 +77,13 @@ struct Schemas {
     stream: jsonschema::Validator,
     ast: jsonschema::Validator,
     segments: jsonschema::Validator,
+    prompt: jsonschema::Validator,
+    message: jsonschema::Validator,
+    stored: jsonschema::Validator,
+    event: jsonschema::Validator,
+    options: jsonschema::Validator,
+    ir: jsonschema::Validator,
+    turn: jsonschema::Validator,
 }
 
 impl Schemas {
@@ -92,6 +100,13 @@ impl Schemas {
             stream: load(root, "stream")?,
             ast: load(root, "ast")?,
             segments: load(root, "segments")?,
+            prompt: load(root, "prompt")?,
+            message: load(root, "message")?,
+            stored: load(root, "stored")?,
+            event: load(root, "event")?,
+            options: load(root, "options")?,
+            ir: load(root, "ir")?,
+            turn: load(root, "turn")?,
         })
     }
 }
@@ -161,11 +176,11 @@ pub fn run_suite(root: &Path) -> Result<SuiteReport> {
                     | "limits"
                     | "streaming"
                     | "patches"
+                    | "prompt"
+                    | "feedback"
+                    | "message"
             ) {
-                return Err(format!(
-                    "{}: category is not implemented in M2",
-                    path.display()
-                ));
+                return Err(format!("{}: category is not implemented", path.display()));
             }
             let result = if matches!(category_name, "streaming" | "patches") {
                 streaming::run_case(
@@ -173,6 +188,8 @@ pub fn run_suite(root: &Path) -> Result<SuiteReport> {
                     &schemas,
                     std::sync::Arc::new(genui_std::std_library().map_err(|e| format!("{e:?}"))?),
                 )
+            } else if matches!(category_name, "prompt" | "feedback" | "message") {
+                m5::run_case(&path, category_name, &schemas)
             } else if matches!(
                 category_name,
                 "library" | "resolve" | "schema" | "ir" | "limits"
@@ -411,8 +428,17 @@ mod tests {
     fn checked_in_conformance() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../conformance");
         let report = run_suite(&root).unwrap();
-        assert!(report.fixtures >= 124);
-        for category in ["lex", "grammar", "statements", "extract", "fuzz-regress"] {
+        assert!(report.fixtures >= 375);
+        for category in [
+            "lex",
+            "grammar",
+            "statements",
+            "extract",
+            "fuzz-regress",
+            "prompt",
+            "feedback",
+            "message",
+        ] {
             assert!(
                 report
                     .categories

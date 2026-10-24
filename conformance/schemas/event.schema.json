@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["v", "kind", "label"],
+  "properties": {
+    "v": { "type": "integer", "minimum": 1 },
+    "source": { "type": "string" },
+    "kind": { "type": "string" },
+    "text": { "type": ["string", "null"] },
+    "label": { "type": "string" },
+    "ctx": {},
+    "node": { "type": ["string", "null"] },
+    "stmt": { "type": ["string", "null"] },
+    "msg": { "type": ["string", "null"] }
+  }
+}

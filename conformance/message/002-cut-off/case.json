@@ -1,0 +1,6 @@
+{
+  "title": "cut-off-stream",
+  "tier": "core",
+  "tags": ["replay", "cut-off"],
+  "notes": "SPEC §9.2: complete is false before finish and the partial program text is stored verbatim."
+}

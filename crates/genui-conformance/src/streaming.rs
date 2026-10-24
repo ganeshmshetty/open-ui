@@ -32,6 +32,7 @@ impl Oracle {
             library: library.clone(),
             validation: options.clone(),
             input: mode,
+            prompt_digest: String::new(),
         });
         whole.push(input);
         whole.finish();
@@ -48,6 +49,7 @@ impl Oracle {
             library: self.library.clone(),
             validation: self.options.clone(),
             input: self.mode,
+            prompt_digest: String::new(),
         });
         let mut replay = Replay::default();
         let mut batches = Vec::new();
@@ -410,6 +412,7 @@ fn run_script(
         } else {
             InputMode::Program
         },
+        prompt_digest: String::new(),
     });
     let mut replay = Replay::default();
     let mut trace = Vec::new();
@@ -478,6 +481,7 @@ fn checkpoints(
         } else {
             InputMode::Program
         },
+        prompt_digest: String::new(),
     });
     for (i, part) in parts.iter().enumerate() {
         session.push(part.as_bytes());

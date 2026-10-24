@@ -1,0 +1,6 @@
+{
+  "title": "event-from-older-message",
+  "tier": "core",
+  "tags": ["event", "golden"],
+  "notes": "SPEC §7.9: events from an older message carry msg and omit absent optional fields."
+}

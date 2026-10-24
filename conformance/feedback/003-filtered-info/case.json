@@ -1,0 +1,6 @@
+{
+  "title": "non-feedback-info-is-dropped",
+  "tier": "core",
+  "tags": ["filtering"],
+  "notes": "SPEC §4.3: name.orphan is Info and not FB, so no ui-diag block is produced."
+}

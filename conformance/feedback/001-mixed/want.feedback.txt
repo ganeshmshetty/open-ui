@@ -1,0 +1,5 @@
+```ui-diag
+schema.enum at chart.kind: found "pie", expected "bar"|"line"; node dropped
+schema.missing_required at tbl.args[1]: rows is required; hint Table(columns: [TableColumn], rows: data; empty: text = "No data"); node dropped
+name.unresolved at grid.children: no statement "missing_card"; child omitted
+```

@@ -1,0 +1,8 @@
+{
+  "v": 1,
+  "source": "ui_event",
+  "kind": "open",
+  "label": "Open report",
+  "msg": "msg_7",
+  "stmt": "open_report"
+}

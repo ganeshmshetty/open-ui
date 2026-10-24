@@ -995,3 +995,32 @@ fn host_extensions_draw_custom_components(cx: &mut gpui_kit::TestAppContext) {
         assert!(target.visible());
     });
 }
+
+#[gpui_kit::test]
+fn user_origin_restore_values_reach_widgets(cx: &mut gpui_kit::TestAppContext) {
+    let harness = build(cx);
+    let mut visual = gpui_kit::VisualTestContext::from_window(harness.window, cx);
+    let name = "root/children:@form/children:@name";
+    visual.update(|window, cx| {
+        harness.host.update(cx, |host, cx| {
+            let mut values = host.session.state_values();
+            if let Some(slot) = values.get_mut("name") {
+                slot.value = genui_core::value::Value::from("Restored Ada");
+                slot.rev = slot.rev.saturating_add(1);
+                slot.origin = genui_core::runtime::StateOrigin::User;
+            }
+            host.ui
+                .update(cx, |ui, cx| ui.sync_state(values, window, cx));
+        });
+    });
+    let text = visual.read(|app| {
+        harness
+            .host
+            .read_with(app, |host, _| host.ui.read(app).field_value(name, app))
+    });
+    assert_eq!(
+        text.as_deref(),
+        Some("Restored Ada"),
+        "a restored User-origin value is not treated as the view's own echo"
+    );
+}

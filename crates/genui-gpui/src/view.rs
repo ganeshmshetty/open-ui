@@ -381,6 +381,26 @@ impl UiView {
         &self.diagnostics
     }
 
+    /// The current widget text or selected option for an input node. This is
+    /// the value the user sees, which can differ from `$state` while focused.
+    pub fn field_value(&self, path: &str, cx: &App) -> Option<String> {
+        self.containers
+            .borrow()
+            .get(path)?
+            .read_with(cx, |view, cx| {
+                view.control
+                    .text
+                    .as_ref()
+                    .map(|text| text.value(cx))
+                    .or_else(|| {
+                        view.control
+                            .select
+                            .as_ref()
+                            .and_then(|select| select.state.read(cx).selected_value().cloned())
+                    })
+            })
+    }
+
     /// The focus handle owned by a focusable node, when it exists. Hosts use
     /// this for focus assertions; the renderer owns creation and lifetime.
     pub fn focus_handle_for(&self, path: &str, cx: &App) -> Option<FocusHandle> {
@@ -625,6 +645,7 @@ impl UiView {
                 subscriptions: Vec::new(),
                 last_rev: None,
                 pending: None,
+                pending_user_edit: false,
                 attached: false,
                 watched_handles: 0,
             });
@@ -898,6 +919,7 @@ pub struct NodeView {
     pub subscriptions: Vec<Subscription>,
     pub last_rev: Option<u64>,
     pub pending: Option<StateValue>,
+    pub pending_user_edit: bool,
     pub attached: bool,
     pub watched_handles: usize,
 }
@@ -1126,8 +1148,9 @@ impl NodeView {
         self.watch_handles(window, cx);
         let sink = self.sink.clone();
         let id = self.id.clone();
-        let subscription = cx.subscribe_in(&state, window, move |_, _, event, _, cx| {
+        let subscription = cx.subscribe_in(&state, window, move |view, _, event, _, cx| {
             if let SelectEvent::Confirm(Some(value)) = event {
+                view.pending_user_edit = true;
                 sink.edit(&id, user_text(value), cx);
             }
         });
@@ -1178,7 +1201,8 @@ impl NodeView {
             return;
         }
         let focused = self.is_focused(window, cx);
-        if store.origin == StateOrigin::User {
+        if store.origin == StateOrigin::User && self.pending_user_edit {
+            self.pending_user_edit = false;
             self.last_rev = Some(store.rev);
             self.pending = None;
             return;

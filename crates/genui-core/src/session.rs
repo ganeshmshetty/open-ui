@@ -987,7 +987,12 @@ impl Session {
                 if self.current.ir.queries.contains_key(&query) {
                     self.refreshed.insert(query.clone());
                     let state = self.queries.entry(query).or_default();
-                    state.status = QueryStatus::Idle;
+                    state.status =
+                        if matches!(state.status, QueryStatus::Ready | QueryStatus::Failed) {
+                            QueryStatus::Refreshing
+                        } else {
+                            QueryStatus::Idle
+                        };
                     state.origin = Some(RequestOrigin::UserGesture { node });
                 }
             }
@@ -1224,6 +1229,7 @@ impl Session {
             let hash = args_hash(&args);
             let force = self.refreshed.remove(&name);
             let current = self.queries.get(&name).cloned().unwrap_or_default();
+            let prior = current.status;
             let changed = current.args_hash.is_some_and(|current| current != hash);
             if changed {
                 if !force {
@@ -1264,7 +1270,17 @@ impl Session {
             let state = self.queries.entry(name.clone()).or_default();
             state.args_hash = Some(hash);
             state.request = Some(id);
-            state.status = QueryStatus::Requested;
+            // A same-key refresh keeps the old result visible and dimmed (§7.5).
+            state.status = if force
+                && !changed
+                && matches!(
+                    prior,
+                    QueryStatus::Ready | QueryStatus::Failed | QueryStatus::Refreshing
+                ) {
+                QueryStatus::Refreshing
+            } else {
+                QueryStatus::Requested
+            };
             state.queued = false;
             self.request_outbox.push(HostRequest {
                 id,
@@ -3267,6 +3283,27 @@ mod tests {
                 .count(),
             2
         );
+    }
+
+    #[test]
+    fn refresh_reports_refreshing_and_keeps_the_last_result() {
+        let source = "query q=tool(\"known\",{},default:\"d\")\ngo=Button(\"Reload\",on_click:refresh(q))\nroot=Stack([Text(q),go])";
+        let mut session = session(source, &["known"], &[]);
+        session.finish();
+        session.deliver(RequestId(1), Ok(crate::value::Value::from("ok")));
+        assert_eq!(session.query_status("q"), QueryStatus::Ready);
+        let path = crate::ir::NodePath("root/children:@go".into());
+        let handle = session.action_handle(&path, "on_click").unwrap();
+        let node = session
+            .live_ir()
+            .nodes
+            .values()
+            .find(|node| node.path == path)
+            .unwrap()
+            .id;
+        session.activate(node, &handle);
+        assert_eq!(session.query_status("q"), QueryStatus::Refreshing);
+        assert_eq!(text_at(&session, "root/children:#0").as_deref(), Some("ok"));
     }
 
     #[test]

@@ -2284,6 +2284,13 @@ pub fn render_stored_message(msg: &StoredMessage) -> String;
 | M7 | GPUI inputs and forms, focus, input sync rule, gating, accessibility roles | The form demo emits a `ui-event`; typed text survives rebuilds; a keyboard-only run of the demo succeeds; accessibility coverage measured; scripted GPUI interaction tests (12.7) cover click, type, select, submit and focus for every input component; gallery screenshots reviewed as in M6. |
 | M8 | GPUI data components (List, Table, Tabs, Chart, Image), panic containment, sample host with a real model | A 50k-row table scrolls; the panic-injection test shows a placeholder; 20 recorded model transcripts replay; the real-model loop (12.7) has run with mid-stream screenshots reviewed; every `examples/*.ui` renders in the gallery; the security checklist (11) is reviewed; v0.1 tagged. |
 
+**M8 status (2026-10-24).** The data components, 50k scroll, panic containment,
+scripted sample host, 20 exact transcript replays, gallery review, security
+review and release checklist are done. The checked-in transcripts are
+`scripted-fixture`, not model evidence; a live-model run and the v0.1 tag remain
+with the owner/integrator. M7 inputs/forms are not on this branch and remain a
+separate milestone.
+
 ### 14.2 Open questions
 
 1. **Naming.** The project and language names and the file extension, needed before publishing crates.

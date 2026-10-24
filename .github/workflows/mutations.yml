@@ -1,7 +1,10 @@
-name: Milestone mutation gate
+name: Mutation report (advisory)
 
 on:
   workflow_dispatch:
+  schedule:
+    # Nightly advisory run (SPEC §12.8 item 7); never a required check.
+    - cron: '17 3 * * *'
   push:
 
 permissions:
@@ -9,7 +12,7 @@ permissions:
 
 jobs:
   mutation:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[mutation-gate]')
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || contains(github.event.head_commit.message, '[mutation-gate]')
     name: Syntax / IR / patches shard ${{ matrix.shard }}
     strategy:
       fail-fast: false

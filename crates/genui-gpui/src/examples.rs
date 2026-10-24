@@ -3,7 +3,12 @@
 //! The gallery and demo binaries own file reading; this module only turns bytes
 //! into a `LoadedProgram`, so it is usable from tests and hosts.
 
-use crate::{capabilities::Capabilities, components, tree::RetainedTree};
+use crate::{
+    capabilities::Capabilities,
+    components,
+    host::{HostData, HostPolicy, SampleHost},
+    tree::RetainedTree,
+};
 use genui_core::{
     Session, SessionOptions,
     diag::{Diagnostic, Severity},
@@ -23,7 +28,8 @@ pub struct LoadedProgram {
     pub seals: Vec<Seal>,
     /// Implemented component kinds present in the final tree.
     pub kinds: Vec<String>,
-    /// Kinds that render as M8 placeholders, sorted and unique.
+    /// Kinds that still render as placeholders, sorted and unique. Phase 1
+    /// implements every catalog kind, so this is normally empty.
     pub deferred: Vec<String>,
     /// Final `$state` values for bound inputs (SPEC §10.4).
     pub state: std::collections::BTreeMap<String, genui_core::runtime::StateValue>,
@@ -41,17 +47,29 @@ impl LoadedProgram {
 pub fn session(source: &[u8], options: &Options) -> Result<LoadedProgram, String> {
     let library = genui_std::std_library().map_err(|errors| format!("std library: {errors:?}"))?;
     let mut options = options.clone();
-    options.capabilities = Capabilities::m7().names();
+    options.capabilities = Capabilities::m8().names();
+    let policy = HostPolicy::from_options(&options);
     let mut session = Session::new(SessionOptions {
         library: Arc::new(library),
         validation: options,
         input: InputMode::Program,
         prompt_digest: String::new(),
     });
+    let data = HostData::demo();
+    for reference in &policy.refs {
+        if let Some(value) = data.ref_value(reference) {
+            session.preload_ref(reference, value);
+        }
+    }
     let update = session.push(source);
     let mut batches: Vec<PatchBatch> = update.patches.into_iter().collect();
     let finish = session.finish();
+    let mut host = SampleHost::new(policy, HostData::demo());
+    let delivered = host.settle(&mut session, &finish);
     batches.extend(finish.patches);
+    for update in delivered {
+        batches.extend(update.patches);
+    }
     let snapshot = session.snapshot();
     batches.extend(snapshot.patches);
     let (tree, reports) = RetainedTree::from_batches(&batches);
@@ -131,6 +149,20 @@ mod tests {
                 path.display()
             );
         }
+    }
+
+    #[test]
+    fn host_refs_expand_list_and_table_examples() {
+        let options = Options {
+            refs: ["t4.orders".into(), "t4.people".into(), "t4.places".into()].into(),
+            ..Options::default()
+        };
+        let loaded = session(&example("06-team-directory.ui"), &options).expect("session");
+        assert!(
+            loaded.tree.len() > 4,
+            "people ref expands into rows: {} nodes",
+            loaded.tree.len()
+        );
     }
 
     #[test]

@@ -18,6 +18,7 @@ screenshot = ["gpui-kit/test-support"]
 [dependencies]
 genui-core.workspace = true
 genui-std.workspace = true
+genui-prompt.workspace = true
 gpui-kit.workspace = true
 gpui-component.workspace = true
 gpui-base.workspace = true

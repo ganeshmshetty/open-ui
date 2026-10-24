@@ -15,6 +15,7 @@ pub enum VisualState {
     Disabled,
     Partial,
     Loading,
+    Refreshing,
     Error,
     Empty,
 }
@@ -28,6 +29,7 @@ impl VisualState {
             VisualState::Disabled => "disabled",
             VisualState::Partial => "partial",
             VisualState::Loading => "loading",
+            VisualState::Refreshing => "refreshing",
             VisualState::Error => "error",
             VisualState::Empty => "empty",
         }

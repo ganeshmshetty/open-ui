@@ -14,7 +14,7 @@ A milestone is complete only after its acceptance checks pass and CI is green.
 | M5 — Prompt, feedback and messages | Complete for SPEC §14.1; ROADMAP item 4 open | `prompt`, `feedback` and `message` pass; 375 fixtures / 83,719 chunkings / 430 permutations; 386 tests; exact prompt bytes on Linux/macOS CI; 15 new fixtures. Model-evaluation recordings still need model access. |
 | M6 — GPUI skeleton | Complete (visual findings logged) | Pins active; `UiView`; layout/text/theme; gallery 25×2 PNGs; streaming dashboard 119-batch log/replay; SPEC §10.6 p99 8 ms target reported missed. |
 | M7 — Inputs and forms | Complete (visual findings logged; OS a11y unverified) | 8 input/form kinds; 12 scripted interaction tests; keyboard-only demo run; 52 gallery PNGs reviewed; 476 workspace tests; form demo light/dark. |
-| M8 — Data components and sample host | Not started | Table stress, panic containment, transcript replay, security review, v0.1 tag. |
+| M8 — Data components and sample host | Complete for SPEC §14.1 (v0.1 tag/license owner decisions open) | List/Table/Tabs/Image loader, chart tooltips/motion, panic containment, sample host, 20 scripted transcripts, 50k table and 10k virtualized List stress; full gate set and demos pass. Live-model recording and the tag/license remain owner steps. |
 
 ## M0 scope
 
@@ -1572,3 +1572,70 @@ tests rather than an exposed item ID.
   doctests). Recorded in PINS.md.
 - M8 still owns List/Table/Tabs, the image loader, panic containment, chart
   tooltips, OS accessibility, motion and the real-model loop.
+
+## M8 — Data components, panic containment, host loop, transcripts and v0.1 readiness
+
+Branch `milestone/m8`, rebased onto `main` (`8d82617`) after the M6 tip. **M7 is not implemented on this
+branch**, so this milestone adds the M8 data/host surface without claiming typed
+inputs, forms, focus/accessibility or M7's scripted input tests. No push, merge,
+PR or tag was made. Full report: `docs/milestones/M8.md`.
+
+### Built
+
+- `List` (plain column at or below 100 children; kit virtual list above 100 with
+  on-demand leaf entities), kit-`DataTable` `Table` (sticky header,
+  virtualization, selection, sorting, resizable columns, empty/loading/error),
+  renderer-built `Tabs`/`Tab` with keyboard switching, host image loader, chart
+  hover tooltips, insert fades/skeleton pulse/reduced motion.
+- Per-builder `catch_unwind`, one `render.panic` per node revision, 3-panic
+  quarantine and props-change recovery; `gallery --self-test-panic`.
+- Path-addressed `RendererEvent` bridge (`activate_at`/`edit_at`/`blur_at`) for
+  buttons and bound Tabs; core `preload_ref`, `state_snapshot`, `freeze` and
+  restored-snapshot round-trip.
+- `genui-gpui::host` deny-by-default reference policy; `sample-host` with
+  scripted replies, 25/50/75/100% screenshots, freeze/restore/regenerate and
+  `--replay-all`.
+- 20 `eval/transcripts/*.json` (`scripted-fixture`) and
+  `genui-cli transcripts [--record|--verify]` with exact patch/state/event
+  comparison.
+- `table-stress --rows 50000` with visible-range, frame, parse/apply and RSS
+  metrics.
+- README quickstart, host guide, security review, v0.1 checklist, DESIGN 0.4,
+  SPEC/CHANGELOG/ROADMAP updates, DECISIONS conflict resolution.
+
+### Gates
+
+| Gate | Result |
+| --- | --- |
+| fmt / clippy (default + screenshot) | pass, `-D warnings` |
+| Workspace tests | pass: 344 core, 49 conformance, 72 renderer unit, 1 patch replay, 10 prompt, 5 std, 4 CLI + 3 integration, screenshot freshness/panic/replay |
+| Fixtures | 452 fixtures / 106,634 chunkings / 430 seeded permutations |
+| Spec-check | 3 programs, 4 fragments, 24 exemplars |
+| Transcripts | 20/20 exact replays |
+| Gallery | 50 PNGs, reviewed; 0 Warning+ diagnostics |
+| Sample host | restore state+tree equal, regenerate identical |
+| Table stress | 50k rows, 12 visible at every offset, steady p99 0.05 ms |
+| List stress | 10k children, 77 created entities, max 22 rows/frame, p99 2.22 ms |
+
+### Performance and memory (reported misses)
+
+- 50k table: one 323 ms construction frame (111 ms parse + 136 ms snapshot apply)
+  and 772 MB process RSS (54 MB baseline). The "construction independent of rows"
+  target is missed for parsing; the memory number is reported rather than waived.
+- 10k List: 77 created item entities total, max 22 rows/frame, p99 2.22 ms,
+  1431 ms construction, 408 MB RSS.
+- Steady table frames: p50 0.04 ms, p99 0.05 ms (inside 8 ms).
+- M6's 2,000-node stream p99 11.6 ms and 40 MB memory misses are unchanged.
+
+### Open issues / next
+
+- M7 inputs/forms/focus/accessibility/scripted input tests.
+- Real-model recording (≥20 live replies) and mid-stream review; the checked-in
+  transcripts are scripted and must not be presented as model evidence.
+- v0.1 tag and license/name decision belong to the owner/integrator; no LICENSE
+  file was added.
+- List uses one measured row height above 100; heterogeneous tall children
+  should stay below 100. GPUI paint-phase panics and host image decode remain
+  residual risks. Mutation/fuzz campaigns were not run for this slice.
+- Rebase onto main's new core fixes (nested refs, state snapshots, fallback
+  evaluation, inert links, data status visuals) before integration.

@@ -168,6 +168,13 @@ pub struct Update {
     pub prose: Vec<ProseDelta>,
     pub phase: SessionPhase,
 }
+/// A frozen message keeps its last tree, state and fallback (SPEC §7.9).
+#[derive(Clone, Debug, PartialEq)]
+pub struct FrozenMessage {
+    pub snapshot: PatchBatch,
+    pub state: StateSnapshot,
+    pub fallback_text: String,
+}
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Revision {
     pub origin_rev: u64,
@@ -283,6 +290,7 @@ pub struct Session {
     program_bytes: usize,
     program_raw: Vec<u8>,
     restored_state: Option<StateSnapshot>,
+    restored_applied: bool,
     prose_sent: BTreeMap<u32, usize>,
     segments: Vec<Segment>,
     extraction_diagnostics: crate::Diagnostics,
@@ -346,6 +354,7 @@ impl Session {
             program_bytes: 0,
             program_raw: Vec::new(),
             restored_state: None,
+            restored_applied: false,
             prose_sent: BTreeMap::new(),
             segments: Vec::new(),
             extraction_diagnostics: Default::default(),
@@ -459,6 +468,24 @@ impl Session {
         }
         self.update(false, false)
     }
+    /// Consumes the session and returns its final view snapshot, state and
+    /// fallback text (SPEC §7.9). The host may keep the batch for a read-only
+    /// frozen view.
+    pub fn freeze(mut self) -> FrozenMessage {
+        if !self.finished {
+            self.finish();
+        }
+        let snapshot = self.snapshot().patches.unwrap_or_else(|| PatchBatch {
+            epoch: self.epoch,
+            seq: self.next_seq,
+            ops: Vec::new(),
+        });
+        FrozenMessage {
+            snapshot,
+            state: self.state_snapshot(),
+            fallback_text: self.fallback_text(),
+        }
+    }
     pub fn reset(&mut self) -> Update {
         let Some(epoch) = self.epoch.checked_add(1) else {
             self.rejected = true;
@@ -550,9 +577,66 @@ impl Session {
             epoch: self.epoch,
         })
     }
-    /// Explicit action entry point by IR id. Events are gated while streaming
-    /// and stale epoch/plan handles are inert. Host effects become
-    /// requests/model events. Renderers use [`Self::event`] with paths.
+    /// Renderer-facing path lookup (SPEC §7.8). The patch stream carries stable
+    /// path IDs, so a host adapter can resolve a path to the current IR id.
+    pub fn node_id_at(&self, path: &str) -> Option<crate::ir::NodeId> {
+        self.node_id(&crate::ir::NodePath(path.to_string()))
+    }
+    /// Renderer-facing action lookup by path.
+    pub fn action_handle_at(&self, path: &str, prop: &str) -> Option<ActionHandle> {
+        self.action_handle(&crate::ir::NodePath(path.to_string()), prop)
+    }
+    /// Preload a ref value the host already has (SPEC §7.7). This is the
+    /// synchronous counterpart to `ResolveRef` delivery and lets a host render
+    /// ref-backed lists before the first stream; the same catalog, nesting and
+    /// byte caps apply. `false` means the value was left out.
+    pub fn preload_ref(&mut self, id: &str, value: crate::value::Value) -> bool {
+        if !crate::runtime::valid_ref_id(id)
+            || !self.options.validation.refs.contains(id)
+            || crate::runtime::contains_ref(&value)
+            || crate::runtime::value_bytes(&value)
+                > self.options.validation.limits.max_resolved_data_bytes
+        {
+            return false;
+        }
+        self.runtime.set_ref_value(
+            id,
+            crate::runtime::retag(value, crate::value::Provenance::Host),
+        );
+        self.mark_tree_dirty();
+        self.evaluate();
+        true
+    }
+    /// Activate a button by its stable path (SPEC §7.8). Unknown paths and
+    /// missing actions are inert. Submit-only buttons use the enclosing form's
+    /// `submit` plan (M7).
+    pub fn activate_at(&mut self, path: &str, prop: &str) -> Update {
+        let handle = self.action_handle_at(path, prop).or_else(|| {
+            (prop == "on_click")
+                .then(|| self.submit_handle(&crate::ir::NodePath(path.to_string())))
+                .flatten()
+        });
+        let Some(handle) = handle else {
+            return self.empty_update();
+        };
+        self.event(UiEvent::Activate {
+            node: crate::ir::NodePath(path.to_string()),
+            action: handle,
+        })
+    }
+    /// Edit a bound field by its stable path (SPEC §7.8).
+    pub fn edit_at(&mut self, path: &str, value: crate::value::Value) -> Update {
+        self.event(UiEvent::Edit {
+            node: crate::ir::NodePath(path.to_string()),
+            value,
+        })
+    }
+    /// Blur a field by its stable path (SPEC §7.8).
+    pub fn blur_at(&mut self, path: &str) -> Update {
+        self.event(UiEvent::Blur {
+            node: crate::ir::NodePath(path.to_string()),
+        })
+    }
     pub fn activate(&mut self, node: crate::ir::NodeId, handle: &ActionHandle) -> Update {
         self.activate_event(node, handle.clone())
     }
@@ -1523,8 +1607,22 @@ impl Session {
         }
         text
     }
+    /// A plain-data snapshot of every declared state slot (SPEC §§7.2, 7.9).
+    /// The host persists it and passes it back through `StoredMessage::state`.
+    pub fn state_snapshot(&self) -> StateSnapshot {
+        let mut values: BTreeMap<String, crate::value::Value> = self
+            .restored_state
+            .as_ref()
+            .map(|snapshot| snapshot.values.clone())
+            .unwrap_or_default();
+        for (name, slot) in self.runtime.state.iter() {
+            values.insert(name.clone(), slot.value.clone());
+        }
+        StateSnapshot { v: 1, values }
+    }
     /// The stored form of this message (SPEC §9.2). Programs remain source text.
     pub fn stored_message(&self) -> StoredMessage {
+        let snapshot = self.state_snapshot();
         StoredMessage {
             v: 1,
             segments: self.segments_for_storage(),
@@ -1538,15 +1636,7 @@ impl Session {
                 .filter(|diagnostic| !diagnostic.provisional)
                 .cloned()
                 .collect(),
-            state: {
-                let values: std::collections::BTreeMap<_, _> = self
-                    .runtime
-                    .state
-                    .iter()
-                    .map(|(name, slot)| (name.clone(), slot.value.clone()))
-                    .collect();
-                (!values.is_empty()).then_some(StateSnapshot { v: 1, values })
-            },
+            state: (!snapshot.values.is_empty()).then_some(snapshot),
         }
     }
     /// Re-parse a stored program and restore its state snapshot (SPEC §7.9).
@@ -1555,6 +1645,7 @@ impl Session {
         options.prompt_digest = stored.prompt_digest.clone();
         let mut session = Session::new(options);
         session.restored_state = stored.state.clone();
+        session.restored_applied = false;
         if let Some(program) = stored.program_text() {
             session.push(program.as_bytes());
         }
@@ -2125,6 +2216,31 @@ impl Session {
             return;
         }
         self.runtime.state.sync(&self.current.ir.states);
+        if !self.restored_applied
+            && let Some(snapshot) = self.restored_state.clone()
+        {
+            self.restored_applied = true;
+            // Apply only after the declarations exist. Values that no longer
+            // type-check are ignored rather than guessed (SPEC §7.9).
+            for (name, value) in snapshot.values {
+                let Some(ty) = self.runtime.state.get(&name).map(|slot| slot.ty.clone()) else {
+                    continue;
+                };
+                if self.options.library.accepts(&ty, &value) {
+                    let _ = self.runtime.state.write(
+                        &name,
+                        value,
+                        crate::runtime::StateOrigin::Action,
+                        &self.options.validation.limits,
+                        &self.options.library,
+                    );
+                }
+            }
+            self.tree_dirty = true;
+            self.projection = None;
+            self.local_wire = None;
+            self.local_grafts = None;
+        }
         let next = self.runtime.evaluate(
             &self.current.ir,
             &self.options.library,
@@ -3401,6 +3517,97 @@ mod tests {
         );
         let restored = Session::restore(&stored, SessionOptions::program(library()));
         assert_eq!(text_at(&restored, "root/children:#0").as_deref(), Some("7"));
+    }
+
+    #[test]
+    fn stored_messages_snapshot_and_restore_state_values() {
+        let mut live = session(
+            "$n=1\nroot=Stack([Text(text($n)),Control(on_click:set($n,7))])",
+            &[],
+            &[],
+        );
+        live.finish();
+        let path = crate::ir::NodePath("root/children:#1".into());
+        let handle = live.action_handle(&path, "on_click").unwrap();
+        let node = live
+            .live_ir()
+            .nodes
+            .values()
+            .find(|node| node.path == path)
+            .unwrap()
+            .id;
+        live.activate(node, &handle);
+        let snapshot = live.state_snapshot();
+        assert_eq!(snapshot.values.get("n"), Some(&crate::value::Value::Int(7)));
+
+        let stored = live.stored_message();
+        assert_eq!(
+            stored
+                .state
+                .as_ref()
+                .and_then(|state| state.values.get("n")),
+            Some(&crate::value::Value::Int(7))
+        );
+        let restored = Session::restore(
+            &stored,
+            SessionOptions {
+                library: library(),
+                validation: Options::default(),
+                input: InputMode::Program,
+                prompt_digest: String::new(),
+            },
+        );
+        assert_eq!(
+            restored.state_snapshot().values.get("n"),
+            Some(&crate::value::Value::Int(7)),
+            "the restored session applies its snapshot after declarations exist"
+        );
+        assert_eq!(text_at(&restored, "root/children:#0").as_deref(), Some("7"));
+        assert_eq!(
+            restored
+                .restored_state()
+                .and_then(|state| state.values.get("n")),
+            Some(&crate::value::Value::Int(7))
+        );
+    }
+
+    #[test]
+    fn preloaded_refs_expand_each_without_a_host_request() {
+        let options = Options {
+            refs: ["rows".into()].into(),
+            ..Options::default()
+        };
+        let mut live = Session::new(SessionOptions {
+            library: library(),
+            validation: options,
+            input: InputMode::Program,
+            prompt_digest: String::new(),
+        });
+        let value: crate::value::Value =
+            serde_json::from_str(r#"[{"id":1},{"id":2}]"#).expect("value");
+        assert!(live.preload_ref("rows", value));
+        assert!(!live.preload_ref("missing", serde_json::from_str("[]").unwrap()));
+        live.push(b"root=Stack(each(ref(\"rows\"),|row| Text(fmt(\"{}\",row.id)),key:\"id\"))");
+        let update = live.finish();
+        assert!(update.requests.is_empty(), "{:?}", update.requests);
+        let tree = live.tree().canonical_tree();
+        assert_eq!(
+            tree["children"]["children"].as_array().map(Vec::len),
+            Some(2)
+        );
+    }
+
+    #[test]
+    fn freeze_returns_a_complete_snapshot_state_and_fallback() {
+        let mut live = session("$n=2\nroot=Text(text($n))", &[], &[]);
+        live.finish();
+        let frozen = live.freeze();
+        assert_eq!(frozen.snapshot.ops.first(), Some(&crate::patch::Op::Reset));
+        assert_eq!(
+            frozen.state.values.get("n"),
+            Some(&crate::value::Value::Int(2))
+        );
+        assert!(frozen.fallback_text.contains('2'));
     }
 
     #[test]

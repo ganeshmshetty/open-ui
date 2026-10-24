@@ -1,0 +1,15 @@
+{
+  "sales.by_month": [
+    {"month": "Jan", "sales": 8200},
+    {"month": "Feb", "sales": 9400},
+    {"month": "Mar", "sales": 11200},
+    {"month": "Apr", "sales": 10400},
+    {"month": "May", "sales": 12800},
+    {"month": "Jun", "sales": 14100}
+  ],
+  "tickets.list": [
+    {"id": "T-104", "title": "Checkout fails", "priority": "Urgent", "owner": "Maya"},
+    {"id": "T-103", "title": "Invoice export", "priority": "High", "owner": "Rohan"},
+    {"id": "T-102", "title": "Invite delivery", "priority": "Urgent", "owner": "Ada"}
+  ]
+}

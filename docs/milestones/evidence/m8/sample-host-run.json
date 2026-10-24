@@ -1,0 +1,33 @@
+{
+  "v": 1,
+  "label": "scripted-fixture",
+  "transcript": "13-sales-tabs",
+  "prompt_digest": "969741607ed29c994d0cd1c0ede34ee1",
+  "chunks": 7,
+  "batches": 7,
+  "nodes": 12,
+  "model_events": 0,
+  "diagnostics": [],
+  "phase": "Done",
+  "frozen_at": 3,
+  "screenshots": [
+    "/tmp/rebase-host/stream-25pct.png",
+    "/tmp/rebase-host/frozen.png",
+    "/tmp/rebase-host/stream-50pct.png",
+    "/tmp/rebase-host/stream-75pct.png",
+    "/tmp/rebase-host/stream-100pct.png",
+    "/tmp/rebase-host/final.png",
+    "/tmp/rebase-host/restored.png"
+  ],
+  "restore": {
+    "ok": true,
+    "state_equal": true,
+    "tree_equal": true,
+    "nodes": 12
+  },
+  "regenerate": {
+    "ok": true,
+    "identical": true
+  },
+  "wall_ms": 2859.0020000000004
+}

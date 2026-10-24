@@ -41,6 +41,12 @@ impl Capabilities {
         }
     }
 
+    /// M8 inherits M7's controls and adds the data components and host image
+    /// loader; the capability flags are unchanged from M7.
+    pub const fn m8() -> Self {
+        Self::m7()
+    }
+
     /// The core's capability names (SPEC §8.8), for `SessionOptions`.
     pub fn names(&self) -> BTreeSet<String> {
         let mut names = BTreeSet::new();

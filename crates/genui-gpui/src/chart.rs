@@ -10,10 +10,13 @@ use crate::{
     theme::UiTheme,
 };
 use gpui_kit::{
-    AnyElement, AnyView, Context, Corners, Hsla, IntoElement, PaintQuad, ParentElement, Path,
-    PathBuilder, Pixels, Render, Styled, TextAlign, Window, canvas, div, fill, point, px,
+    AnyElement, AnyView, Bounds, Context, Corners, Hsla, InteractiveElement, IntoElement,
+    MouseMoveEvent, PaintQuad, ParentElement, Path, PathBuilder, Pixels, Render, Styled, TextAlign,
+    Window, canvas, div, fill, point, px,
 };
 use serde_json::Value;
+use std::cell::Cell;
+use std::rc::Rc;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ChartKind {
@@ -111,15 +114,41 @@ pub fn plot_element(
     id: &str,
     state: VisualState,
 ) -> AnyElement {
+    plot_element_tracked(theme, model, width, id, state, None)
+}
+
+/// Like `plot_element`, but records the plot-area bounds for hover hit
+/// testing (DESIGN §6.11).
+pub fn plot_element_tracked(
+    theme: &UiTheme,
+    model: &ChartModel,
+    width: Pixels,
+    id: &str,
+    state: VisualState,
+    bounds: Option<Rc<Cell<Bounds<Pixels>>>>,
+) -> AnyElement {
     match state {
-        VisualState::Loading => skeleton(theme, width),
+        VisualState::Loading => skeleton(theme, width, id),
+        VisualState::Refreshing => div()
+            .opacity(theme.refreshing_opacity())
+            .child(plot_element_body(theme, model, width, bounds))
+            .into_any_element(),
         VisualState::Error => error_plot(theme, width),
         VisualState::Empty => empty_plot(theme, width),
         _ if model.is_empty() => empty_plot(theme, width),
-        _ => match model.kind {
-            ChartKind::Bar => bar_plot(theme, model, width, id),
-            ChartKind::Line => line_plot(theme, model, width),
-        },
+        _ => plot_element_body(theme, model, width, bounds),
+    }
+}
+
+fn plot_element_body(
+    theme: &UiTheme,
+    model: &ChartModel,
+    width: Pixels,
+    bounds: Option<Rc<Cell<Bounds<Pixels>>>>,
+) -> AnyElement {
+    match model.kind {
+        ChartKind::Bar => bar_plot(theme, model, width, bounds),
+        ChartKind::Line => line_plot(theme, model, width, bounds),
     }
 }
 
@@ -133,8 +162,12 @@ fn caption(theme: &UiTheme, text: String) -> AnyElement {
         .into_any_element()
 }
 
-fn skeleton(theme: &UiTheme, width: Pixels) -> AnyElement {
-    plot_box(theme, width).into_any_element()
+fn skeleton(theme: &UiTheme, width: Pixels, id: &str) -> AnyElement {
+    crate::motion::pulse(
+        theme,
+        &format!("chart-{id}"),
+        plot_box(theme, width).into_any_element(),
+    )
 }
 
 fn empty_plot(theme: &UiTheme, width: Pixels) -> AnyElement {
@@ -175,7 +208,12 @@ fn plot_box(theme: &UiTheme, width: Pixels) -> gpui_kit::Div {
         .rounded(theme.radius(crate::theme::Radius::Md))
 }
 
-fn bar_plot(theme: &UiTheme, model: &ChartModel, width: Pixels, _id: &str) -> AnyElement {
+fn bar_plot(
+    theme: &UiTheme,
+    model: &ChartModel,
+    width: Pixels,
+    bounds_cell: Option<Rc<Cell<Bounds<Pixels>>>>,
+) -> AnyElement {
     let values: Vec<Option<f64>> = model.points.iter().map(|point| point.value).collect();
     let finite: Vec<f64> = values.iter().filter_map(|value| *value).collect();
     if finite.is_empty() {
@@ -208,6 +246,9 @@ fn bar_plot(theme: &UiTheme, model: &ChartModel, width: Pixels, _id: &str) -> An
 
     let canvas_plot = canvas(
         move |bounds, _, _| {
+            if let Some(cell) = &bounds_cell {
+                cell.set(bounds);
+            }
             let w = bounds.size.width.as_f32();
             let h = bounds.size.height.as_f32();
             let mut grid = Vec::new();
@@ -408,7 +449,12 @@ struct LinePaint {
     colors: (Hsla, Hsla),
 }
 
-fn line_plot(theme: &UiTheme, model: &ChartModel, width: Pixels) -> AnyElement {
+fn line_plot(
+    theme: &UiTheme,
+    model: &ChartModel,
+    width: Pixels,
+    bounds_cell: Option<Rc<Cell<Bounds<Pixels>>>>,
+) -> AnyElement {
     let values: Vec<Option<f64>> = model.points.iter().map(|point| point.value).collect();
     let finite: Vec<f64> = values.iter().filter_map(|value| *value).collect();
     if finite.is_empty() {
@@ -455,6 +501,9 @@ fn line_plot(theme: &UiTheme, model: &ChartModel, width: Pixels) -> AnyElement {
 
     let canvas_plot = canvas(
         move |bounds, _, _| {
+            if let Some(cell) = &bounds_cell {
+                cell.set(bounds);
+            }
             let w = bounds.size.width.as_f32();
             let h = bounds.size.height.as_f32();
             let mut grid = Vec::new();
@@ -604,7 +653,8 @@ fn truncate_label(label: &str, max_chars: usize) -> String {
 }
 
 /// The chart's cached plot view. The parent wraps it in `AnyView::cached` with
-/// definite dimensions (SPEC §10.1).
+/// definite dimensions (SPEC §10.1). Hover state and tooltip live here so a
+/// pointer move re-renders only the plot subtree (DESIGN §6.11).
 pub struct ChartView {
     pub id: String,
     pub tree: std::rc::Rc<std::cell::RefCell<crate::tree::RetainedTree>>,
@@ -612,26 +662,150 @@ pub struct ChartView {
     pub widths: crate::layout::Widths,
     pub overrides: std::rc::Rc<crate::layout::StateOverrides>,
     pub metrics: std::rc::Rc<std::cell::RefCell<crate::metrics::Metrics>>,
+    pub hover: Option<usize>,
+    pub plot_bounds: Rc<Cell<Bounds<Pixels>>>,
+}
+
+impl ChartView {
+    fn pointer_move(&mut self, event: &MouseMoveEvent, cx: &mut Context<Self>) {
+        let bounds = self.plot_bounds.get();
+        let width = bounds.size.width.as_f32();
+        if width <= 0.0 {
+            return;
+        }
+        let model = self.model();
+        if model.points.is_empty() {
+            return;
+        }
+        let x = (event.position.x - bounds.origin.x).as_f32();
+        if x < 0.0 || x > width {
+            if self.hover.take().is_some() {
+                cx.notify();
+            }
+            return;
+        }
+        let index = ((x / width) * model.points.len() as f32).floor() as usize;
+        let index = index.min(model.points.len().saturating_sub(1));
+        if self.hover != Some(index) {
+            self.hover = Some(index);
+            cx.notify();
+        }
+    }
+
+    fn model(&self) -> ChartModel {
+        let props = self
+            .tree
+            .borrow()
+            .get(&self.id)
+            .map(|entry| entry.props.clone())
+            .unwrap_or_default();
+        ChartModel::from_props(&props)
+    }
+
+    fn pointer_exit(&mut self, cx: &mut Context<Self>) {
+        if self.hover.take().is_some() {
+            cx.notify();
+        }
+    }
 }
 
 impl Render for ChartView {
-    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+    #[allow(refining_impl_trait)]
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         self.metrics.borrow_mut().chart_renders += 1;
         let (props, state) = {
             let tree = self.tree.borrow();
             let Some(entry) = tree.get(&self.id) else {
                 return div().into_any_element();
             };
-            let state = self.overrides.get(&self.id).copied().unwrap_or_else(|| {
-                crate::layout::data_state(&entry.props)
-                    .unwrap_or_else(|| crate::layout::state_of(entry.status))
-            });
+            let state = self
+                .overrides
+                .get(&self.id)
+                .copied()
+                .unwrap_or_else(|| crate::layout::state_of(entry.status));
+            let status = crate::props::status(&entry.props);
+            let state = crate::data::data_state(state, status.as_deref());
             (entry.props.clone(), state)
         };
         let model = ChartModel::from_props(&props);
         let width = self.widths.get(&self.id, self.theme.message_max_width());
-        plot_element(&self.theme, &model, width, &self.id, state)
+        let plot = plot_element_tracked(
+            &self.theme,
+            &model,
+            width,
+            &self.id,
+            state,
+            Some(self.plot_bounds.clone()),
+        );
+        let hover = self.hover.filter(|index| *index < model.points.len());
+        let tooltip = hover.map(|index| tooltip(&self.theme, &model, index, width));
+        let axis = self.theme.chart_axis_width().as_f32();
+        let plot_width = (width.as_f32() - axis).max(1.0);
+        let band = plot_width / model.points.len().max(1) as f32;
+        let tooltip_left = hover
+            .map(|index| {
+                let x = axis + band * index as f32;
+                x.min((width.as_f32() - self.theme.tooltip_max_width().as_f32()).max(0.0))
+                    .max(0.0)
+            })
+            .unwrap_or(0.0);
+        let mut root = div()
+            .relative()
+            .w(px(width.as_f32().max(0.0)))
+            .h(self.theme.chart_height())
+            .on_mouse_move(cx.listener(|this, event, _, cx| this.pointer_move(event, cx)))
+            .on_mouse_exit(cx.listener(|this, _, _, cx| this.pointer_exit(cx)))
+            .child(plot);
+        if let Some(tooltip) = tooltip {
+            root = root.child(
+                div()
+                    .absolute()
+                    .left(px(tooltip_left))
+                    .top(px(self.theme.space(1).as_f32()))
+                    .child(tooltip),
+            );
+        }
+        root.into_any_element()
     }
+}
+
+/// The overlay-style tooltip for a hovered category (DESIGN §§5, 6.11).
+pub fn tooltip(theme: &UiTheme, model: &ChartModel, index: usize, width: Pixels) -> AnyElement {
+    let Some(point) = model.points.get(index) else {
+        return div().into_any_element();
+    };
+    let caption = theme.text(crate::theme::TextRole::Caption);
+    let value = match point.value {
+        Some(value) => format::format_number(&Scalar::Float(value)),
+        None => "No value".into(),
+    };
+    div()
+        .flex()
+        .flex_col()
+        .gap(theme.space(0))
+        .max_w(theme.tooltip_max_width().min(width))
+        .p(theme.space(2))
+        .bg(theme.tokens().colors.surface)
+        .border_1()
+        .border_color(theme.border())
+        .rounded(theme.radius(crate::theme::Radius::Lg))
+        .shadow(theme.overlay_shadow())
+        .child(
+            div()
+                .text_size(caption.size)
+                .line_height(caption.line_height)
+                .text_color(theme.muted_foreground())
+                .child(truncate_label(&point.label, theme.chart_label_max_chars())),
+        )
+        .child(
+            div()
+                .text_size(caption.size)
+                .line_height(caption.line_height)
+                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                .text_color(theme.foreground())
+                .child(value),
+        )
+        .into_any_element()
 }
 
 /// Wraps a chart view in the fixed-size cache boundary required by SPEC §10.1.

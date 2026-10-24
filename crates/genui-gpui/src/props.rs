@@ -254,6 +254,31 @@ pub fn data_status(props: &Props, key: &str) -> Option<String> {
         .map(str::to_string)
 }
 
+/// The synthetic `status` prop emitted by the core for query-dependent nodes
+/// (SPEC §7.5, `session::resolve_status_props`).
+pub fn status(props: &Props) -> Option<String> {
+    props
+        .get("status")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+}
+
+/// A table row list. Unlike [`data`] this is bounded by the table's own row
+/// cap rather than the generic list cap, because a 50,000-row table is a
+/// supported stress case (SPEC §10.6) while a 256-item `Facts` list is not.
+pub fn table_rows(props: &Props, key: &str) -> (Vec<Vec<(String, Value)>>, bool) {
+    let Some(Value::Array(items)) = props.get(key) else {
+        return (Vec::new(), false);
+    };
+    let truncated = items.len() > crate::table::MAX_TABLE_ROWS;
+    let rows = items
+        .iter()
+        .take(crate::table::MAX_TABLE_ROWS)
+        .filter_map(decode_map)
+        .collect();
+    (rows, truncated)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -10,12 +10,16 @@ use crate::{
     chart::{self, ChartModel, ChartView},
     components,
     controls::{self, FieldDisplay},
+    data::{self, TabsView},
     extensions::{ExtensionNode, ExtensionRegistry},
+    image::{ImageCache, ImageError, ImageLimits, ImageState},
     layout::{
         StateOverrides, VisualState, Widths, data_state, inset_width, row_cell_width, state_of,
     },
     metrics::{Metrics, PatchSummary},
+    panics::{PanicTracker, guard},
     props::{self, Props},
+    table::{self, GenuiTableDelegate, TableModel},
     theme::{Radius, TextRole, UiTheme},
     tree::{ApplyReport, NodeEntry, RetainedTree},
 };
@@ -35,9 +39,9 @@ use gpui_component::{
 };
 use gpui_kit::{
     AnyElement, AnyView, App, AppContext, Context, ElementId, Entity, EventEmitter, FocusHandle,
-    Focusable, InteractiveElement, IntoElement, ParentElement, Pixels, Render, SharedString,
-    StatefulInteractiveElement, Styled, Subscription, TestSupportExt as _, WeakEntity, Window, div,
-    px,
+    Focusable, ImageFormat, InteractiveElement, IntoElement, ParentElement, Pixels, Render,
+    SharedString, StatefulInteractiveElement, Styled, Subscription, TestSupportExt as _,
+    WeakEntity, Window, component::table::TableState, div, px,
 };
 use std::{
     cell::{Cell, RefCell},
@@ -53,6 +57,12 @@ type StateMap = Rc<RefCell<BTreeMap<String, StateValue>>>;
 /// Focus handles owned by nodes, used to name the field that gained focus and
 /// to emit `Blur` when Tab, a pointer or Escape moves it (§10.4).
 type FocusIndex = Rc<RefCell<Vec<(FocusHandle, String)>>>;
+
+type TableEntity = Entity<gpui_kit::component::table::TableState<GenuiTableDelegate>>;
+type TableMap = Rc<RefCell<BTreeMap<String, TableEntity>>>;
+type TableModelCache = Rc<RefCell<BTreeMap<String, (u64, u64, u64, TableModel)>>>;
+type TabsMap = Rc<RefCell<BTreeMap<String, Entity<TabsView>>>>;
+type ListMap = Rc<RefCell<BTreeMap<String, Entity<crate::data::ListView>>>>;
 
 fn register_focus(index: &FocusIndex, handle: &FocusHandle, id: &str) {
     let mut index = index.borrow_mut();
@@ -118,7 +128,7 @@ impl EventSink {
         );
     }
 
-    fn edit(&self, node: &str, value: Value, cx: &mut App) {
+    pub(crate) fn edit(&self, node: &str, value: Value, cx: &mut App) {
         self.emit(
             UiEvent::Edit {
                 node: NodePath(node.to_string()),
@@ -203,11 +213,19 @@ pub struct UiView {
     images: Rc<RefCell<BTreeMap<String, Entity<ImageView>>>>,
     widths: Widths,
     overrides: Rc<StateOverrides>,
+    tables: TableMap,
+    table_models: TableModelCache,
+    tabs: TabsMap,
+    lists: ListMap,
+    image_cache: Rc<RefCell<ImageCache>>,
+    panics: Rc<RefCell<PanicTracker>>,
+    fades: Rc<RefCell<BTreeMap<String, u64>>>,
     metrics: Rc<RefCell<Metrics>>,
     queue: VecDeque<PatchBatch>,
     diagnostics: Vec<Diagnostic>,
     needs_snapshot: bool,
     max_width: Option<Pixels>,
+    panic_injection: bool,
     state: StateMap,
     epoch: Rc<Cell<u32>>,
     frozen: Rc<Cell<bool>>,
@@ -231,11 +249,19 @@ impl UiView {
             images: Rc::new(RefCell::new(BTreeMap::new())),
             widths: Widths::default(),
             overrides: Rc::new(StateOverrides::default()),
+            tables: Rc::new(RefCell::new(BTreeMap::new())),
+            table_models: Rc::new(RefCell::new(BTreeMap::new())),
+            tabs: Rc::new(RefCell::new(BTreeMap::new())),
+            lists: Rc::new(RefCell::new(BTreeMap::new())),
+            image_cache: Rc::new(RefCell::new(ImageCache::default())),
+            panics: Rc::new(RefCell::new(PanicTracker::default())),
+            fades: Rc::new(RefCell::new(BTreeMap::new())),
             metrics: Rc::new(RefCell::new(Metrics::default())),
             queue: VecDeque::new(),
             diagnostics: Vec::new(),
             needs_snapshot: false,
             max_width: None,
+            panic_injection: false,
             state: Rc::new(RefCell::new(BTreeMap::new())),
             epoch: Rc::new(Cell::new(0)),
             frozen: Rc::new(Cell::new(false)),
@@ -354,7 +380,13 @@ impl UiView {
     }
 
     pub fn capabilities() -> Capabilities {
-        Capabilities::m7()
+        Capabilities::m8()
+    }
+
+    /// `true` when the build uses unwinding and builder panics can be
+    /// contained (SPEC §10.8).
+    pub const fn panic_containment_enabled() -> bool {
+        crate::panics::CONTAINMENT_ENABLED
     }
 
     pub fn theme(&self) -> &UiTheme {
@@ -422,6 +454,110 @@ impl UiView {
         cx.notify();
     }
 
+    /// Host image contract (SPEC §10.3, ROADMAP item 7). `request_image`
+    /// records the pending state; the host fetches outside the renderer and
+    /// calls `deliver_image` or `fail_image`.
+    pub fn request_image(&mut self, src: &str, cx: &mut Context<Self>) {
+        self.image_cache.borrow_mut().request(src);
+        cx.notify();
+    }
+
+    pub fn deliver_image(
+        &mut self,
+        src: &str,
+        format: ImageFormat,
+        bytes: Vec<u8>,
+        cx: &mut Context<Self>,
+    ) -> Result<(), ImageError> {
+        let result = self.image_cache.borrow_mut().deliver(src, format, bytes);
+        cx.notify();
+        result
+    }
+
+    pub fn fail_image(&mut self, src: &str, cx: &mut Context<Self>) {
+        self.image_cache.borrow_mut().fail(src);
+        cx.notify();
+    }
+
+    pub fn image_state(&self, src: &str) -> ImageState {
+        self.image_cache.borrow().state(src)
+    }
+
+    pub fn with_image_limits(mut self, limits: ImageLimits) -> Self {
+        self.image_cache = Rc::new(RefCell::new(ImageCache::with_limits(limits)));
+        self
+    }
+
+    /// Test-only panic injection. A node whose kind is `PanicProbe` panics in
+    /// its builder so the containment path can be exercised end to end.
+    pub fn with_panic_injection(mut self) -> Self {
+        self.panic_injection = true;
+        self
+    }
+
+    pub fn render_diagnostics(&self) -> Vec<Diagnostic> {
+        self.panics.borrow().diagnostics().to_vec()
+    }
+
+    pub fn panic_count(&self) -> u64 {
+        self.panics.borrow().panics()
+    }
+
+    pub fn is_quarantined(&self, id: &str) -> bool {
+        let rev = self.tree.borrow().get(id).map_or(0, |entry| entry.rev);
+        self.panics.borrow().is_quarantined(id, rev)
+    }
+
+    /// Scrolls a table to a row. Used by the 50,000-row stress demo and tests.
+    pub fn scroll_table(&mut self, id: &str, row: usize, cx: &mut Context<Self>) -> bool {
+        let Some(entity) = self.tables.borrow().get(id).cloned() else {
+            return false;
+        };
+        entity.update(cx, |table, cx| table.scroll_to_row(row, cx));
+        true
+    }
+
+    pub fn table_row_count(&self, id: &str, cx: &App) -> Option<usize> {
+        let entity = self.tables.borrow().get(id).cloned()?;
+        Some(entity.read(cx).delegate().rows())
+    }
+
+    pub fn table_visible_range(&self, id: &str, cx: &App) -> Option<(usize, usize)> {
+        let entity = self.tables.borrow().get(id).cloned()?;
+        let state = entity.read(cx);
+        let range = state.visible_range().rows();
+        Some((range.start, range.end))
+    }
+
+    /// Scroll a virtualized List to a row (SPEC §10.3).
+    pub fn scroll_list(
+        &mut self,
+        id: &str,
+        row: usize,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let Some(entity) = self.lists.borrow().get(id).cloned() else {
+            return false;
+        };
+        entity.update(cx, |list, cx| list.scroll_to_row(row, window, cx));
+        true
+    }
+
+    pub fn list_created_rows(&self, id: &str, cx: &App) -> Option<usize> {
+        self.lists
+            .borrow()
+            .get(id)
+            .map(|list| list.read(cx).created.get())
+    }
+
+    pub fn list_frame_rows(&self, id: &str, cx: &App) -> Option<usize> {
+        self.lists
+            .borrow()
+            .get(id)
+            .map(|list| list.read(cx).frame_rendered.get())
+    }
+
     /// True once a sequence gap or bad op asked the host for a snapshot.
     pub fn take_needs_snapshot(&mut self) -> bool {
         std::mem::take(&mut self.needs_snapshot)
@@ -445,7 +581,34 @@ impl UiView {
 
     fn apply_batch(&mut self, batch: PatchBatch, window: &mut Window, cx: &mut Context<Self>) {
         let started = Instant::now();
-        let before = self.tree.borrow().clone();
+        // Keep only the lightweight ids/parents needed by `sync_views`. A full
+        // tree clone would copy a 50,000-row table prop on every batch
+        // (SPEC §10.6). `before` is kept for focus recovery only when it is
+        // actually needed.
+        let mut parents: BTreeMap<String, Option<String>> = BTreeMap::new();
+        let mut removed: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        let mut needs_before = false;
+        {
+            let tree = self.tree.borrow();
+            for op in &batch.ops {
+                match op {
+                    Op::Remove { id } => {
+                        let mut ids = Vec::new();
+                        collect_ids(&tree, id, &mut ids);
+                        removed.insert(id.clone(), ids);
+                        needs_before |= self.focused.borrow().is_some();
+                    }
+                    Op::Move { id, .. } => {
+                        parents.insert(
+                            id.clone(),
+                            tree.get(id).and_then(|entry| entry.parent.clone()),
+                        );
+                    }
+                    _ => {}
+                }
+            }
+        }
+        let before = (needs_before).then(|| self.tree.borrow().clone());
         let report = {
             let mut tree = self.tree.borrow_mut();
             tree.apply(&batch)
@@ -489,13 +652,24 @@ impl UiView {
         if report.applied {
             self.epoch.set(batch.epoch);
         }
-        self.sync_views(&batch, &before, &report, window, cx);
+        self.sync_views(
+            &batch,
+            &parents,
+            &removed,
+            before.as_ref(),
+            &report,
+            window,
+            cx,
+        );
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn sync_views(
         &mut self,
         batch: &PatchBatch,
-        before: &RetainedTree,
+        parents: &BTreeMap<String, Option<String>>,
+        removed: &BTreeMap<String, Vec<String>>,
+        before: Option<&RetainedTree>,
         report: &ApplyReport,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -506,7 +680,13 @@ impl UiView {
                     self.containers.borrow_mut().clear();
                     self.charts.borrow_mut().clear();
                     self.images.borrow_mut().clear();
+                    self.tables.borrow_mut().clear();
+                    self.table_models.borrow_mut().clear();
+                    self.tabs.borrow_mut().clear();
+                    self.lists.borrow_mut().clear();
                     self.widths.clear();
+                    self.fades.borrow_mut().clear();
+                    self.panics.borrow_mut().clear();
                     self.focused.borrow_mut().take();
                     window.blur(cx);
                     cx.notify();
@@ -515,6 +695,11 @@ impl UiView {
                     node, parent, slot, ..
                 } => {
                     let _ = slot;
+                    self.fades
+                        .borrow_mut()
+                        .entry(node.id.clone())
+                        .and_modify(|generation| *generation = generation.saturating_add(1))
+                        .or_insert(1);
                     self.ensure_entity(&node.id, window, cx);
                     if let Some(parent) = parent {
                         self.notify_for(parent, cx);
@@ -527,9 +712,12 @@ impl UiView {
                     self.notify_for(id, cx);
                 }
                 Op::Remove { id } => {
-                    let parent = before.get(id).and_then(|entry| entry.parent.clone());
-                    self.recover_focus(id, before, window, cx);
-                    self.prune_entities(id, before);
+                    let parent = parents.get(id).cloned().flatten();
+                    if let Some(before) = before {
+                        self.recover_focus(id, before, window, cx);
+                    }
+                    self.prune_entities(id, removed);
+                    self.fades.borrow_mut().remove(id);
                     if let Some(parent) = parent {
                         self.notify_for(&parent, cx);
                     } else {
@@ -537,7 +725,7 @@ impl UiView {
                     }
                 }
                 Op::Move { id, parent, .. } => {
-                    let old_parent = before.get(id).and_then(|entry| entry.parent.clone());
+                    let old_parent = parents.get(id).cloned().flatten();
                     if let Some(old) = old_parent {
                         self.notify_for(&old, cx);
                     }
@@ -613,6 +801,10 @@ impl UiView {
             return;
         };
         let is_root = self.tree.borrow().root.as_deref() == Some(id);
+        if !is_root && under_virtual_list(&self.tree.borrow(), id) {
+            // A >100-item List creates item entities on demand in `NodeFactory`.
+            return;
+        }
         if is_root || entry.is_container() || entry.is_focusable() {
             let mut containers = self.containers.borrow_mut();
             if containers.contains_key(id) {
@@ -631,6 +823,13 @@ impl UiView {
                 containers: self.containers.clone(),
                 charts: self.charts.clone(),
                 images: self.images.clone(),
+                tables: self.tables.clone(),
+                table_models: self.table_models.clone(),
+                tabs: self.tabs.clone(),
+                lists: self.lists.clone(),
+                image_cache: self.image_cache.clone(),
+                panics: self.panics.clone(),
+                fades: self.fades.clone(),
                 widths: self.widths.clone(),
                 overrides: self.overrides.clone(),
                 metrics: self.metrics.clone(),
@@ -648,6 +847,8 @@ impl UiView {
                 pending_user_edit: false,
                 attached: false,
                 watched_handles: 0,
+                inject_panic: self.panic_injection,
+                fade: true,
             });
             view.update(cx, |view, cx| view.attach(window, cx));
             containers.insert(id.to_string(), view);
@@ -666,6 +867,8 @@ impl UiView {
                     widths: self.widths.clone(),
                     overrides: self.overrides.clone(),
                     metrics: self.metrics.clone(),
+                    hover: None,
+                    plot_bounds: Rc::new(std::cell::Cell::new(gpui_kit::Bounds::default())),
                 });
                 charts.insert(id.to_string(), view);
             }
@@ -681,6 +884,7 @@ impl UiView {
                     widths: self.widths.clone(),
                     overrides: self.overrides.clone(),
                     metrics: self.metrics.clone(),
+                    image_cache: self.image_cache.clone(),
                 });
                 images.insert(id.to_string(), view);
             }
@@ -688,16 +892,24 @@ impl UiView {
         }
     }
 
-    fn prune_entities(&self, id: &str, before: &RetainedTree) {
+    fn prune_entities(&self, id: &str, removed: &BTreeMap<String, Vec<String>>) {
         let mut ids = vec![id.to_string()];
-        collect_ids(before, id, &mut ids);
+        ids.extend(removed.get(id).into_iter().flatten().cloned());
         let mut containers = self.containers.borrow_mut();
         let mut charts = self.charts.borrow_mut();
         let mut images = self.images.borrow_mut();
+        let mut tables = self.tables.borrow_mut();
+        let mut table_models = self.table_models.borrow_mut();
+        let mut tabs = self.tabs.borrow_mut();
+        let mut lists = self.lists.borrow_mut();
         for id in ids {
             containers.remove(&id);
             charts.remove(&id);
             images.remove(&id);
+            tables.remove(&id);
+            table_models.remove(&id);
+            tabs.remove(&id);
+            lists.remove(&id);
         }
     }
 
@@ -754,6 +966,25 @@ impl UiView {
         let message = self.theme.message_max_width().as_f32();
         px(available.min(host_cap.unwrap_or(message)))
     }
+}
+
+fn under_virtual_list(tree: &RetainedTree, id: &str) -> bool {
+    let mut current = tree.get(id).and_then(|entry| entry.parent.clone());
+    let mut guard = 0usize;
+    while let Some(parent) = current {
+        guard += 1;
+        if guard > tree.len() + 1 {
+            return false;
+        }
+        let Some(entry) = tree.get(&parent) else {
+            return false;
+        };
+        if entry.kind == "List" && crate::data::should_virtualize(entry.primary_len()) {
+            return true;
+        }
+        current = entry.parent.clone();
+    }
+    false
 }
 
 fn collect_ids(tree: &RetainedTree, id: &str, out: &mut Vec<String>) {
@@ -905,6 +1136,13 @@ pub struct NodeView {
     pub containers: Rc<RefCell<BTreeMap<String, Entity<NodeView>>>>,
     pub charts: Rc<RefCell<BTreeMap<String, Entity<ChartView>>>>,
     pub images: Rc<RefCell<BTreeMap<String, Entity<ImageView>>>>,
+    pub tables: TableMap,
+    pub table_models: TableModelCache,
+    pub tabs: TabsMap,
+    pub lists: ListMap,
+    pub image_cache: Rc<RefCell<ImageCache>>,
+    pub panics: Rc<RefCell<PanicTracker>>,
+    pub fades: Rc<RefCell<BTreeMap<String, u64>>>,
     pub widths: Widths,
     pub overrides: Rc<StateOverrides>,
     pub metrics: Rc<RefCell<Metrics>>,
@@ -922,11 +1160,128 @@ pub struct NodeView {
     pub pending_user_edit: bool,
     pub attached: bool,
     pub watched_handles: usize,
+    pub inject_panic: bool,
+    pub fade: bool,
+}
+
+/// Creates item `NodeView` entities on demand for the virtualized List. Only
+/// visible rows are built, and the entity is cached so a later update notifies
+/// just that row (SPEC §10.1/§10.3).
+#[derive(Clone)]
+pub(crate) struct NodeFactory {
+    pub theme: UiTheme,
+    pub tree: Rc<RefCell<RetainedTree>>,
+    pub containers: Rc<RefCell<BTreeMap<String, Entity<NodeView>>>>,
+    pub charts: Rc<RefCell<BTreeMap<String, Entity<ChartView>>>>,
+    pub images: Rc<RefCell<BTreeMap<String, Entity<ImageView>>>>,
+    pub tables: TableMap,
+    pub table_models: TableModelCache,
+    pub tabs: TabsMap,
+    pub lists: ListMap,
+    pub image_cache: Rc<RefCell<ImageCache>>,
+    pub panics: Rc<RefCell<PanicTracker>>,
+    pub fades: Rc<RefCell<BTreeMap<String, u64>>>,
+    pub widths: Widths,
+    pub overrides: Rc<StateOverrides>,
+    pub metrics: Rc<RefCell<Metrics>>,
+    pub state: StateMap,
+    pub sink: EventSink,
+    pub focused: Rc<RefCell<Option<String>>>,
+    pub focus_index: FocusIndex,
+    pub extensions: ExtensionRegistry,
+    pub inject_panic: bool,
+}
+
+impl NodeFactory {
+    pub(crate) fn entity<C: AppContext>(
+        &self,
+        id: &str,
+        window: &mut Window,
+        cx: &mut C,
+    ) -> Option<Entity<NodeView>> {
+        if let Some(entity) = self.containers.borrow().get(id).cloned() {
+            return Some(entity);
+        }
+        let kind = self.tree.borrow().get(id)?.kind.clone();
+        let view = cx.new(|_| NodeView {
+            id: id.to_string(),
+            kind,
+            theme: self.theme.clone(),
+            tree: self.tree.clone(),
+            containers: self.containers.clone(),
+            charts: self.charts.clone(),
+            images: self.images.clone(),
+            tables: self.tables.clone(),
+            table_models: self.table_models.clone(),
+            tabs: self.tabs.clone(),
+            lists: self.lists.clone(),
+            image_cache: self.image_cache.clone(),
+            panics: self.panics.clone(),
+            fades: self.fades.clone(),
+            widths: self.widths.clone(),
+            overrides: self.overrides.clone(),
+            metrics: self.metrics.clone(),
+            state: self.state.clone(),
+            sink: self.sink.clone(),
+            focused: self.focused.clone(),
+            focus_index: self.focus_index.clone(),
+            extensions: self.extensions.clone(),
+            control: ControlState::default(),
+            local: Rc::new(RefCell::new(Value::Null)),
+            focus_handles: Vec::new(),
+            subscriptions: Vec::new(),
+            last_rev: None,
+            pending: None,
+            pending_user_edit: false,
+            attached: false,
+            watched_handles: 0,
+            inject_panic: self.inject_panic,
+            fade: false,
+        });
+        view.update(cx, |view, cx| view.attach(window, cx));
+        self.containers
+            .borrow_mut()
+            .insert(id.to_string(), view.clone());
+        Some(view)
+    }
 }
 
 impl NodeView {
     fn entry(&self) -> Option<NodeEntry> {
         self.tree.borrow().get(&self.id).cloned()
+    }
+
+    fn meta(&self, id: &str) -> Option<(String, genui_core::ir::NodeStatus, u64)> {
+        self.tree
+            .borrow()
+            .get(id)
+            .map(|entry| (entry.kind.clone(), entry.status, entry.rev))
+    }
+
+    fn factory(&self) -> NodeFactory {
+        NodeFactory {
+            theme: self.theme.clone(),
+            tree: self.tree.clone(),
+            containers: self.containers.clone(),
+            charts: self.charts.clone(),
+            images: self.images.clone(),
+            tables: self.tables.clone(),
+            table_models: self.table_models.clone(),
+            tabs: self.tabs.clone(),
+            lists: self.lists.clone(),
+            image_cache: self.image_cache.clone(),
+            panics: self.panics.clone(),
+            fades: self.fades.clone(),
+            widths: self.widths.clone(),
+            overrides: self.overrides.clone(),
+            metrics: self.metrics.clone(),
+            state: self.state.clone(),
+            sink: self.sink.clone(),
+            focused: self.focused.clone(),
+            focus_index: self.focus_index.clone(),
+            extensions: self.extensions.clone(),
+            inject_panic: self.inject_panic,
+        }
     }
 
     fn state(&self, entry: &NodeEntry) -> VisualState {
@@ -1358,6 +1713,11 @@ impl NodeView {
                 let cell = row_cell_width(width, children.len(), gap);
                 vec![cell; children.len()]
             }
+            "List" => {
+                let inset = self.theme.list_gutter_width() + self.theme.space(1);
+                let content = px((width.as_f32() - inset.as_f32()).max(0.0));
+                vec![content; children.len()]
+            }
             _ => vec![width; children.len()],
         };
         (children, widths)
@@ -1371,18 +1731,27 @@ impl NodeView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let Some((kind, status, _rev)) = self.meta(id) else {
+            return div().into_any_element();
+        };
+        // Containers are entities so a change notifies only their subtree
+        // (SPEC §10.1). Do not clone their props: a table prop can hold 50,000
+        // rows, and this runs on every parent frame.
+        if let Some(entity) = self.containers.borrow().get(id).cloned() {
+            return AnyView::from(entity).into_any_element();
+        }
         let Some(entry) = self.tree.borrow().get(id).cloned() else {
             return div().into_any_element();
         };
-        let state =
-            self.overrides.get(id).copied().unwrap_or_else(|| {
-                data_state(&entry.props).unwrap_or_else(|| state_of(entry.status))
-            });
-        // Containers are entities so a change notifies only their subtree
-        // (SPEC §10.1). Leaves are built inline by their parent.
-        let mut element = if let Some(entity) = self.containers.borrow().get(id).cloned() {
-            AnyView::from(entity).into_any_element()
-        } else if entry.kind == "Chart" {
+        let status_value = props::status(&entry.props);
+        let state = data::data_state(
+            self.overrides
+                .get(id)
+                .copied()
+                .unwrap_or_else(|| state_of(status)),
+            status_value.as_deref(),
+        );
+        let mut element = if kind == "Chart" {
             let width = self.widths.get(id, self.theme.message_max_width());
             let model = ChartModel::from_props(&entry.props);
             let plot = match self.charts.borrow().get(id).cloned() {
@@ -1390,16 +1759,16 @@ impl NodeView {
                 None => chart::plot_element(&self.theme, &model, width, id, state),
             };
             chart::panel(&self.theme, &model, plot, width)
-        } else if entry.kind == "Image" {
+        } else if kind == "Image" {
             let width = self.widths.get(id, self.theme.message_max_width());
             match self.images.borrow().get(id).cloned() {
                 Some(entity) => cached_image(entity, &self.theme, width, &entry.props),
-                None => components::image(&self.theme, &entry.props, width, state),
+                None => image_element(&self.theme, &entry.props, width, state, &self.image_cache),
             }
         } else {
             self.build_entry(&entry, state, window, cx)
         };
-        if entry.kind == "Heading" && index > 0 {
+        if kind == "Heading" && index > 0 {
             element = div()
                 .mt(self.theme.heading_extra_top())
                 .child(element)
@@ -1408,7 +1777,7 @@ impl NodeView {
         // A Badge or Button keeps its natural width in a stretching stack
         // (DESIGN §6 rules 4 and 7).
         if matches!(parent, "Column" | "Card" | "Form" | "List" | "Tabs" | "Tab")
-            && matches!(entry.kind.as_str(), "Badge" | "Button")
+            && matches!(kind.as_str(), "Badge" | "Button")
         {
             element = div()
                 .flex()
@@ -1418,7 +1787,219 @@ impl NodeView {
                 .child(element)
                 .into_any_element();
         }
+        if let Some(generation) = self.fades.borrow().get(id).copied() {
+            element = crate::motion::fade_in(&self.theme, id, generation, element);
+        }
         element
+    }
+
+    fn table_element(
+        &mut self,
+        id: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let width = self.widths.get(id, self.theme.message_max_width());
+        let (rows_rev, props_rev, column_ids) = {
+            let tree = self.tree.borrow();
+            let Some(entry) = tree.get(id) else {
+                return div().into_any_element();
+            };
+            (entry.rows_rev, entry.rev, entry.children_in("columns"))
+        };
+        let mut columns_key = 17u64;
+        {
+            let tree = self.tree.borrow();
+            for column in &column_ids {
+                if let Some(entry) = tree.get(column) {
+                    columns_key = columns_key
+                        .wrapping_mul(31)
+                        .wrapping_add(entry.rev)
+                        .wrapping_add(u64::from(entry.kind.len() as u32));
+                }
+            }
+        }
+        let cached = self
+            .table_models
+            .borrow()
+            .get(id)
+            .filter(|(cached_rows, _, _, _)| *cached_rows == rows_rev)
+            .map(|(_, cached_rev, cached_columns, model)| {
+                (*cached_rev, *cached_columns, model.clone())
+            });
+        let model = match cached {
+            Some((cached_rev, cached_columns, model))
+                if cached_rev == props_rev && cached_columns == columns_key =>
+            {
+                model
+            }
+            Some((_, _, model)) => {
+                let (entry, columns) = {
+                    let tree = self.tree.borrow();
+                    let Some(entry) = tree.get(id).cloned() else {
+                        return div().into_any_element();
+                    };
+                    let columns: Vec<NodeEntry> = column_ids
+                        .iter()
+                        .filter_map(|column| tree.get(column).cloned())
+                        .collect();
+                    (entry, columns)
+                };
+                let rebuilt = model.rebuild(&entry, &columns);
+                self.table_models.borrow_mut().insert(
+                    id.to_string(),
+                    (rows_rev, props_rev, columns_key, rebuilt.clone()),
+                );
+                rebuilt
+            }
+            None => {
+                let (entry, columns) = {
+                    let tree = self.tree.borrow();
+                    let Some(entry) = tree.get(id).cloned() else {
+                        return div().into_any_element();
+                    };
+                    let columns: Vec<NodeEntry> = column_ids
+                        .iter()
+                        .filter_map(|column| tree.get(column).cloned())
+                        .collect();
+                    (entry, columns)
+                };
+                let started = Instant::now();
+                let model = TableModel::from_entry(&entry, &columns);
+                let elapsed = started.elapsed();
+                self.metrics.borrow_mut().table_parse_ns += elapsed.as_nanos() as u64;
+                // The parsed model is now the single owner of the row data.
+                if let Some(entry) = self.tree.borrow_mut().nodes.get_mut(id) {
+                    entry.props.remove("rows");
+                }
+                self.table_models.borrow_mut().insert(
+                    id.to_string(),
+                    (rows_rev, props_rev, columns_key, model.clone()),
+                );
+                model
+            }
+        };
+        let inside_card = self
+            .tree
+            .borrow()
+            .get(id)
+            .and_then(|entry| entry.parent.clone())
+            .and_then(|parent| {
+                self.tree
+                    .borrow()
+                    .get(&parent)
+                    .map(|entry| entry.kind.clone())
+            })
+            .is_some_and(|kind| kind == "Card");
+        let theme = self.theme.clone();
+        let existing = self.tables.borrow().get(id).cloned();
+        let table = match existing {
+            Some(entity) => {
+                let model_for_update = model.clone();
+                let theme_for_update = theme.clone();
+                entity.update(cx, |table, cx| {
+                    if table
+                        .delegate_mut()
+                        .update(model_for_update, width, theme_for_update)
+                    {
+                        table.refresh(cx);
+                    }
+                });
+                entity
+            }
+            None => {
+                let delegate =
+                    GenuiTableDelegate::new(model.clone(), width, theme.clone(), id.to_string());
+                let entity = cx.new(|cx| {
+                    TableState::new(delegate, window, cx)
+                        .sortable(true)
+                        .row_selectable(true)
+                        .col_resizable(true)
+                        .col_movable(false)
+                        .row_header(false)
+                });
+                self.tables
+                    .borrow_mut()
+                    .insert(id.to_string(), entity.clone());
+                entity
+            }
+        };
+        table::element(&table, &theme, &model, inside_card)
+    }
+
+    fn virtual_list_element(
+        &mut self,
+        entry: &NodeEntry,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let existing = self.lists.borrow().get(&entry.id).cloned();
+        let entity = match existing {
+            Some(entity) => {
+                entity.update(cx, |list, cx| {
+                    if list.last_rev != entry.rev {
+                        list.last_rev = entry.rev;
+                        cx.notify();
+                    }
+                });
+                entity
+            }
+            None => {
+                let entity = cx.new(|cx| {
+                    crate::data::ListView::new(
+                        entry.id.clone(),
+                        self.tree.clone(),
+                        self.theme.clone(),
+                        self.widths.clone(),
+                        self.factory(),
+                        window,
+                        cx,
+                    )
+                });
+                self.lists
+                    .borrow_mut()
+                    .insert(entry.id.clone(), entity.clone());
+                entity
+            }
+        };
+        AnyView::from(entity).into_any_element()
+    }
+
+    fn tabs_element(&mut self, id: &str, cx: &mut Context<Self>) -> AnyElement {
+        let Some(rev) = self.tree.borrow().get(id).map(|entry| entry.rev) else {
+            return div().into_any_element();
+        };
+        let existing = self.tabs.borrow().get(id).cloned();
+        let entity = match existing {
+            Some(entity) => {
+                entity.update(cx, |tabs, cx| {
+                    if tabs.last_rev != rev {
+                        tabs.last_rev = rev;
+                        cx.notify();
+                    }
+                });
+                entity
+            }
+            None => {
+                let entity = cx.new(|cx| {
+                    TabsView::new(
+                        id.to_string(),
+                        self.tree.clone(),
+                        self.containers.clone(),
+                        self.theme.clone(),
+                        self.widths.clone(),
+                        self.overrides.clone(),
+                        self.sink.clone(),
+                        cx,
+                    )
+                });
+                self.tabs
+                    .borrow_mut()
+                    .insert(id.to_string(), entity.clone());
+                entity
+            }
+        };
+        AnyView::from(entity).into_any_element()
     }
 
     fn build_control(
@@ -1802,6 +2383,9 @@ impl NodeView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        if self.inject_panic && entry.kind == "PanicProbe" {
+            panic!("injected renderer panic at {}", entry.id);
+        }
         if let Some(builder) = self.extensions.get(&entry.kind) {
             let node = ExtensionNode {
                 id: entry.id.clone(),
@@ -1856,6 +2440,39 @@ impl NodeView {
             return components::deferred(&self.theme, &entry.kind);
         }
         match entry.kind.as_str() {
+            "List" if data::should_virtualize(entry.primary_len()) => {
+                self.virtual_list_element(entry, window, cx)
+            }
+            "List" => {
+                let width = self.widths.get(&entry.id, self.theme.message_max_width());
+                let (children, widths) = self.child_widths(entry, width);
+                for (child, width) in children.iter().zip(widths) {
+                    self.widths.set(child, width);
+                }
+                let elements: Vec<AnyElement> = children
+                    .iter()
+                    .enumerate()
+                    .map(|(index, child)| self.child_element(child, index, &entry.kind, window, cx))
+                    .collect();
+                let ordered = props::bool_(&entry.props, "ordered", false);
+                data::list(&self.theme, ordered, state, elements)
+            }
+            "Table" => self.table_element(&entry.id, window, cx),
+            "Tabs" => self.tabs_element(&entry.id, cx),
+            "Tab" => {
+                let width = self.widths.get(&entry.id, self.theme.message_max_width());
+                let (children, widths) = self.child_widths(entry, width);
+                for (child, width) in children.iter().zip(widths) {
+                    self.widths.set(child, width);
+                }
+                let elements: Vec<AnyElement> = children
+                    .iter()
+                    .enumerate()
+                    .map(|(index, child)| self.child_element(child, index, &entry.kind, window, cx))
+                    .collect();
+                data::tab_panel(&self.theme, &entry.props, state, elements)
+            }
+            "TableColumn" => div().into_any_element(),
             "Form" => {
                 let width = self.widths.get(&entry.id, self.theme.message_max_width());
                 let (children, widths) = self.child_widths(entry, width);
@@ -1928,7 +2545,9 @@ impl NodeView {
                 let width = self.widths.get(&entry.id, self.theme.message_max_width());
                 match self.images.borrow().get(&entry.id).cloned() {
                     Some(entity) => cached_image(entity, &self.theme, width, &entry.props),
-                    None => components::image(&self.theme, &entry.props, width, state),
+                    None => {
+                        image_element(&self.theme, &entry.props, width, state, &self.image_cache)
+                    }
                 }
             }
             "Heading" => components::heading(
@@ -1970,13 +2589,40 @@ impl Render for NodeView {
             .entry(self.id.clone())
             .and_modify(|count| *count += 1)
             .or_insert(1);
-        let entry = self.tree.borrow().get(&self.id).cloned();
-        let element = match entry {
-            Some(entry) => {
-                let state = self.state(&entry);
-                self.build_entry(&entry, state, window, cx)
+        let theme = self.theme.clone();
+        let tracker = self.panics.clone();
+        let meta = self.meta(&self.id);
+        let rev = meta.as_ref().map_or(0, |(_, _, rev)| *rev);
+        let kind = meta.as_ref().map(|(kind, _, _)| kind.clone());
+        let element = match kind.as_deref() {
+            Some("Table") => {
+                let id = self.id.clone();
+                guard(&theme, &id, rev, &tracker, || {
+                    self.table_element(&id, window, cx)
+                })
             }
+            Some("Tabs") => {
+                let id = self.id.clone();
+                guard(&theme, &id, rev, &tracker, || self.tabs_element(&id, cx))
+            }
+            Some(_) => match self.entry() {
+                Some(entry) => {
+                    let status = props::status(&entry.props);
+                    let state = data::data_state(self.state(&entry), status.as_deref());
+                    let id = self.id.clone();
+                    guard(&theme, &id, rev, &tracker, || {
+                        self.build_entry(&entry, state, window, cx)
+                    })
+                }
+                None => div().into_any_element(),
+            },
             None => div().into_any_element(),
+        };
+        let element = match self.fades.borrow().get(&self.id).copied() {
+            Some(generation) if self.fade => {
+                crate::motion::fade_in(&theme, &self.id, generation, element)
+            }
+            _ => element,
         };
         self.metrics.borrow_mut().node_render_ns += started.elapsed().as_nanos() as u64;
         if crate::components::IMPLEMENTED.contains(&self.kind.as_str())
@@ -2009,6 +2655,7 @@ pub struct ImageView {
     pub widths: Widths,
     pub overrides: Rc<StateOverrides>,
     pub metrics: Rc<RefCell<Metrics>>,
+    pub image_cache: Rc<RefCell<ImageCache>>,
 }
 
 impl Render for ImageView {
@@ -2019,16 +2666,52 @@ impl Render for ImageView {
             let Some(entry) = tree.get(&self.id) else {
                 return div().into_any_element();
             };
+            let base = self
+                .overrides
+                .get(&self.id)
+                .copied()
+                .unwrap_or_else(|| state_of(entry.status));
+            let status = props::status(&entry.props);
             (
                 entry.props.clone(),
-                self.overrides.get(&self.id).copied().unwrap_or_else(|| {
-                    data_state(&entry.props).unwrap_or_else(|| state_of(entry.status))
-                }),
+                data::data_state(base, status.as_deref()),
             )
         };
         let width = self.widths.get(&self.id, self.theme.message_max_width());
-        components::image(&self.theme, &props, width, state)
+        image_element(&self.theme, &props, width, state, &self.image_cache)
     }
+}
+
+/// Resolves the host cache plus the node status into the DESIGN pending,
+/// failed or ready image (DESIGN §7, SPEC §10.3).
+fn image_element(
+    theme: &UiTheme,
+    props: &Props,
+    width: Pixels,
+    state: VisualState,
+    cache: &Rc<RefCell<ImageCache>>,
+) -> AnyElement {
+    let src = crate::props::text_or(props, "src", "");
+    let alt = crate::props::text_or(props, "alt", "");
+    let height = px(
+        (crate::props::int(props, "height").unwrap_or(160) as f32).clamp(
+            theme.image_min_height().as_f32(),
+            theme.image_max_height().as_f32(),
+        ),
+    );
+    let fit = crate::props::name_or(props, "fit", "cover");
+    let resolved = {
+        let mut cache = cache.borrow_mut();
+        cache.request(&src);
+        let cached = cache.state(&src);
+        match (&cached, state) {
+            (_, VisualState::Error) => ImageState::Failed,
+            (ImageState::Failed, _) => ImageState::Failed,
+            (_, VisualState::Loading | VisualState::Refreshing) => ImageState::Pending,
+            (state, _) => state.clone(),
+        }
+    };
+    crate::image::element(theme, &alt, height, width, &fit, &resolved, state)
 }
 
 /// Wraps an image in the fixed-size cache boundary required by SPEC §10.1.

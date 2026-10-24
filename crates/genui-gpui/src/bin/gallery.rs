@@ -50,6 +50,7 @@ struct Args {
     list: bool,
     sheet_only: bool,
     self_test_freshness: bool,
+    self_test_panic: bool,
 }
 
 impl Default for Args {
@@ -62,6 +63,7 @@ impl Default for Args {
             list: false,
             sheet_only: false,
             self_test_freshness: false,
+            self_test_panic: false,
         }
     }
 }
@@ -93,10 +95,12 @@ fn parse_args(args: Vec<String>) -> Result<Args, String> {
             "--list" => parsed.list = true,
             "--sheet" => parsed.sheet_only = true,
             "--self-test-freshness" => parsed.self_test_freshness = true,
+            "--self-test-panic" => parsed.self_test_panic = true,
             "--help" | "-h" => {
                 return Err(
                     "usage: gallery [--screenshot DIR] [--mode light|dark|both]\n\
-                     \x20              [--example NAME] [--inspector] [--list] [--sheet]"
+                     \x20              [--example NAME] [--inspector] [--list] [--sheet]\n\
+                     \x20              [--self-test-freshness] [--self-test-panic]"
                         .into(),
                 );
             }
@@ -261,6 +265,13 @@ fn make_ui(
     if let Some(width) = max_width {
         ui.update(cx, |view, cx| view.set_max_width(width, cx));
     }
+    if item.state_sheet {
+        for (src, format, bytes) in state_sheet::image_assets() {
+            ui.update(cx, |view, cx| {
+                let _ = view.deliver_image(&src, format, bytes.clone(), cx);
+            });
+        }
+    }
     for batch in &item.batches {
         ui.update(cx, |view, cx| view.apply(batch.clone(), window, cx));
     }
@@ -288,6 +299,7 @@ fn screenshot(args: &Args, items: &[Item]) -> Result<(), String> {
     let mut cx =
         HeadlessAppContext::with_platform(text_system, Arc::new(()), current_headless_renderer);
     cx.update(gpui_kit::init);
+    cx.update(|cx| cx.set_reduce_motion(true));
     let mut manifest = String::new();
     let mut captured = 0usize;
     for item in items {
@@ -420,6 +432,9 @@ fn interactive(args: &Args, items: Vec<Item>) -> Result<(), String> {
 fn run(args: Args) -> Result<(), String> {
     if args.self_test_freshness {
         return freshness::run();
+    }
+    if args.self_test_panic {
+        return panic_probe::run();
     }
     let items = items(&args)?;
     if args.list {
@@ -581,6 +596,137 @@ mod freshness {
 mod freshness {
     pub fn run() -> Result<(), String> {
         Err("--self-test-freshness needs the `screenshot` feature".into())
+    }
+}
+
+#[cfg(feature = "screenshot")]
+mod panic_probe {
+    use genui_core::{
+        ir::{NodeStatus, Role},
+        patch::{NodeInit, Op, PatchBatch},
+    };
+    use genui_gpui::{theme::UiTheme, view::UiView};
+    use gpui_kit::{
+        AnyWindowHandle, AppContext, HeadlessAppContext,
+        platform::{current_headless_renderer, current_platform},
+    };
+    use serde_json::json;
+    use std::{collections::BTreeMap, sync::Arc};
+
+    fn batch() -> PatchBatch {
+        PatchBatch {
+            epoch: 1,
+            seq: 0,
+            ops: vec![
+                Op::Reset,
+                Op::Insert {
+                    parent: None,
+                    slot: "root".into(),
+                    index: 0,
+                    node: NodeInit {
+                        id: "root".into(),
+                        kind: "PanicProbe".into(),
+                        role: Role::Group,
+                        props: BTreeMap::new(),
+                        status: NodeStatus::Sealed,
+                    },
+                },
+            ],
+        }
+    }
+
+    pub fn run() -> Result<(), String> {
+        let theme = UiTheme::for_mode(genui_gpui::theme::ThemeMode::Light);
+        let text_system = current_platform(true).text_system();
+        let mut cx =
+            HeadlessAppContext::with_platform(text_system, Arc::new(()), current_headless_renderer);
+        cx.update(gpui_kit::init);
+        cx.update(|cx| {
+            theme.install(cx);
+            cx.set_reduce_motion(true);
+        });
+        let window_theme = theme.clone();
+        let window = cx
+            .open_window(theme.demo_window_size(), move |window, cx| {
+                cx.new(|cx| UiView::new(window_theme.clone(), window, cx).with_panic_injection())
+            })
+            .map_err(|error| error.to_string())?;
+        let handle = AnyWindowHandle::from(window);
+        window
+            .update(&mut cx, |view, window, cx| view.apply(batch(), window, cx))
+            .map_err(|error| error.to_string())?;
+        let mut diagnostics = 0usize;
+        for _ in 0..3 {
+            cx.run_until_parked();
+            let image = cx
+                .capture_screenshot(handle)
+                .map_err(|error| error.to_string())?;
+            if image.width() == 0 || image.height() == 0 {
+                return Err("panic probe captured an empty image".into());
+            }
+            diagnostics = window
+                .update(&mut cx, |view, _, cx| {
+                    if view.tree().get("root").map(|entry| entry.kind.as_str())
+                        != Some("PanicProbe")
+                    {
+                        return Err("the probe node was removed".to_string());
+                    }
+                    cx.notify();
+                    Ok(view
+                        .render_diagnostics()
+                        .iter()
+                        .filter(|diagnostic| diagnostic.code == genui_core::diag::Code::RenderPanic)
+                        .count())
+                })
+                .map_err(|error| error.to_string())??;
+        }
+        let quarantined = window
+            .update(&mut cx, |view, _, _| view.is_quarantined("root"))
+            .map_err(|error| error.to_string())?;
+        if !quarantined {
+            return Err("three panics did not quarantine the subtree".into());
+        }
+        if diagnostics != 1 {
+            return Err(format!(
+                "expected one render.panic diagnostic, got {diagnostics}"
+            ));
+        }
+        window
+            .update(&mut cx, |view, window, cx| {
+                view.apply(
+                    PatchBatch {
+                        epoch: 1,
+                        seq: 1,
+                        ops: vec![Op::SetProps {
+                            id: "root".into(),
+                            set: BTreeMap::from([("probe".into(), json!(2))]),
+                            unset: Vec::new(),
+                        }],
+                    },
+                    window,
+                    cx,
+                );
+            })
+            .map_err(|error| error.to_string())?;
+        cx.run_until_parked();
+        let cleared = window
+            .update(&mut cx, |view, _, _| !view.is_quarantined("root"))
+            .map_err(|error| error.to_string())?;
+        if !cleared {
+            return Err("a props change did not lift the quarantine".into());
+        }
+        let _ = window.update(&mut cx, |_, window, _| window.remove_window());
+        println!(
+            "panic containment: placeholder subtree, one render.panic diagnostic, quarantine after 3 panics, props change recovers"
+        );
+        Ok(())
+    }
+}
+
+#[cfg(not(feature = "screenshot"))]
+mod panic_probe {
+    pub fn run() -> Result<(), String> {
+        Err("--self-test-panic needs the `screenshot` feature".into())
     }
 }
 

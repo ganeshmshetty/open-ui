@@ -1373,7 +1373,7 @@ A chat has many assistant messages. Each one gets its own `Session` and its own 
   | `Frozen` | host calls `Session::freeze()` | The session is dropped. The view keeps its last tree, read-only: inputs and buttons render disabled, and no queries or actions run. |
 
 - **Freezing.** `freeze(self) -> FrozenMessage { snapshot: PatchBatch, state: StateSnapshot, fallback_text: String }`. Hosts SHOULD keep at most `max_live_sessions` sessions live (host default 3, the most recent messages) and freeze older ones.
-- **Thawing.** `Session::restore(stored: &StoredMessage, opts: SessionOptions) -> Session` re-parses the stored program with the batch path, restores the state snapshot, and returns a `Live` session. Its queries are re-requested and go through host policy again. The result MUST equal the original session after `finish()`, plus the restored state.
+- **Thawing.** `Session::restore(stored: &StoredMessage, opts: SessionOptions) -> Session` re-parses the stored program with the batch path, restores the state snapshot, and returns a `Live` session. Its queries are re-requested and go through host policy again. The result MUST equal the original session after `finish()`, plus the restored state. Snapshot values with no matching declaration are kept by `state_snapshot()` for host round-tripping; declared slots always reflect live state. Ref values are host data and are rehydrated by the host (for example with `Session::preload_ref`) after restore.
 - **Regenerate** calls `reset()` on that message's session only (6.3 G8). Other messages are untouched.
 - **Events from older messages.** A `ModelEvent` from any live message is sent with that message's id: the host adds `"msg": "<id>"` to the `ui-event` block, so the model knows which earlier UI the user interacted with.
 
@@ -1778,6 +1778,17 @@ impl UiView {
   type. Subscribers run after the input entity's update, so applying patches from
   the callback does not re-enter `UiView` while it is borrowed.
 - Nothing crosses threads. The view and its closures live on GPUI's foreground thread.
+- Buttons emit `Activate` only when sealed, enabled and carrying an action; a
+  bound `Tabs` selection and every input emit `Edit`; focus changes emit `Blur`.
+  A submit-only button uses the form handle from `action_handle(path, "submit")`.
+- Nothing crosses threads. The view and its closures live on GPUI's foreground thread.
+- Buttons emit `Activate` only when sealed, enabled and carrying `on_click`; a bound `Tabs` selection emits `Edit` when its local selection changes. Inputs remain M7.
+
+**Image loading (M8, ROADMAP item 7).**
+
+- The renderer never fetches. The host calls `UiView::request_image(src)` after checking URL policy, fetches asynchronously under a deadline, then calls `deliver_image(src, format, bytes)` or `fail_image(src)`.
+- `genui-gpui::image` caps encoded bytes at 8 MiB, either dimension at 4096 px, decoded pixels at 16 MP, and cached sources at 256. A decode panic becomes a failed image. Pending shows the DESIGN §7 box; failed shows the alt text.
+- `ImageLimits.timeout_ms` (10 s) is a host contract: the renderer owns no clock and no I/O.
 
 **Setup the host must do.**
 
@@ -1791,6 +1802,8 @@ impl UiView {
 - **View caching is limited.** `AnyView::cached` needs definite dimensions, and a cache miss in an ancestor re-renders its cached descendants, so nested caching does not hold (measured in the GPUI spike). Phase 1 uses `cached` only for subtrees whose size is known from the IR and that are expensive to rebuild: a Chart's plot area, an Image, and the viewport of a virtualized Table or List. Containers are not cached. M6 measures whether this meets 10.6 before adding any other cache boundary.
 - **Stateless leaves** (Text, Heading, Badge, Divider and Image) are not entities; their parent builds them inline, and a leaf update notifies its nearest container entity. M6 measured the alternative (one entity per Text) and rejected it: the 2,000-node stream's app-work p99 rose from 11.6 ms to 20.5 ms, so the coarser notification boundary stays. §10.6 records the measured consequence.
 - **The component registry** maps `ComponentId` to `fn(&NodeEntry, &Children, &mut Window, &mut App) -> AnyElement`. M6's registry lives in `genui-gpui::components`; unknown or later-milestone kinds render a labeled placeholder rather than a panic.
+- **Data components (M8).** `Table` is the kit `DataTable` over `TableState<GenuiTableDelegate>`; rows are parsed once into the renderer model, the duplicate wire `rows` prop is dropped from the retained tree, and a `rows_rev` cache key prevents unrelated prop updates from re-reading rows. Only the visible rows (bounded by the viewport) are built; a 50,000-row table was measured at 12 visible rows and 0.05 ms steady app work. `Tabs` keeps local selection, renders only the selected `Tab`, supports Left/Right/Home/End when focused, and emits `Edit` when bound. `List` renders its IR children with the DESIGN marker gutter; unlike Table it is not virtualized in phase 1 (bounded by the node/list limits, logged as a limitation).
+- **Chart polish (M8).** The chart view tracks the pointer within the plot, draws the overlay tooltip for the nearest category and uses the §6.12 number format. Newly inserted sealed nodes fade for 150 ms and skeleton bars pulse for 1.2 s; `with_animation` follows `App::reduce_motion`, and screenshot hosts request reduced motion for stills.
 - **The crate does no I/O.** It owns no networking, no tool logic and no model access. Images arrive as bytes from the host. The gallery and demo binaries own their file reads.
 - **M6 cache boundaries.** Chart plots and Images use `AnyView::cached` with the definite width assigned by their parent and a definite height from the theme. Containers are not cached; a cache miss in an ancestor can re-render cached descendants (spike finding).
 
@@ -1814,7 +1827,7 @@ These names were checked on docs.rs for `gpui-component 0.8.0` and `gpui-pre 0.3
 | `Code` | `TextView::markdown` with a fenced block | Uses the kit highlighter when the tree-sitter feature is on. Copy button through `clipboard::Clipboard`. |
 | `Badge` | `tag::Tag::custom(bg, fg, border)` | Kit `Badge` is a count or dot indicator. `Tag::custom` takes the background first; M6 fixes that argument order. |
 | `Alert` | `alert::Alert` (`AlertVariant`) with explicit tone `bg`/`fg`/`border` overrides | |
-| `Image` | `gpui::img(ImageSource::Image(Arc<Image>))` | Bytes come from the host loader, never `ImageSource::Resource(Uri)`. Shows `alt` while pending or on failure. |
+| `Image` | `gpui::img(ImageSource::Image(Arc<Image>))` | Bytes come from the host loader (`request_image` + `deliver_image`), never `ImageSource::Resource(Uri)`. Pending shows the DESIGN §7 box; failed shows the alt text. Caps: 8 MiB, 4096 px, 16 MP, 256 sources per message. |
 | `Button` | `button::Button` | Tone: primary→`Primary`, secondary→`Default`, ghost→`Ghost`, danger→`Danger`. Disabled while gated or streaming. |
 | `Form` | A styled `v_flex` built to DESIGN §6 rule 7 | Fields use a 12 px gap, a 6 px label gap, a 4 px error gap and a 16 px submit gap. Kit `form::Field` uses a different 4/2 px rhythm and a muted description, so M7 draws the DESIGN anatomy directly. Validity comes from the core. |
 | `Input` | `input::Input` over `Entity<InputState>` | `content_type` follows `kind` where supported. |
@@ -1823,12 +1836,12 @@ These names were checked on docs.rs for `gpui-component 0.8.0` and `gpui-pre 0.3
 | `Checkbox`, `CheckboxGroup` | `base::Checkbox` with a DESIGN 16 px accent box (one per option) | The component checkbox uses the theme `primary` (black) for the fill; DESIGN §7 requires `accent`. M7 draws the box and check itself. |
 | `RadioGroup` | `base::RadioGroup`, `base::Radio` with a DESIGN 16 px dot | Arrow-key movement is implemented by the renderer; the pinned base group has no arrow bindings. |
 | `Switch` | `base::Switch` with a 32×18 track and a 14 px thumb | Not the component `Switch` (36×20) and not `button::Toggle`. |
-| `List` | `v_flex` of children. Above 100 items, `list::List` with a `ListDelegate` adapter over IR children. | |
-| `Table` | `table::DataTable` over `Entity<TableState<D>>` with a `TableDelegate` adapter | Rows are text cells only. |
+| `List` | A `v_flex` of children at or below 100 items; above 100, `list::List` over `ListState<GenuiListDelegate>` | The kit virtual list builds only visible item entities (leaf `NodeView`s on demand) and preserves the DESIGN marker gutter, ordered numbering, 8 px item gap, loading skeleton and empty behavior. Kit list rows share one measured height; heterogeneous tall children should stay below 100. A 10,000-item stress created 77 entities total and built at most 22 rows in one frame, including Row/Badge item containers. |
+| `Table` | `table::DataTable` over `Entity<TableState<GenuiTableDelegate>>` | The kit supplies the sticky header, row virtualization, selection, sorting and resizable columns. Cells use §6.12 formatting. Rows are parsed once and the duplicate wire prop is dropped. |
 | `Stat` | `v_flex` of a caption label, a tabular value, and a custom tone `Tag` for the delta | Layout and number formats per DESIGN.md §6.12 and §7. |
 | `Facts` | `div().grid()` with two columns per fact (label, value) | Label `muted_foreground`, value `foreground`. |
-| `Chart` | A small `canvas` plot for bars and lines | The pinned kit charts cannot leave null gaps, and the kit bar chart’s value ticks were not round; M6 draws bars, lines, gridlines and round value ticks itself. Titles/summaries use the DESIGN styles. Hover tooltips are deferred with the data-component polish in M8. |
-| `Tabs`, `Tab` | `tab::TabBar` and `tab::Tab` for the bar | Panel switching is built by the renderer, because the kit has no tab panel. Only the selected `Tab`'s children are rendered. |
+| `Chart` | A small `canvas` plot for bars and lines | The pinned kit charts cannot leave null gaps, and the kit bar chart’s value ticks were not round; M6 draws bars, lines, gridlines and round value ticks itself. M8 adds pointer tooltips with number formatting, 150 ms insert fades and reduced-motion handling. |
+| `Tabs`, `Tab` | The renderer builds the DESIGN tab bar and panel | Only the selected `Tab`'s children are rendered. Left/Right/Home/End switch when focused. Selection is local; when `bind` is present a change emits `Edit`. Initial selection is the first tab until the host restores state. |
 
 ### 10.4 Focus and input handling
 
@@ -1898,6 +1911,21 @@ The full visual design language (tokens, layout rules, component anatomy, stream
 
 These targets are reported, not gating, in phase 1.
 
+**M8 50,000-row table measurement** (`table-stress --rows 50000`, macOS arm64, light theme, headless):
+
+- row virtualization holds: at most 12 rows were built at any scroll offset (0, 1,000, 10,000, 25,000, 49,980), independent of 50,000 total rows;
+- steady app work after construction: p50 0.04 ms, p99 0.05 ms, max 0.05 ms (inside the 8 ms target);
+- one construction frame: 323 ms, of which row parsing was 111 ms and applying the snapshot was 136 ms; the "construction cost independent of rows above 100" target is **missed** for data parsing and reported, not waived;
+- process RSS after the run: 772 MB with a 54 MB baseline. This includes the core's retained ref value, the renderer's parsed rows and GPUI/Metal surfaces; the 40 MB target does not apply to 50k rows but the number is reported rather than hidden;
+- scrolling to a distant row including a headless capture took under 200 ms; capture time is excluded from app work.
+
+**M8 10,000-item List measurement** (`list-stress --rows 10000`):
+
+- above 100 children the kit virtual list is used; 77 item entities were created in total and at most 22 rows were built in one frame;
+- frame app work p50 0.82 ms, p99 2.22 ms; snapshot apply 127 ms; construction 1431 ms;
+- process RSS 408 MB with a 54 MB baseline;
+- ordered numbering widens the 16 px gutter only when the widest number needs it (four digits for 10,000 items).
+
 ### 10.7 Interaction with the host
 
 - **Requests.** The host receives `HostRequest`s in each `Update` returned by the `Session`. The renderer never sees them.
@@ -1907,10 +1935,11 @@ These targets are reported, not gating, in phase 1.
 ### 10.8 Error boundaries per subtree
 
 1. **Sanitize props first.** The core guarantees types and ranges. The renderer also clamps sizes, truncates each text prop to 32 KiB, and caps list lengths.
-2. **Contain panics in builders.** Each per-node builder runs inside `catch_unwind(AssertUnwindSafe(...))`.
-   - On a panic, the node renders as a muted placeholder ("This part could not be shown"), and `render.panic` is reported.
+2. **Contain panics in builders.** Each per-node builder runs inside `catch_unwind(AssertUnwindSafe(...))` (`genui-gpui::panics`).
+   - On a panic, the node renders as a muted placeholder ("This part could not be shown"), and one `render.panic` diagnostic is reported for that node revision.
    - After 3 panics, the node is quarantined until its props change.
-   - This requires the host to build with `panic = "unwind"`. The crate checks `cfg(panic = "unwind")` and, if unwinding is off, reports `render.panic` containment as disabled in its startup diagnostics.
+   - This requires the host to build with `panic = "unwind"`. `panics::CONTAINMENT_ENABLED` and `UiView::panic_containment_enabled()` expose the build setting; a `panic = "abort"` host should surface it in startup diagnostics.
+   - M8 evidence: the gallery's `--self-test-panic` injects a builder panic, captures the placeholder, proves one diagnostic and quarantine after three panics, then proves a props change recovers. The injection kind is not in the std catalog.
 3. **Known limit.** Panics inside GPUI's later layout or paint passes cannot be reliably caught. Mitigations:
    - builders produce only kit widgets and primitives with clamped values;
    - a headless renderer fuzz test feeds random valid IR and MUST run without panicking.
@@ -2178,7 +2207,9 @@ For every chunking it checks:
   the explicit documentation host context in `conformance/libs/host.json`. It does
   not silently allow arbitrary tool or ref names.
 - M2's checked-in diagnostic coverage audit lists the codes covered by static
-  fixtures and the codes awaiting M8 (renderer panic containment). Arithmetic overflow/finiteness codes already have lexical
+  fixtures. `render.panic` is renderer-only: it is covered by the GPUI
+  panic-injection self-test (`gallery --self-test-panic`) and recorded in
+  `deferred.json` with that reason. Arithmetic overflow/finiteness codes already have lexical
   fixtures; their evaluated variants remain M4 work. Every reachable code and
   every declared conditional recovery variant must have a fixture.
 - **M0 bootstrap.** Before the parser and library exist, `spec-check` requires every `ui` and `ui-fragment` block to lex without diagnostics. It recognizes `ui-invalid` blocks but does not yet assert semantic rejection. At M2 the full validation rule above replaces this lexical-only gate. The M0 chunking harness checks finish-only lexical equality using a byte accumulator. At M1, `ui` and `ui-fragment` must parse without syntax diagnostics, and each `ui-invalid` must produce diagnostics. Every syntax fixture runs through resumable scanners under all 12.3 chunkings and compares final tokens/AST, segments and diagnostics. All entry points use the single 2.4 splitter. The live IR/patch/provisional invariants in 12.3 become mandatory with M3.
@@ -2202,10 +2233,13 @@ Conformance fixtures prove the core. These checks prove the whole system works a
 | `genui-cli prompt [--digest] [options.json]` | M5 | Prints the exact static prompt for the std library, or its digest, optionally with a `PromptOptions` JSON file. |
 | `genui-cli feedback <file.ui>` | M5 | Prints the exact `ui-diag` block for a program, or `(no model feedback)`. |
 | `genui-cli message <file.ui> [digest] [--cut] [--replay]` | M5 | Prints the canonical stored message, or its model-facing replay with `--replay`. `--cut` records an unfinished stream. |
+| `genui-cli transcripts [directory] [--record\|--verify]` | M8 | Records or replays the checked-in conversations. Replay compares the exact canonical patch stream, state snapshot, model events, diagnostics and request trace. Every file is labelled `scripted-fixture`. |
 | Scripted GPUI interaction tests | M7 | Headless GPUI tests in `crates/genui-gpui/tests/interaction.rs`. They load a program, simulate clicks, typing, selection, submit, Tab/Shift-Tab, Enter/Escape and focus changes, and assert the exact `UiEvent`s, session state and patches. Twelve tests cover every input, validation, submit-only forms, streaming/frozen gates, rebuild survival, host extensions and the accesskit projection. The keyboard-only test runs the form-demo example itself. Behaviour is tested here, not by looking at screenshots. |
-| Gallery app and screenshot loop (backend: gpui-kit's test-support `Window::render_to_image`; M6 uses `HeadlessAppContext` so captures are deterministic and offscreen, and also supports a normal window; capture timing is excluded from performance numbers) | M6 | A demo binary renders every `examples/*.ui` and a per-component state sheet (all states from DESIGN.md §7) in light and dark. `--screenshot <dir>` writes one PNG per example and mode. At the end of M6, M7 and M8, the screenshot set is reviewed against DESIGN.md; each finding is fixed or logged in PROGRESS.md with a reason. Screenshots are not golden-compared in phase 1. |
+| Gallery app and screenshot loop (backend: gpui-kit's test-support `Window::render_to_image`; M6 uses `HeadlessAppContext` so captures are deterministic and offscreen, and also supports a normal window; capture timing is excluded from performance numbers) | M6 | A demo binary renders every `examples/*.ui` and a per-component state sheet (all states from DESIGN.md §7) in light and dark. `--screenshot <dir>` writes one PNG per example and mode. At the end of M6, M7 and M8, the screenshot set is reviewed against DESIGN.md; each finding is fixed or logged in PROGRESS.md with a reason. Screenshots are not golden-compared in phase 1. M8 also has `--self-test-panic`. |
 | Form demo | M7 | `form-demo` loads `examples/25-form-controls.ui`, acts as the host for `UiEvent` delivery and state sync, and prints each event/request/model event. `--screenshot DIR` writes light/dark PNGs with the headless test-support backend; `--headless`/`--self-test` are a CI smoke. It is the runnable demo behind the M7 done-when. |
-| Real-model loop | M8 | The sample host streams a live model reply into the UI. The run is recorded as a transcript (prompt, chunks with timing, events) and replayed deterministically. Screenshots are taken at 25%, 50%, 75% and 100% of the stream to check that partial UIs look intentional. |
+| `sample-host` (scripted model mode) / Real-model loop | M8 | The sample host streams model output into `UiView` and answers requests through a host policy. In M8 the reply is a recorded scripted transcript (`eval/transcripts/*.json`): prompt, chunks with scripted timing, events, host decisions. `sample-host --headless --screenshot DIR --record FILE` captures 25/50/75/100% plus a frozen and restored frame; `--restore` and `--regenerate` prove state/tree equality and patch determinism. No live model was available, so a real-model run remains the owner's step; scripted files are never labelled model evidence. |
+| `table-stress --rows 50000` | M8 | Ref-backed table through `Session` and `UiView`; reports the visible range at several offsets, steady and construction frame numbers and RSS against §10.6. |
+| `list-stress --rows 10000` | M8 | Ref-backed `each` List through `Session` and `UiView`; reports created item entities, rows built per frame, scroll offsets, frame work and RSS. Proves the >100 virtual path. |
 
 `tree` uses genui-std and the default host policy (no tool/ref catalog). It reads
 raw DSL bytes, prints all static props in sorted-name compact IR JSON, traverses
@@ -2375,6 +2409,13 @@ pub fn render_stored_message(msg: &StoredMessage) -> String;
 | M6 | GPUI skeleton: pins, `UiView` queue, retained tree, cached child views, layout and text components, theming | A fixture streams live in a demo window; recorded patch streams replay without panic; frame and memory numbers recorded; the gallery app (12.7) renders every implemented component's examples in light and dark, and the screenshot set has been reviewed against DESIGN.md with every finding fixed or logged in PROGRESS.md. |
 | M7 | GPUI inputs and forms, focus, input sync rule, gating, accessibility roles | The form demo emits a `ui-event`; typed text survives rebuilds; a keyboard-only run of the demo succeeds; accessibility coverage measured; scripted GPUI interaction tests (12.7) cover click, type, select, submit and focus for every input component; gallery screenshots reviewed as in M6. |
 | M8 | GPUI data components (List, Table, Tabs, Chart, Image), panic containment, sample host with a real model | A 50k-row table scrolls; the panic-injection test shows a placeholder; 20 recorded model transcripts replay; the real-model loop (12.7) has run with mid-stream screenshots reviewed; every `examples/*.ui` renders in the gallery; the security checklist (11) is reviewed; v0.1 tagged. |
+
+**M8 status (2026-10-24).** The data components, 50k scroll, panic containment,
+scripted sample host, 20 exact transcript replays, gallery review, security
+review and release checklist are done. The checked-in transcripts are
+`scripted-fixture`, not model evidence; a live-model run and the v0.1 tag remain
+with the owner/integrator. M7 inputs/forms are not on this branch and remain a
+separate milestone.
 
 ### 14.2 Open questions
 

@@ -181,6 +181,19 @@ evaluation set and transcript measurements remain open in `docs/milestones/M5.md
 | How should Markdown inline code and links look when the pinned TextView overrides the requested colors? | Custom Markdown renderer; accept and log; more theme overrides | Accept and log for M6. The TextView still paints inline code with an accent tint and links inherit the foreground in the captured light/dark set. A custom renderer or a pin-supported style fix is M8 work. | Logged |
 | Is `render.panic` an M6 or M8 code? | M6; M8 | M8. The milestone table assigns panic containment to M8; M6 has no subtree panic boundary and does not claim one. | `conformance/deferred.json` and SPEC §12.6 updated |
 | Should `rust-toolchain.toml` select 1.99.0? | Keep `stable` (locally 1.94, which cannot build gpui-pre); select 1.99.0 | Select 1.99.0. Core's 1.94 MSRV is recorded in the §1.2 matrix; the renderer needs the newer stable. | Adopted |
+
+## M8 defaults recorded while implementing the data/host slice
+
+| Question | Options | Recommended default / action | Status |
+| --- | --- | --- | --- |
+| M7 is not on this branch (the M8 base is the M6 tip). How do renderer events reach a session? | Wait for M7 `UiEvent` wiring; path-addressed renderer events with a host adapter; add synthetic NodeIds to every patch | Temporary `RendererEvent` bridge during M8, **superseded at the M7 merge**: the renderer emits the core path-addressed `UiEvent` directly, and `activate_at`/`edit_at`/`blur_at` remain convenience methods for hosts. | Resolved at merge; no renderer-specific event type ships |
+| How is the 50,000-row table virtualized? | Custom scroll math; kit `DataTable`/`TableState`; cap rows below 50k | Use the pinned kit table (sticky header, selection, sorting, resizable columns, uniform row virtualization). Parse rows once into the renderer model, drop the duplicate wire `rows` prop from the retained tree, and key the cache on a `rows_rev` that only changes when `rows` changes. | Adopted; steady frames 0.05 ms p99, construction frame 323 ms reported |
+| How do image bytes reach the renderer? | Renderer fetches; host preloads bytes; host delivers an opaque handle | Host calls `request_image`, fetches under the same URL allowlist as links, then `deliver_image`/`fail_image`. Renderer enforces 8 MiB, 4096 px, 16 MP, 256 sources and catches decode panics. No renderer I/O. | Adopted; SPEC §10.3 contract and ROADMAP item 7 |
+| Screenshot runs caught the 150 ms fade at low opacity | Capture during animation; disable motion for stills; lengthen capture delay | Headless screenshot hosts call `App::set_reduce_motion(true)`, which is the DESIGN §8 host-disabled-motion path. Interactive runs keep the fade. | Adopted; sample-host/gallery screenshot paths |
+| Are the 20 transcripts model evidence? | Label them model runs; label scripted; omit them | Label every file `scripted-fixture`, include the generated prompt and digest, and say "scripted" in every report. No live model was available in the worktree. | Adopted; real-model recording remains open |
+| v0.1 tag and license | Create tag; leave to integrator; choose MIT/Apache-2.0 | Do not tag. The license is ROADMAP item 10, an owner decision; no LICENSE file was added. | Adopted; release checklist records the gap |
+| Restored snapshots with undeclared state names | Drop unknown values; keep them for round-trip | Keep the original snapshot values and overlay live declared state. `state_snapshot()` therefore round-trips host data even when a declaration was removed, while declared values always reflect live state. | Adopted; SPEC §7.9 clarification |
+
 ## M7 renderer defaults recorded while implementing inputs/forms (§§7.3–7.4,7.8,10.4,10.10,10.14)
 
 | Question | Options | Recommended default / action | Status |

@@ -1,0 +1,48 @@
+{
+  "children": 10000,
+  "batches": 1,
+  "build_ms": 1431.094292,
+  "created_rows_max": 77,
+  "frame_rows_max": 22,
+  "frame_app": {
+    "count": 7,
+    "p50_ms": 0.824958,
+    "p95_ms": 2.224624,
+    "p99_ms": 2.224624,
+    "max_ms": 2.224624
+  },
+  "apply": {
+    "count": 1,
+    "p50_ms": 127.187625,
+    "p99_ms": 127.187625
+  },
+  "scroll_samples": [
+    {
+      "row": 0,
+      "created_rows": 19,
+      "frame_rows": 21,
+      "scroll_capture_ms": 158.148167
+    },
+    {
+      "row": 1000,
+      "created_rows": 39,
+      "frame_rows": 22,
+      "scroll_capture_ms": 158.39145900000003
+    },
+    {
+      "row": 5000,
+      "created_rows": 59,
+      "frame_rows": 22,
+      "scroll_capture_ms": 160.196042
+    },
+    {
+      "row": 9999,
+      "created_rows": 77,
+      "frame_rows": 20,
+      "scroll_capture_ms": 156.33308300000002
+    }
+  ],
+  "rss_bytes": 428195840,
+  "baseline_rss_bytes": 53788672,
+  "wall_ms": 7483.602708
+}

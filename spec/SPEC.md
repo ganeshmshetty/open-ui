@@ -1240,7 +1240,8 @@ the enclosing `Form`'s `on_submit` handle with the button's path. The session
 accepts that handle for the button only when the button is a `submit: true`
 button in exactly that form and the plan's `submit_scope` is the form. A button
 with both `on_click` and `submit: true` runs its own plan first and then the form
-plan, as before.
+plan, as before. `Session::action_handle(path, "submit")` returns that form
+handle for a submit button, which is the convenience hosts and tests use.
 
 ### 7.5 Queries
 

@@ -1600,6 +1600,9 @@ feedback block verbatim, when both are present. It is empty when neither is.
 
 **Constraints.**
 
+- S5 lists every builtin with one line of documentation and then any library-defined
+  function signatures; S6 lists the fixed action vocabulary and any library-defined
+  actions with their docs.
 - Every signature and function line is generated from the spec. The fixed builtin
   table in `-prompt` must cover every name in the core builtin list. Template prose
   is versioned as `prompt_template_version`.

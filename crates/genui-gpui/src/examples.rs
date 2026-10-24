@@ -44,6 +44,7 @@ pub fn session(source: &[u8], options: &Options) -> Result<LoadedProgram, String
         library: Arc::new(library),
         validation: options,
         input: InputMode::Program,
+        prompt_digest: String::new(),
     });
     let update = session.push(source);
     let mut batches: Vec<PatchBatch> = update.patches.into_iter().collect();
@@ -142,6 +143,7 @@ mod tests {
             library: Arc::new(library),
             validation: options,
             input: InputMode::Program,
+            prompt_digest: String::new(),
         });
         let update = session.push(b"root=Input(\"Name\")");
         let finish = session.finish();

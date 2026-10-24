@@ -210,6 +210,7 @@ fn new_session() -> Result<Session, String> {
         library: Arc::new(library),
         validation: host_options(),
         input: InputMode::Program,
+        prompt_digest: String::new(),
     }))
 }
 

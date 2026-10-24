@@ -112,6 +112,16 @@ impl Validator<'_> {
                         },
                         &at,
                     );
+                    if let Some(d) = self.diagnostics.last_mut() {
+                        d.set_feedback_path(match place {
+                            Some(slot) => {
+                                format!("{}.{}", at.stmt, slot.rsplit('.').next().unwrap_or(slot))
+                            }
+                            None => at.stmt.clone(),
+                        });
+                        d.set_feedback_detail(format!("no statement \"{next}\""));
+                        d.found = Some(next.clone());
+                    }
                     break Default::default();
                 };
                 if at.budget_stmt.is_none() {
@@ -191,6 +201,11 @@ impl Validator<'_> {
                 else {
                     if name.chars().next().is_some_and(|c| c.is_ascii_uppercase()) {
                         self.emit(Code::UnknownComponent, &at);
+                        if let Some(d) = self.diagnostics.last_mut() {
+                            d.set_feedback_path(at.stmt.clone());
+                            d.set_feedback_detail(format!("unknown component \"{name}\""));
+                            d.found = Some(name.clone());
+                        }
                     } else if self.classify(e) == Kind::Value {
                         let checked = self.check_value(e, &at);
                         if checked.valid {
@@ -250,10 +265,21 @@ impl Validator<'_> {
             let name = a.name.as_deref().unwrap_or("");
             if !named.insert(name) {
                 self.emit(Code::DuplicateArg, ctx);
+                if let Some(d) = self.diagnostics.last_mut() {
+                    d.set_feedback_path(format!("{}.{}", ctx.stmt, name));
+                    d.set_feedback_detail(format!("argument \"{name}\" is repeated"));
+                    d.found = Some(name.into());
+                }
                 continue;
             }
             let Some((i, param)) = def.args.iter().enumerate().find(|(_, p)| p.name == name) else {
                 self.emit(Code::UnknownArg, ctx);
+                if let Some(d) = self.diagnostics.last_mut() {
+                    d.set_feedback_path(format!("{}.{}", ctx.stmt, name));
+                    d.set_feedback_detail(format!("unknown argument \"{name}\""));
+                    d.found = Some(name.into());
+                    d.hint = Some(crate::r#lib::signature_line(self.lib.spec(), def));
+                }
                 continue;
             };
             if param.required {
@@ -271,6 +297,11 @@ impl Validator<'_> {
                 bound.insert(i, a.value.clone());
             } else {
                 self.emit(Code::ExtraPositional, ctx);
+                if let Some(d) = self.diagnostics.last_mut() {
+                    d.set_feedback_path(format!("{}.args", ctx.stmt));
+                    d.set_feedback_detail("too many positional arguments".into());
+                    d.hint = Some(crate::r#lib::signature_line(self.lib.spec(), def));
+                }
             }
         }
         bound
@@ -475,10 +506,12 @@ impl Validator<'_> {
             } else if let Some(v) = &arg.default {
                 if arg.required {
                     self.recovery(Code::MissingRequired, Recovery::Defaulted, ctx);
+                    self.feedback_missing(ctx, i, def, arg, true);
                 }
                 Some(self.literal_prop(v.clone(), arg))
             } else if arg.required {
                 self.emit(Code::MissingRequired, ctx);
+                self.feedback_missing(ctx, i, def, arg, false);
                 failed = true;
                 None
             } else {
@@ -500,10 +533,12 @@ impl Validator<'_> {
                 if let Some(v) = &arg.default {
                     if arg.required {
                         self.recovery(Code::MissingRequired, Recovery::Defaulted, ctx);
+                        self.feedback_missing(ctx, i, def, arg, true);
                     }
                     bound.insert(i, v.to_expr());
                 } else if arg.required {
                     self.emit(Code::MissingRequired, ctx);
+                    self.feedback_missing(ctx, i, def, arg, false);
                     failed = true;
                 }
             }
@@ -594,7 +629,7 @@ impl Validator<'_> {
             && let Some(Prop::Static(PropValue::Value(Value::List(items)))) =
                 props.get_mut(&PropId(i as u16))
         {
-            if items.iter().any(|v|!matches!(v,Value::Map(m)if m.iter().any(|(k,v)|k=="label"&&v.string().is_some())&&m.iter().any(|(k,_)|k=="value"))){self.bad_prop(Code::SchemaType,arg,ctx);self.allocated=before;for slot in slots{for id in slot.children{self.remove_subtree(id)}}return None}
+            if items.iter().any(|v|!matches!(v,Value::Map(m)if m.iter().any(|(k,v)|k=="label"&&v.string().is_some())&&m.iter().any(|(k,_)|k=="value"))){self.bad_prop(Code::SchemaType,arg,ctx,None);self.allocated=before;for slot in slots{for id in slot.children{self.remove_subtree(id)}}return None}
             for item in std::sync::Arc::make_mut(items) {
                 if let Value::Map(m) = item {
                     std::sync::Arc::make_mut(m).retain(|(k, _)| k == "label" || k == "value");
@@ -691,7 +726,31 @@ impl Validator<'_> {
         }
         Prop::Static(PropValue::Value(v))
     }
-    fn bad_prop(&mut self, code: Code, arg: &ArgDef, ctx: &Context) -> Option<Prop> {
+    fn feedback_missing(
+        &mut self,
+        ctx: &Context,
+        index: usize,
+        def: &ComponentDef,
+        arg: &ArgDef,
+        _defaulted: bool,
+    ) {
+        if let Some(d) = self.diagnostics.last_mut() {
+            d.set_feedback_path(format!("{}.args[{index}]", ctx.stmt));
+            d.set_feedback_detail(format!("{} is required", arg.name));
+            d.hint = Some(crate::r#lib::signature_line(self.lib.spec(), def));
+            d.expected = Some(crate::r#lib::format_type(
+                self.lib.spec(),
+                arg.ty.non_null(),
+            ));
+        }
+    }
+    fn bad_prop(
+        &mut self,
+        code: Code,
+        arg: &ArgDef,
+        ctx: &Context,
+        found: Option<&Value>,
+    ) -> Option<Prop> {
         let recovery = if arg.default.is_some() {
             Recovery::Defaulted
         } else if arg.required {
@@ -700,18 +759,33 @@ impl Validator<'_> {
             Recovery::ArgOmitted
         };
         self.recovery(code, recovery, ctx);
-        if code == Code::Enum
-            && let T::Named { name } = arg.ty.non_null()
-            && let Some(TypeDef::Enum { values }) = self.lib.types().get(name)
-            && let Some(d) = self.diagnostics.last_mut()
-        {
-            d.hint = Some(
-                values
+        if let Some(d) = self.diagnostics.last_mut() {
+            d.set_feedback_path(format!("{}.{}", ctx.stmt, arg.name));
+            d.found = found.map(crate::r#lib::format_literal);
+            if code == Code::Enum
+                && let T::Named { name } = arg.ty.non_null()
+                && let Some(TypeDef::Enum { values }) = self.lib.types().get(name)
+            {
+                let expected = values
                     .iter()
                     .map(|s| format!("\"{s}\""))
                     .collect::<Vec<_>>()
-                    .join("|"),
-            );
+                    .join("|");
+                d.hint = Some(expected.clone());
+                d.expected = Some(expected);
+            } else {
+                d.expected = Some(crate::r#lib::format_type(
+                    self.lib.spec(),
+                    arg.ty.non_null(),
+                ));
+            }
+            let found_text = d.found.clone().unwrap_or_else(|| "value".into());
+            let expected_text = d.expected.clone().unwrap_or_else(|| "value".into());
+            d.set_feedback_detail(if code == Code::Enum {
+                format!("found {found_text}, expected {expected_text}")
+            } else {
+                format!("expected {expected_text}, found {found_text}")
+            });
         }
         arg.default.clone().map(|v| self.literal_prop(v, arg))
     }
@@ -815,7 +889,7 @@ impl Validator<'_> {
                 return Some(Prop::Static(PropValue::Action(id)));
             }
             if self.diagnostics.len() == before {
-                return self.bad_prop(Code::SchemaType, arg, ctx);
+                return self.bad_prop(Code::SchemaType, arg, ctx, None);
             }
             return self.recovered_prop(arg);
         }
@@ -851,7 +925,7 @@ impl Validator<'_> {
             || matches!(arg.ty.non_null(),T::Named{name}if matches!(self.lib.types().get(name),Some(TypeDef::Token{..}))))
             && !matches!(v, Value::Int(_))
         {
-            return self.bad_prop(Code::SchemaType, arg, ctx);
+            return self.bad_prop(Code::SchemaType, arg, ctx, Some(&v));
         }
         if let Some((min, max)) = range
             && let Some(n) = v.number()
@@ -874,7 +948,7 @@ impl Validator<'_> {
             } else {
                 Code::SchemaType
             };
-            return self.bad_prop(code, arg, ctx);
+            return self.bad_prop(code, arg, ctx, Some(&v));
         }
         Some(self.literal_prop(v, arg))
     }

@@ -745,3 +745,132 @@ impl LibraryBuilder {
 fn read_default<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<Value>, D::Error> {
     Value::deserialize(d).map(Some)
 }
+
+/// Shared type names printed in lowercase snake_case in signatures (SPEC §8.8).
+const SHARED_SIGNATURE_TYPES: &[&str] = &[
+    "Space",
+    "Align",
+    "Tone",
+    "ButtonTone",
+    "TextSize",
+    "InputKind",
+    "ColFormat",
+    "ChartKind",
+];
+
+/// One signature line in the §8.8 catalog format, used by prompts and feedback hints.
+pub fn signature_line(spec: &LibrarySpec, definition: &ComponentDef) -> String {
+    let mut required = Vec::new();
+    let mut optional = Vec::new();
+    for arg in &definition.args {
+        let mut text = format!("{}: {}", arg.name, signature_type(spec, arg));
+        if let Some(default) = &arg.default {
+            text.push_str(" = ");
+            text.push_str(&format_literal(default));
+        }
+        if arg.required {
+            required.push(text);
+        } else {
+            optional.push(text);
+        }
+    }
+    let mut args = required.join(", ");
+    if !optional.is_empty() {
+        if !args.is_empty() {
+            args.push_str("; ");
+        }
+        args.push_str(&optional.join(", "));
+    }
+    format!("{}({})", definition.name, args)
+}
+
+fn signature_type(spec: &LibrarySpec, arg: &ArgDef) -> String {
+    let mut text = format_type(spec, &arg.ty);
+    if let (Some(min), Some(max)) = (arg.min, arg.max)
+        && matches!(
+            arg.ty.non_null(),
+            TypeExpr::Int | TypeExpr::Number | TypeExpr::Float
+        )
+    {
+        text.push(' ');
+        text.push_str(&number_text(min));
+        text.push_str("..");
+        text.push_str(&number_text(max));
+    }
+    text
+}
+
+pub fn format_type(spec: &LibrarySpec, ty: &TypeExpr) -> String {
+    match ty {
+        TypeExpr::Any => "any".into(),
+        TypeExpr::Text => "text".into(),
+        TypeExpr::Int => "int".into(),
+        TypeExpr::Float => "float".into(),
+        TypeExpr::Number => "number".into(),
+        TypeExpr::Bool => "bool".into(),
+        TypeExpr::Scalar => "scalar".into(),
+        TypeExpr::Action => "action".into(),
+        TypeExpr::Url => "url".into(),
+        TypeExpr::Options => "options".into(),
+        TypeExpr::Named { name } => {
+            if SHARED_SIGNATURE_TYPES.contains(&name.as_str()) {
+                snake_case(name)
+            } else if let Some(TypeDef::Enum { values }) = spec.types.get(name) {
+                values
+                    .iter()
+                    .map(|value| format!("\"{value}\""))
+                    .collect::<Vec<_>>()
+                    .join(" | ")
+            } else {
+                snake_case(name)
+            }
+        }
+        TypeExpr::List { of } => {
+            if let Some(accepts) = ty.slot() {
+                format!("[{}]", accepts_text(accepts))
+            } else {
+                format!("list<{}>", format_type(spec, of))
+            }
+        }
+        TypeExpr::Map { of } => format!("map<{}>", format_type(spec, of)),
+        TypeExpr::Node { accepts } => format!("[{}]", accepts_text(accepts)),
+        TypeExpr::Data { .. } => "data".into(),
+        TypeExpr::Binding { of } => format!("binding<{}>", format_type(spec, of)),
+        TypeExpr::Optional { of } => format!("{}?", format_type(spec, of)),
+    }
+}
+
+fn accepts_text(accepts: &Accepts) -> String {
+    match accepts {
+        Accepts::Any(_) => "node".into(),
+        Accepts::Only(names) => names.join("|"),
+    }
+}
+
+fn snake_case(name: &str) -> String {
+    let mut out = String::new();
+    for (index, ch) in name.chars().enumerate() {
+        if ch.is_ascii_uppercase() {
+            if index != 0 {
+                out.push('_');
+            }
+            out.push(ch.to_ascii_lowercase());
+        } else {
+            out.push(ch);
+        }
+    }
+    out
+}
+
+fn number_text(value: f64) -> String {
+    if value.fract() == 0.0 {
+        format!("{}", value as i64)
+    } else {
+        value.to_string()
+    }
+}
+
+/// A deterministic source-like spelling for defaults and feedback details.
+pub fn format_literal(value: &Value) -> String {
+    crate::canonical::encode(&value.plain_json())
+}

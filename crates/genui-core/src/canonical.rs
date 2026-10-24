@@ -12,6 +12,11 @@ pub fn encode(value: &Value) -> String {
 pub fn serialize<T: Serialize + ?Sized>(value: &T) -> Result<String, serde_json::Error> {
     serde_json::to_value(value).map(|v| encode(&v))
 }
+
+/// xxh3-128 of UTF-8 bytes as 32 lowercase hexadecimal digits (SPEC §§8.2,9.1).
+pub fn digest(text: &str) -> String {
+    format!("{:032x}", xxhash_rust::xxh3::xxh3_128(text.as_bytes()))
+}
 fn string(value: &str, out: &mut String) {
     out.push('"');
     for ch in value.chars() {

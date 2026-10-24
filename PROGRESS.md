@@ -14,7 +14,7 @@ A milestone is complete only after its acceptance checks pass and CI is green.
 | M5 — Prompt, feedback and messages | Complete for SPEC §14.1; ROADMAP item 4 open | `prompt`, `feedback` and `message` pass; 375 fixtures / 83,719 chunkings / 430 permutations; 386 tests; exact prompt bytes on Linux/macOS CI; 15 new fixtures. Model-evaluation recordings still need model access. |
 | M6 — GPUI skeleton | Complete (visual findings logged) | Pins active; `UiView`; layout/text/theme; gallery 25×2 PNGs; streaming dashboard 119-batch log/replay; SPEC §10.6 p99 8 ms target reported missed. |
 | M7 — Inputs and forms | Complete (visual findings logged; OS a11y unverified) | 8 input/form kinds; 12 scripted interaction tests; keyboard-only demo run; 52 gallery PNGs reviewed; 476 workspace tests; form demo light/dark. |
-| M8 — Data components and sample host | Complete for SPEC §14.1 (v0.1 tag/license owner decisions open) | List/Table/Tabs/Image loader, chart tooltips/motion, panic containment, sample host, 20 scripted transcripts, 50k table and 10k virtualized List stress; full gate set and demos pass. Live-model recording and the tag/license remain owner steps. |
+| M8 — Data components and sample host | Complete for phase 1 (no tag; live-model host step open) | List/Table/Tabs/Image loader, chart tooltips/motion, panic containment, sample host, 20 scripted transcripts, 50k table and 10k virtualized List stress; full gate set and demos pass. Owner decision: no git tag. Live-model recording remains an app-integration step; scripted transcripts are labelled as such. |
 
 ## M0 scope
 

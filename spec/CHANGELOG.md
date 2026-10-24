@@ -37,6 +37,14 @@
 
 # Spec changelog
 
+## 2026-10-24 — v0.1 snapshot, no tag (§14.1)
+
+- M8's done-when accepts the 20 checked-in `scripted-fixture` transcripts and
+  requires the v0.1 snapshot to be merged to `main`; it no longer requires a git
+  tag (owner decision: no tags) or a live-model run inside the repository. The
+  live-model loop remains a host/app-integration step, and scripted transcripts
+  must never be presented as model evidence.
+
 ## 2026-10-24 — M6 review integration: inert links, status visuals (§§10.7,10.12)
 
 - Model-written Markdown/Code links are inert in the pinned `TextView` instead of

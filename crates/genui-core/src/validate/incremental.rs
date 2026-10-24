@@ -988,6 +988,87 @@ root = Box([Leaf(t), Control(on_click: a)])\n";
     }
 
     #[test]
+    fn non_ambiguous_binding_args_stay_on_the_retained_path() {
+        let lib = library();
+        let opt = options();
+        let base = "root = BindingSink(\"x\")\n";
+        let next = "root = BindingSink(\"y\")\n";
+        let attempt = apply(base, next, &["root"], &lib, &opt, None);
+        assert!(
+            attempt.result.is_some(),
+            "without ambiguous states a binding argument does not force batch"
+        );
+        assert_matches_batch(attempt, next, &lib, &opt);
+    }
+
+    #[test]
+    fn reachable_dirty_node_without_instances_needs_the_general_path() {
+        let lib = library();
+        let opt = options();
+        // `n` is a node used as a value, so it is reachable by name through
+        // `t` but never instantiated: no reader edge exists for it.
+        let base = "t = \"x\"\nn = Leaf(t)\nroot = Leaf(n)\n";
+        let next = base.replace("t = \"x\"", "t = \"y\"");
+        assert!(
+            apply(base, &next, &["t"], &lib, &opt, None)
+                .result
+                .is_none(),
+            "a reachable uninstantiated node cannot be retained"
+        );
+    }
+
+    #[test]
+    fn changed_source_selection_ignores_non_bind_statements_with_the_same_name() {
+        let lib = library();
+        let opt = options();
+        let base = "root = Leaf(\"a\")\n";
+        let next = "$root = 1\nroot = Leaf(\"b\")\n";
+        let (validation, cache) = prepare(base, &lib, &opt);
+        let parsed = program(next);
+        let changes: Vec<_> = parsed
+            .statements
+            .iter()
+            .filter(|statement| statement.name == "root")
+            .cloned()
+            .collect();
+        assert_eq!(changes.len(), 2, "one state and one bind named root");
+        let (dirty, reverse) = invalidation(&parsed, &["root"]);
+        let attempt = validate_props(
+            &cache,
+            &validation,
+            &changes,
+            Invalidation {
+                dirty: &dirty,
+                reverse: &reverse,
+            },
+            None,
+            &lib,
+            &opt,
+        );
+        assert!(
+            attempt.result.is_some(),
+            "the bind, not the same-named state, is the changed source"
+        );
+        assert_matches_batch(attempt, next, &lib, &opt);
+    }
+
+    #[test]
+    fn failed_charges_validator_diagnostics_to_the_caller_accumulator() {
+        let lib = library();
+        let opt = options();
+        let mut v = Validator::new(&Program::default(), Vec::new(), &lib, &opt);
+        let ctx = Context::at("x", None);
+        v.emit(Code::ExprType, &ctx);
+        v.emit(Code::Undeclared, &ctx);
+        let attempt = failed(v, crate::MaintenanceWork::default());
+        assert!(attempt.result.is_none());
+        assert_eq!(
+            attempt.work.diagnostics_examined, 2,
+            "failed adds every validator diagnostic to the caller work"
+        );
+    }
+
+    #[test]
     fn ambiguous_states_use_sealed_types_or_the_general_path() {
         let lib = library();
         let opt = options();

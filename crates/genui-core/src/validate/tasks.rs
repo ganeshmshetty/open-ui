@@ -1413,6 +1413,29 @@ mod tests {
         );
     }
     #[test]
+    fn literal_only_tasks_own_no_effect_frames() {
+        // §5.5: owner frames that intern no expression, action or fallback are
+        // not effects; retaining them would make a literal-only node look
+        // effectful to activation/deactivation.
+        let lib = machine_library();
+        let program = parsed("root = Leaf(\"a\")\n");
+        let (_, _, cache) = first_pass(&lib, &program);
+        let id = TaskId {
+            path: "root".into(),
+            statement: "root".into(),
+        };
+        let task = cache
+            .tasks
+            .as_ref()
+            .and_then(|machine| machine.records.get(&id))
+            .expect("retained root task");
+        assert_eq!(
+            task.effects, 0,
+            "a literal-only task must not own empty effect frames"
+        );
+        assert!(task.owners.is_empty());
+    }
+    #[test]
     fn deactivating_a_task_drops_its_expression_free_action_owner() {
         // §5.5: action plans are retained by their source owner. An owner whose
         // plan interns no expression (restore) must still be captured so that

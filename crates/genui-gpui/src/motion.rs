@@ -5,8 +5,8 @@
 
 use crate::theme::{Radius, UiTheme};
 use gpui_kit::{
-    Animation, AnimationExt, AnyElement, IntoElement, ParentElement, SharedString, Styled,
-    ease_out_quint, relative, div,
+    Animation, AnimationExt, AnyElement, IntoElement, ParentElement, SharedString, Styled, div,
+    ease_out_quint, relative,
 };
 use std::time::Duration;
 
@@ -18,8 +18,7 @@ pub fn fade_in(theme: &UiTheme, id: &str, generation: u64, element: AnyElement) 
     wrapper
         .with_animation(
             SharedString::from(format!("genui-fade-{id}-{generation}")),
-            Animation::new(Duration::from_millis(theme.fade_in_ms()))
-                .with_easing(ease_out_quint()),
+            Animation::new(Duration::from_millis(theme.fade_in_ms())).with_easing(ease_out_quint()),
             |element, progress| element.opacity(progress),
         )
         .into_any_element()
@@ -38,12 +37,16 @@ pub fn skeleton_bar(
         .h(height)
         .rounded(theme.radius(Radius::Sm))
         .bg(theme.surface_subtle())
+        .border_1()
+        .border_color(theme.border())
         .with_animation(
             SharedString::from(format!("genui-skeleton-pulse-{id}")),
             Animation::new(Duration::from_millis(theme.skeleton_pulse_ms())).repeat(),
             move |element, progress| {
-                let triangle = 1.0 - (2.0 * progress - 1.0).abs();
-                element.opacity(min + (1.0 - min) * triangle)
+                // Start at full opacity so reduced motion (the animation's
+                // static start state) is readable, then breathe down to `min`.
+                let breath = (progress * std::f32::consts::PI).sin();
+                element.opacity(1.0 - (1.0 - min) * breath)
             },
         )
         .into_any_element()
@@ -58,19 +61,17 @@ pub fn pulse(theme: &UiTheme, id: &str, element: AnyElement) -> AnyElement {
             SharedString::from(format!("genui-skeleton-pulse-{id}")),
             Animation::new(Duration::from_millis(theme.skeleton_pulse_ms())).repeat(),
             move |element, progress| {
-                let triangle = 1.0 - (2.0 * progress - 1.0).abs();
-                element.opacity(min + (1.0 - min) * triangle)
+                // Start at full opacity so reduced motion (the animation's
+                // static start state) is readable, then breathe down to `min`.
+                let breath = (progress * std::f32::consts::PI).sin();
+                element.opacity(1.0 - (1.0 - min) * breath)
             },
         )
         .into_any_element()
 }
 
 /// `count` skeleton rows, used by a loading Table or a ref-backed List.
-pub fn skeleton_rows(
-    theme: &UiTheme,
-    count: usize,
-    row_height: gpui_kit::Pixels,
-) -> AnyElement {
+pub fn skeleton_rows(theme: &UiTheme, count: usize, row_height: gpui_kit::Pixels) -> AnyElement {
     let bar_height = theme.skeleton_bar_height().min(row_height);
     let rows: Vec<AnyElement> = (0..count)
         .map(|index| {
@@ -80,7 +81,12 @@ pub fn skeleton_rows(
                 .w_full()
                 .h(row_height)
                 .px(theme.table_cell_padding_x())
-                .child(skeleton_bar(theme, &format!("row-{index}"), bar_height, 0.6))
+                .child(skeleton_bar(
+                    theme,
+                    &format!("row-{index}"),
+                    bar_height,
+                    0.6,
+                ))
                 .into_any_element()
         })
         .collect();

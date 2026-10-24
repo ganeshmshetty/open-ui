@@ -310,15 +310,30 @@ impl SampleHost {
         let mut summary = SharedMap::new();
         summary.insert(
             "tools".into(),
-            self.policy.tools.iter().cloned().collect::<Vec<_>>().join(","),
+            self.policy
+                .tools
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(","),
         );
         summary.insert(
             "refs".into(),
-            self.policy.refs.iter().cloned().collect::<Vec<_>>().join(","),
+            self.policy
+                .refs
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(","),
         );
         summary.insert(
             "open".into(),
-            if self.policy.allow_open { "allow" } else { "deny" }.into(),
+            if self.policy.allow_open {
+                "allow"
+            } else {
+                "deny"
+            }
+            .into(),
         );
         summary.insert(
             "approve_queries".into(),
@@ -348,9 +363,7 @@ mod tests {
             input: InputMode::Program,
             prompt_digest: String::new(),
         });
-        session.push(
-            b"root=Table([TableColumn(\"Order\",\"id\")],ref(\"t4.orders\"))",
-        );
+        session.push(b"root=Table([TableColumn(\"Order\",\"id\")],ref(\"t4.orders\"))");
         session
     }
 
@@ -359,10 +372,13 @@ mod tests {
         let data = HostData::demo();
         assert_eq!(data.refs.len(), 3);
         assert_eq!(data.queries.len(), 2);
-        assert_eq!(data.ref_value("t4.orders").map(|value| match value {
-            Value::List(items) => items.len(),
-            _ => 0,
-        }), Some(5));
+        assert_eq!(
+            data.ref_value("t4.orders").map(|value| match value {
+                Value::List(items) => items.len(),
+                _ => 0,
+            }),
+            Some(5)
+        );
     }
 
     #[test]
@@ -372,11 +388,18 @@ mod tests {
         let update = session.finish();
         let updates = host.settle(&mut session, &update);
         assert!(!updates.is_empty());
-        assert!(host.trace.iter().any(|trace| trace.decision == HostDecision::Delivered));
-        assert_eq!(host.data.ref_value("t4.orders").map(|v| match v {
-            Value::List(items) => items.len(),
-            _ => 0,
-        }), Some(5));
+        assert!(
+            host.trace
+                .iter()
+                .any(|trace| trace.decision == HostDecision::Delivered)
+        );
+        assert_eq!(
+            host.data.ref_value("t4.orders").map(|v| match v {
+                Value::List(items) => items.len(),
+                _ => 0,
+            }),
+            Some(5)
+        );
     }
 
     #[test]
@@ -386,7 +409,11 @@ mod tests {
         host.policy.refs.clear();
         let update = session.finish();
         host.settle(&mut session, &update);
-        assert!(host.trace.iter().any(|trace| trace.decision == HostDecision::Denied));
+        assert!(
+            host.trace
+                .iter()
+                .any(|trace| trace.decision == HostDecision::Denied)
+        );
     }
 
     #[test]
@@ -394,7 +421,10 @@ mod tests {
         let host = SampleHost::demo();
         assert!(!host.check_url("http://example.com/x").0);
         assert!(!host.check_url("https://evil.example/x").0);
-        assert!(!host.check_url("https://example.com/x").0, "open is off by default");
+        assert!(
+            !host.check_url("https://example.com/x").0,
+            "open is off by default"
+        );
         let mut host = host;
         host.policy.allow_open = true;
         assert!(host.check_url("https://example.com/x").0);

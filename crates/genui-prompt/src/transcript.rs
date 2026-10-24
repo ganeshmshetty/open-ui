@@ -9,9 +9,9 @@
 use genui_core::{
     Session, SessionOptions,
     diag::Severity,
+    r#lib::Library,
     message::{ModelEvent, StateSnapshot},
     patch::PatchBatch,
-    r#lib::Library,
     session::{HostError, InputMode, SessionPhase, Update},
     validate::Options,
     value::Value,
@@ -194,7 +194,10 @@ pub fn record(
     options: &Options,
 ) -> Result<Recording, String> {
     if transcript.v != TRANSCRIPT_VERSION {
-        return Err(format!("transcript version {} is unsupported", transcript.v));
+        return Err(format!(
+            "transcript version {} is unsupported",
+            transcript.v
+        ));
     }
     let mut session = Session::new(SessionOptions {
         library,
@@ -215,13 +218,23 @@ pub fn record(
         let update = session.push(chunk.text.as_bytes());
         absorb(&mut recording, &update)?;
         while next_event < events.len() && events[next_event].after() <= index {
-            run_event(&mut session, &events[next_event], &transcript.query_results, &mut recording)?;
+            run_event(
+                &mut session,
+                &events[next_event],
+                &transcript.query_results,
+                &mut recording,
+            )?;
             next_event += 1;
         }
     }
     let finish = session.finish();
     absorb(&mut recording, &finish)?;
-    settle(&mut session, &finish.requests, &transcript.query_results, &mut recording)?;
+    settle(
+        &mut session,
+        &finish.requests,
+        &transcript.query_results,
+        &mut recording,
+    )?;
     while next_event < events.len() {
         run_event(
             &mut session,
@@ -261,7 +274,10 @@ fn run_event(
 ) -> Result<(), String> {
     let update = event_update(session, event);
     if std::env::var_os("GENUI_TRANSCRIPT_DEBUG").is_some() {
-        eprintln!("event {:?} -> requests {:?} events {:?}", event, update.requests, update.model_events);
+        eprintln!(
+            "event {:?} -> requests {:?} events {:?}",
+            event, update.requests, update.model_events
+        );
     }
     absorb(recording, &update)?;
     for update in settle_updates(session, &update.requests, queries)? {
@@ -356,7 +372,10 @@ impl LiveRunner {
         options: &Options,
     ) -> Result<Self, String> {
         if transcript.v != TRANSCRIPT_VERSION {
-            return Err(format!("transcript version {} is unsupported", transcript.v));
+            return Err(format!(
+                "transcript version {} is unsupported",
+                transcript.v
+            ));
         }
         let mut session = Session::new(SessionOptions {
             library,
@@ -413,16 +432,11 @@ impl LiveRunner {
                 &updates[0].requests,
                 &self.queries,
             )?);
-            while self.event < self.events.len()
-                && self.events[self.event].after() <= self.chunk
-            {
+            while self.event < self.events.len() && self.events[self.event].after() <= self.chunk {
                 let event = self.events[self.event].clone();
                 let update = event_update(&mut self.session, &event);
-                let deliveries = settle_updates(
-                    &mut self.session,
-                    &update.requests,
-                    &self.queries,
-                )?;
+                let deliveries =
+                    settle_updates(&mut self.session, &update.requests, &self.queries)?;
                 updates.push(update);
                 updates.extend(deliveries);
                 self.event += 1;
@@ -433,21 +447,14 @@ impl LiveRunner {
         if !self.finished {
             self.finished = true;
             let finish = self.session.finish();
-            let deliveries = settle_updates(
-                &mut self.session,
-                &finish.requests,
-                &self.queries,
-            )?;
+            let deliveries = settle_updates(&mut self.session, &finish.requests, &self.queries)?;
             let mut updates = vec![finish];
             updates.extend(deliveries);
             while self.event < self.events.len() {
                 let event = self.events[self.event].clone();
                 let update = event_update(&mut self.session, &event);
-                let deliveries = settle_updates(
-                    &mut self.session,
-                    &update.requests,
-                    &self.queries,
-                )?;
+                let deliveries =
+                    settle_updates(&mut self.session, &update.requests, &self.queries)?;
                 updates.push(update);
                 updates.extend(deliveries);
                 self.event += 1;
@@ -499,10 +506,7 @@ mod tests {
     }
 
     fn simple() -> Transcript {
-        let prompt = crate::generate(
-            library().spec(),
-            &crate::PromptOptions::default(),
-        );
+        let prompt = crate::generate(library().spec(), &crate::PromptOptions::default());
         let reply = scripted_reply("root=Column([Text(\"Hello\")])");
         let chunks = reply
             .as_bytes()

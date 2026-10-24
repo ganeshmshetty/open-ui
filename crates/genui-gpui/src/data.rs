@@ -13,15 +13,11 @@ use crate::{
     tree::RetainedTree,
 };
 use gpui_kit::{
-    AnyElement, AnyView, Context, Entity, FocusHandle, FontWeight, InteractiveElement,
-    IntoElement, KeyDownEvent, ParentElement, Render, SharedString, StatefulInteractiveElement,
-    Styled, WeakEntity, Window, div, px,
+    AnyElement, AnyView, Context, Entity, FocusHandle, FontWeight, InteractiveElement, IntoElement,
+    KeyDownEvent, ParentElement, Render, SharedString, StatefulInteractiveElement, Styled,
+    WeakEntity, Window, div,
 };
-use std::{
-    cell::RefCell,
-    collections::BTreeMap,
-    rc::Rc,
-};
+use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
 
 /// A marker gutter (DESIGN §7: 16 px) followed by the item body.
 pub fn list(
@@ -76,7 +72,7 @@ pub fn list(
                 .w_full()
                 .gap(theme.space(1))
                 .child(marker)
-                .child(div().flex_1().min_w(px(0.0)).child(item))
+                .child(div().flex_1().min_w(theme.space(0)).child(item))
                 .into_any_element()
         }));
     if state == VisualState::Refreshing {
@@ -147,6 +143,7 @@ pub struct TabsView {
 }
 
 impl TabsView {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: String,
         tree: Rc<RefCell<RetainedTree>>,
@@ -274,12 +271,11 @@ impl Render for TabsView {
         let bar = self.bar(&specs, cx);
         let width = self.widths.get(&self.id, self.theme.message_max_width());
         let selected = ids.get(self.selected).cloned();
-        let panel: AnyElement = match selected
-            .and_then(|id| self.containers.borrow().get(&id).cloned())
-        {
-            Some(entity) => AnyView::from(entity).into_any_element(),
-            None => div().into_any_element(),
-        };
+        let panel: AnyElement =
+            match selected.and_then(|id| self.containers.borrow().get(&id).cloned()) {
+                Some(entity) => AnyView::from(entity).into_any_element(),
+                None => div().into_any_element(),
+            };
         div()
             .flex()
             .flex_col()
@@ -309,11 +305,6 @@ pub fn tab_panel(
         body = body.opacity(theme.refreshing_opacity());
     }
     body.into_any_element()
-}
-
-/// Status color helper shared with Table and List headers.
-pub fn status_caption(theme: &UiTheme) -> AnyElement {
-    error_caption(theme)
 }
 
 #[cfg(test)]
@@ -393,17 +384,14 @@ mod tests {
             data_state(VisualState::Normal, Some("failed")),
             VisualState::Error
         );
-        assert_eq!(
-            data_state(VisualState::Normal, None),
-            VisualState::Normal
-        );
+        assert_eq!(data_state(VisualState::Normal, None), VisualState::Normal);
     }
 
     #[test]
     fn theme_has_list_and_tab_tokens() {
         let theme = UiTheme::for_mode(ThemeMode::Light);
-        assert_eq!(theme.list_gutter_width(), px(16.0));
-        assert_eq!(theme.tab_underline_height(), px(2.0));
+        assert_eq!(theme.list_gutter_width(), crate::theme::test_px(16.0));
+        assert_eq!(theme.tab_underline_height(), crate::theme::test_px(2.0));
         assert_eq!(theme.fade_in_ms(), 150);
     }
 }

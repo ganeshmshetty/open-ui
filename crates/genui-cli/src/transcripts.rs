@@ -12,7 +12,9 @@ use genui_core::{
 };
 use genui_prompt::{
     PromptOptions, generate,
-    transcript::{SCRIPTED_LABEL, Transcript, TranscriptChunk, TranscriptEventAt, record, scripted_reply},
+    transcript::{
+        SCRIPTED_LABEL, Transcript, TranscriptChunk, TranscriptEventAt, record, scripted_reply,
+    },
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -63,7 +65,8 @@ fn capabilities() -> BTreeSet<String> {
 
 fn host_options() -> Result<Options, String> {
     let path = root().join("conformance/libs/host.json");
-    let bytes = std::fs::read_to_string(&path).map_err(|error| format!("{}: {error}", path.display()))?;
+    let bytes =
+        std::fs::read_to_string(&path).map_err(|error| format!("{}: {error}", path.display()))?;
     let host: HostFile = serde_json::from_str(&bytes).map_err(|error| error.to_string())?;
     Ok(Options {
         tools: host.tools.into_iter().collect(),
@@ -83,7 +86,8 @@ fn prompt_options() -> PromptOptions {
 
 fn sample_values(path: &str) -> Result<BTreeMap<String, Value>, String> {
     let file = root().join(path);
-    let bytes = std::fs::read_to_string(&file).map_err(|error| format!("{}: {error}", file.display()))?;
+    let bytes =
+        std::fs::read_to_string(&file).map_err(|error| format!("{}: {error}", file.display()))?;
     let values: BTreeMap<String, serde_json::Value> =
         serde_json::from_str(&bytes).map_err(|error| error.to_string())?;
     Ok(values
@@ -141,7 +145,8 @@ fn first_button_action(source: &[u8], library: &Library, options: &Options) -> O
             continue;
         };
         if matches!(
-            node.props.get(&genui_core::ir::PropId(u16::try_from(index).ok()?)),
+            node.props
+                .get(&genui_core::ir::PropId(u16::try_from(index).ok()?)),
             Some(Prop::Static(PropValue::Action(_)))
         ) {
             return Some(node.path.0.clone());
@@ -158,7 +163,8 @@ fn one(
     queries: &BTreeMap<String, Value>,
 ) -> Result<Transcript, String> {
     let path = root().join(format!("examples/{name}.ui"));
-    let source = std::fs::read_to_string(&path).map_err(|error| format!("{}: {error}", path.display()))?;
+    let source =
+        std::fs::read_to_string(&path).map_err(|error| format!("{}: {error}", path.display()))?;
     let prompt = generate(library.spec(), &prompt_options());
     let reply = scripted_reply(&source);
     let chunks = chunks(&reply);
@@ -220,7 +226,10 @@ fn verify_all(dir: &Path, library: &Arc<Library>, options: &Options) -> Result<u
     let mut paths: Vec<PathBuf> = std::fs::read_dir(dir)
         .map_err(|error| format!("{}: {error}", dir.display()))?
         .filter_map(|entry| entry.ok().map(|entry| entry.path()))
-        .filter(|path| path.extension().is_some_and(|extension| extension == "json"))
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "json")
+        })
         .collect();
     paths.sort();
     if paths.len() < 20 {
@@ -232,8 +241,8 @@ fn verify_all(dir: &Path, library: &Arc<Library>, options: &Options) -> Result<u
     }
     for path in &paths {
         let bytes = std::fs::read(path).map_err(|error| format!("{}: {error}", path.display()))?;
-        let transcript: Transcript =
-            serde_json::from_slice(&bytes).map_err(|error| format!("{}: {error}", path.display()))?;
+        let transcript: Transcript = serde_json::from_slice(&bytes)
+            .map_err(|error| format!("{}: {error}", path.display()))?;
         if transcript.label != SCRIPTED_LABEL {
             return Err(format!(
                 "{}: label {:?} is not {SCRIPTED_LABEL:?}; scripted data must never be presented as a real model run",
@@ -263,7 +272,7 @@ pub fn run(args: &[String]) -> Result<bool, String> {
             "--record" => record_mode = true,
             "--verify" => verify_mode = true,
             other if other.starts_with("--") => {
-                return Err(format!("unknown transcripts option {other:?}"))
+                return Err(format!("unknown transcripts option {other:?}"));
             }
             other => dir = PathBuf::from(other),
         }
@@ -271,9 +280,8 @@ pub fn run(args: &[String]) -> Result<bool, String> {
     if record_mode && verify_mode {
         return Err("choose either --record or --verify".into());
     }
-    let library = Arc::new(
-        genui_std::std_library().map_err(|errors| format!("std build: {errors:?}"))?,
-    );
+    let library =
+        Arc::new(genui_std::std_library().map_err(|errors| format!("std build: {errors:?}"))?);
     let options = host_options()?;
     if record_mode {
         let count = record_all(&dir, &library, &options)?;
@@ -291,7 +299,8 @@ mod tests {
 
     #[test]
     fn reference_extraction_finds_refs_and_tools() {
-        let source = "Table([TableColumn(\"A\",\"a\")],ref(\"t4.orders\"))\nQ=tool(\"sales.by_month\",{})";
+        let source =
+            "Table([TableColumn(\"A\",\"a\")],ref(\"t4.orders\"))\nQ=tool(\"sales.by_month\",{})";
         assert_eq!(referenced(source, "ref(\""), vec!["t4.orders"]);
         assert_eq!(referenced(source, "tool(\""), vec!["sales.by_month"]);
     }
@@ -301,6 +310,12 @@ mod tests {
         let reply = "é".repeat(40);
         let chunks = chunks(&reply);
         assert!(chunks.iter().all(|chunk| chunk.text.len() <= CHUNK_BYTES));
-        assert_eq!(chunks.iter().map(|chunk| chunk.text.as_str()).collect::<String>(), reply);
+        assert_eq!(
+            chunks
+                .iter()
+                .map(|chunk| chunk.text.as_str())
+                .collect::<String>(),
+            reply
+        );
     }
 }

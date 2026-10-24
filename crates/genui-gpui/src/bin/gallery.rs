@@ -645,7 +645,7 @@ mod panic_probe {
                 cx.new(|cx| UiView::new(window_theme.clone(), window, cx).with_panic_injection())
             })
             .map_err(|error| error.to_string())?;
-        let handle = AnyWindowHandle::from(window.clone());
+        let handle = AnyWindowHandle::from(window);
         window
             .update(&mut cx, |view, window, cx| view.apply(batch(), window, cx))
             .map_err(|error| error.to_string())?;

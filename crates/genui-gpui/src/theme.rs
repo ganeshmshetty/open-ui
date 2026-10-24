@@ -745,6 +745,24 @@ impl UiTheme {
         3
     }
 
+    /// The table viewport for `rows` data rows. Empty and loading tables keep a
+    /// definite height so data arrival does not shift the layout (DESIGN §6
+    /// rules 13–14).
+    pub fn table_height(&self, rows: usize, loading: bool) -> Pixels {
+        let header = self.table_header_height().as_f32();
+        if rows == 0 {
+            return if loading {
+                px(header + self.table_loading_rows() as f32 * self.table_row_height().as_f32())
+            } else {
+                px(header + self.table_empty_height().as_f32())
+            };
+        }
+        let natural = rows.min(self.table_natural_row_limit()) as f32
+            * self.table_row_height().as_f32()
+            + self.table_header_height().as_f32();
+        px(natural.min(self.table_viewport_height().as_f32()))
+    }
+
     /// Tab bar anatomy (DESIGN §7).
     pub fn tab_bar_height(&self) -> Pixels {
         px(40.)

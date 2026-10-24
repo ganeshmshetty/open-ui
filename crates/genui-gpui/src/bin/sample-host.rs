@@ -6,34 +6,30 @@
 //! transcript is labelled `scripted-fixture`; this binary never claims a live
 //! model run.
 
-use genui_core::validate::Options;
 #[cfg(feature = "screenshot")]
 use genui_core::Session;
+use genui_core::validate::Options;
 #[cfg(feature = "screenshot")]
 use genui_core::{SessionOptions, diag::Diagnostic, session::InputMode};
-#[cfg(feature = "screenshot")]
-use genui_gpui::{
-    demo::DemoStage,
-    theme::UiTheme,
-    view::UiView,
-};
 use genui_gpui::theme::ThemeMode;
-use genui_prompt::{
-    PromptOptions, generate,
-    transcript::{Transcript, replay, SCRIPTED_LABEL},
-};
+#[cfg(feature = "screenshot")]
+use genui_gpui::{demo::DemoStage, theme::UiTheme, view::UiView};
 #[cfg(feature = "screenshot")]
 use genui_prompt::transcript::LiveRunner;
+use genui_prompt::{
+    PromptOptions, generate,
+    transcript::{SCRIPTED_LABEL, Transcript, replay},
+};
 #[cfg(feature = "screenshot")]
 use gpui_kit::AppContext;
 use serde::Deserialize;
+#[cfg(feature = "screenshot")]
+use std::time::Instant;
 use std::{
     path::{Path, PathBuf},
     process::ExitCode,
     sync::Arc,
 };
-#[cfg(feature = "screenshot")]
-use std::time::Instant;
 
 #[derive(Clone, Debug)]
 struct Args {
@@ -169,7 +165,10 @@ fn transcripts(dir: &Path) -> Result<Vec<PathBuf>, String> {
     let mut paths: Vec<PathBuf> = std::fs::read_dir(dir)
         .map_err(|error| format!("{}: {error}", dir.display()))?
         .filter_map(|entry| entry.ok().map(|entry| entry.path()))
-        .filter(|path| path.extension().is_some_and(|extension| extension == "json"))
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "json")
+        })
         .collect();
     paths.sort();
     Ok(paths)
@@ -315,12 +314,17 @@ fn stream(
             stage
                 .child
                 .as_ref()
-                .map(|child| (child.read(cx).tree().len(), child.read(cx).diagnostics().to_vec()))
+                .map(|child| {
+                    (
+                        child.read(cx).tree().len(),
+                        child.read(cx).diagnostics().to_vec(),
+                    )
+                })
                 .unwrap_or((0, Vec::new()))
         })
         .map_err(|error| error.to_string())?;
     let phase = format!("{:?}", runner.session().phase());
-    report(&runner.session().diagnostics());
+    report(runner.session().diagnostics());
     Ok((
         runner,
         RunReport {
@@ -415,7 +419,12 @@ fn replay_exact(
 }
 
 #[cfg(feature = "screenshot")]
-fn headless(args: &Args, transcript: &Transcript, options: &Options, lib: Arc<genui_core::r#lib::Library>) -> Result<(), String> {
+fn headless(
+    args: &Args,
+    transcript: &Transcript,
+    options: &Options,
+    lib: Arc<genui_core::r#lib::Library>,
+) -> Result<(), String> {
     use gpui_kit::{
         AnyWindowHandle, HeadlessAppContext,
         platform::{current_headless_renderer, current_platform},
@@ -455,7 +464,7 @@ fn headless(args: &Args, transcript: &Transcript, options: &Options, lib: Arc<ge
             stage
         })
         .map_err(|error| error.to_string())?;
-    let handle = AnyWindowHandle::from(window.clone());
+    let handle = AnyWindowHandle::from(window);
     let mut capture = |cx: &mut HeadlessAppContext, path: &Path| -> Result<(), String> {
         let image = cx
             .capture_screenshot(handle)
@@ -516,7 +525,11 @@ fn headless(args: &Args, transcript: &Transcript, options: &Options, lib: Arc<ge
         println!(
             "regenerate: identical={} ({} batches)",
             regenerated.identical,
-            if regenerated.identical { "same" } else { "different" }
+            if regenerated.identical {
+                "same"
+            } else {
+                "different"
+            }
         );
         if !regenerated.identical {
             return Err("regenerate produced a different patch stream".into());
@@ -556,7 +569,12 @@ fn headless(args: &Args, transcript: &Transcript, options: &Options, lib: Arc<ge
 }
 
 #[cfg(not(feature = "screenshot"))]
-fn headless(_: &Args, _: &Transcript, _: &Options, _: Arc<genui_core::r#lib::Library>) -> Result<(), String> {
+fn headless(
+    _: &Args,
+    _: &Transcript,
+    _: &Options,
+    _: Arc<genui_core::r#lib::Library>,
+) -> Result<(), String> {
     Err("sample-host --headless needs the `screenshot` feature".into())
 }
 
@@ -567,10 +585,7 @@ fn prompt_options() -> PromptOptions {
     }
 }
 
-fn check_prompt(
-    transcript: &Transcript,
-    lib: &genui_core::r#lib::Library,
-) -> Result<(), String> {
+fn check_prompt(transcript: &Transcript, lib: &genui_core::r#lib::Library) -> Result<(), String> {
     let prompt = generate(lib.spec(), &prompt_options());
     if prompt.digest != transcript.prompt_digest {
         return Err(format!(
@@ -623,7 +638,12 @@ fn run(args: Args) -> Result<(), String> {
     };
     let transcript = load(&path)?;
     check_prompt(&transcript, &lib)?;
-    if args.headless || args.screenshot.is_some() || args.record.is_some() || args.restore || args.regenerate {
+    if args.headless
+        || args.screenshot.is_some()
+        || args.record.is_some()
+        || args.restore
+        || args.regenerate
+    {
         return headless(&args, &transcript, &options, lib);
     }
     Err("interactive window mode is not enabled in this build; pass --headless (see README)".into())
@@ -644,4 +664,3 @@ fn main() -> ExitCode {
         }
     }
 }
-

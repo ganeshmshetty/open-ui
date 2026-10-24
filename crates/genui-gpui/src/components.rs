@@ -15,8 +15,26 @@ use gpui_kit::{
 
 /// Components this milestone draws for real.
 pub const IMPLEMENTED: &[&str] = &[
-    "Column", "Row", "Grid", "Card", "Divider", "Heading", "Text", "Markdown", "Code", "Badge",
-    "Alert", "Image", "Button", "Stat", "Facts", "Chart", "List", "Table", "TableColumn", "Tabs",
+    "Column",
+    "Row",
+    "Grid",
+    "Card",
+    "Divider",
+    "Heading",
+    "Text",
+    "Markdown",
+    "Code",
+    "Badge",
+    "Alert",
+    "Image",
+    "Button",
+    "Stat",
+    "Facts",
+    "Chart",
+    "List",
+    "Table",
+    "TableColumn",
+    "Tabs",
     "Tab",
 ];
 
@@ -172,7 +190,12 @@ pub fn deferred(theme: &UiTheme, kind: &str) -> AnyElement {
 
 /// A button. Interaction is attached by the view; this function owns only the
 /// anatomy (DESIGN §7).
-pub fn button(theme: &UiTheme, id: &str, props: &Props, state: VisualState) -> gpui_kit::Stateful<gpui_kit::Div> {
+pub fn button(
+    theme: &UiTheme,
+    id: &str,
+    props: &Props,
+    state: VisualState,
+) -> gpui_kit::Stateful<gpui_kit::Div> {
     let label = props::text_or(props, "label", "");
     let tone = props::name_or(props, "tone", "secondary");
     let style = theme.text(TextRole::Body);
@@ -560,13 +583,18 @@ pub fn image(
         theme.image_max_height().as_f32(),
     );
     let fit = props::name_or(props, "fit", "cover");
+    let image_state = if state == VisualState::Error {
+        crate::image::ImageState::Failed
+    } else {
+        crate::image::ImageState::Pending
+    };
     crate::image::element(
         theme,
         &alt,
         gpui_kit::px(height),
         width,
         &fit,
-        &crate::image::ImageState::Pending,
+        &image_state,
         state,
     )
 }

@@ -13,12 +13,13 @@ use crate::{
     tree::NodeEntry,
 };
 use gpui_kit::{
-    App, AnyView, AppContext, Context, FontWeight, InteractiveElement, IntoElement, ParentElement,
-    Pixels, SharedString, StatefulInteractiveElement, Styled, TextAlign, Window, div,
+    AnyView, App, AppContext, Context, FontWeight, InteractiveElement, IntoElement, ParentElement,
+    Pixels, SharedString, StatefulInteractiveElement, Styled, TextAlign, Window,
     component::{
         Sizable, Size,
         table::{Column, ColumnSort, DataTable, TableDelegate, TableState},
     },
+    div,
 };
 use serde_json::Value;
 use std::sync::Arc;
@@ -271,23 +272,11 @@ impl TableModel {
     }
 
     pub fn viewport_height(&self, theme: &UiTheme) -> gpui_kit::Pixels {
-        let header = theme.table_header_height().as_f32();
-        if self.rows.is_empty() {
-            return match self.status.as_deref() {
-                Some("requested") | Some("refreshing") | Some("loading") => gpui_kit::px(
-                    header
-                        + theme.table_loading_rows() as f32 * theme.table_row_height().as_f32(),
-                ),
-                _ => gpui_kit::px(header + theme.table_empty_height().as_f32()),
-            };
-        }
-        let natural = self
-            .rows
-            .len()
-            .min(theme.table_natural_row_limit())
-            .saturating_add(1) as f32
-            * theme.table_row_height().as_f32();
-        gpui_kit::px(natural.min(theme.table_viewport_height().as_f32()))
+        let loading = matches!(
+            self.status.as_deref(),
+            Some("requested") | Some("refreshing") | Some("loading")
+        );
+        theme.table_height(self.rows.len(), loading)
     }
 }
 
@@ -318,12 +307,7 @@ impl GenuiTableDelegate {
         }
     }
 
-    pub fn update(
-        &mut self,
-        model: TableModel,
-        width: gpui_kit::Pixels,
-        theme: UiTheme,
-    ) -> bool {
+    pub fn update(&mut self, model: TableModel, width: gpui_kit::Pixels, theme: UiTheme) -> bool {
         let signature = model.signature(width);
         if signature == self.signature && self.width == width {
             return false;
@@ -483,7 +467,7 @@ impl TableDelegate for GenuiTableDelegate {
                     text: tooltip.clone(),
                     theme: theme.clone(),
                 });
-                AnyView::from(view).into()
+                AnyView::from(view)
             });
         }
         cell.into_any_element()
@@ -495,6 +479,14 @@ impl TableDelegate for GenuiTableDelegate {
         _cx: &mut Context<TableState<Self>>,
     ) -> impl IntoElement {
         let style = self.theme.text(TextRole::Body);
+        let color = if matches!(
+            self.model.status.as_deref(),
+            Some("failed") | Some("denied")
+        ) {
+            self.theme.tone(crate::theme::Tone::Danger).fg
+        } else {
+            self.theme.muted_foreground()
+        };
         div()
             .flex()
             .items_center()
@@ -503,7 +495,7 @@ impl TableDelegate for GenuiTableDelegate {
             .h(self.theme.table_empty_height())
             .text_size(style.size)
             .line_height(style.line_height)
-            .text_color(self.theme.muted_foreground())
+            .text_color(color)
             .child(self.model.empty.clone())
             .into_any_element()
     }
@@ -555,18 +547,6 @@ pub fn element(
             .border_color(theme.border());
     }
     wrapper.into_any_element()
-}
-
-/// Table state is created lazily by the renderer because kit widgets need a
-/// `Window` (SPEC §10.1).
-pub fn model_for(
-    entry: &NodeEntry,
-    columns: &[NodeEntry],
-    _width: Pixels,
-    theme: &UiTheme,
-) -> TableModel {
-    let _ = theme;
-    TableModel::from_entry(entry, columns)
 }
 
 #[cfg(test)]
@@ -662,7 +642,12 @@ mod tests {
         assert_eq!(model.cell_text(0, 0), "Item 0");
         assert_eq!(model.cell_text(1, 1), "1");
         assert_eq!(model.cell_text(1, 2), "$1.50");
-        let mut delegate = GenuiTableDelegate::new(model, crate::theme::test_px(600.0), theme.clone(), "root".into());
+        let mut delegate = GenuiTableDelegate::new(
+            model,
+            crate::theme::test_px(600.0),
+            theme.clone(),
+            "root".into(),
+        );
         delegate.sort = Some((1, ColumnSort::Descending));
         delegate.order = delegate.model.sorted_order(delegate.sort);
         assert_eq!(delegate.cell_text(0, 0), "Item 2");
@@ -744,16 +729,18 @@ mod tests {
     #[test]
     fn table_grid_height_is_bounded_and_empty_keeps_its_size() {
         let (model, theme) = table_fixture(3);
-        assert_eq!(model.viewport_height(&theme), gpui_kit::px(128.0));
+        assert_eq!(model.viewport_height(&theme), crate::theme::test_px(128.0));
         let (empty, theme) = table_fixture(0);
         assert_eq!(
             empty.viewport_height(&theme),
-            gpui_kit::px(theme.table_header_height().as_f32() + theme.table_empty_height().as_f32())
+            crate::theme::test_px(
+                theme.table_header_height().as_f32() + theme.table_empty_height().as_f32()
+            )
         );
         let (many, theme) = table_fixture(20);
         assert_eq!(
             many.viewport_height(&theme),
-            gpui_kit::px(13.0 * 32.0),
+            crate::theme::test_px(13.0 * 32.0),
             "more rows than the natural limit still cap below the viewport token"
         );
     }
@@ -763,7 +750,10 @@ mod tests {
         let (mut model, _) = table_fixture(2);
         assert_eq!(model.visual_state(VisualState::Normal), VisualState::Normal);
         model.status = Some("requested".into());
-        assert_eq!(model.visual_state(VisualState::Normal), VisualState::Loading);
+        assert_eq!(
+            model.visual_state(VisualState::Normal),
+            VisualState::Loading
+        );
         model.status = Some("failed".into());
         assert_eq!(model.visual_state(VisualState::Normal), VisualState::Error);
     }

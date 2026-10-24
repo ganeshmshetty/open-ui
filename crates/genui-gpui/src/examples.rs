@@ -3,7 +3,12 @@
 //! The gallery and demo binaries own file reading; this module only turns bytes
 //! into a `LoadedProgram`, so it is usable from tests and hosts.
 
-use crate::{capabilities::Capabilities, components, host::{HostData, HostPolicy, SampleHost}, tree::RetainedTree};
+use crate::{
+    capabilities::Capabilities,
+    components,
+    host::{HostData, HostPolicy, SampleHost},
+    tree::RetainedTree,
+};
 use genui_core::{
     Session, SessionOptions,
     diag::{Diagnostic, Severity},
@@ -149,7 +154,11 @@ mod tests {
             ..Options::default()
         };
         let loaded = session(&example("06-team-directory.ui"), &options).expect("session");
-        assert!(loaded.tree.len() > 4, "people ref expands into rows: {} nodes", loaded.tree.len());
+        assert!(
+            loaded.tree.len() > 4,
+            "people ref expands into rows: {} nodes",
+            loaded.tree.len()
+        );
     }
 
     #[test]

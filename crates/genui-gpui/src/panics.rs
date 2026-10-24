@@ -23,6 +23,11 @@ pub const QUARANTINE_AFTER: u32 = 3;
 /// Bound the number of retained diagnostics from a pathological UI.
 pub const MAX_PANIC_DIAGNOSTICS: usize = 64;
 
+/// Whether builders can be contained. With `panic = "abort"` the catch is
+/// present but a panic still aborts the process, so hosts must build with
+/// unwinding for this boundary (SPEC §10.8).
+pub const CONTAINMENT_ENABLED: bool = cfg!(panic = "unwind");
+
 #[derive(Clone, Debug, Default)]
 struct Entry {
     rev: u64,

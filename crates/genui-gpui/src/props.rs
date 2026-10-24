@@ -188,7 +188,10 @@ pub fn data_status(props: &Props, key: &str) -> Option<String> {
 /// The synthetic `status` prop emitted by the core for query-dependent nodes
 /// (SPEC §7.5, `session::resolve_status_props`).
 pub fn status(props: &Props) -> Option<String> {
-    props.get("status").and_then(Value::as_str).map(str::to_string)
+    props
+        .get("status")
+        .and_then(Value::as_str)
+        .map(str::to_string)
 }
 
 /// A table row list. Unlike [`data`] this is bounded by the table's own row
@@ -206,7 +209,6 @@ pub fn table_rows(props: &Props, key: &str) -> (Vec<Vec<(String, Value)>>, bool)
         .collect();
     (rows, truncated)
 }
-
 
 #[cfg(test)]
 mod tests {

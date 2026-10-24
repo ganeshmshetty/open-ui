@@ -4,13 +4,9 @@
 //! `UiView` and scrolls to distant rows. Rows are virtualized by the kit table,
 //! so the visible range stays bounded while the data model grows. Numbers are
 //! reported against the 8 ms app-work target and are not waived.
+#![cfg_attr(not(feature = "screenshot"), allow(dead_code, unused_imports))]
 
-use genui_core::{
-    Session, SessionOptions,
-    session::InputMode,
-    validate::Options,
-    value::Value,
-};
+use genui_core::{Session, SessionOptions, session::InputMode, validate::Options, value::Value};
 use genui_gpui::{demo::DemoStage, theme::UiTheme, view::UiView};
 use gpui_kit::AppContext;
 use serde_json::{Value as Json, json};
@@ -166,11 +162,12 @@ fn run(args: &Args) -> Result<(), String> {
             stage
         })
         .map_err(|error| error.to_string())?;
-    let handle = AnyWindowHandle::from(window.clone());
+    let handle = AnyWindowHandle::from(window);
     let mut session = session(args.rows)?;
     let build_started = Instant::now();
     let mut batches = 0;
-    for update in [session.snapshot()] {
+    let update = session.snapshot();
+    {
         if let Some(batch) = update.patches {
             batches += 1;
             window
@@ -249,13 +246,24 @@ fn run(args: &Args) -> Result<(), String> {
             let samples = window
                 .update(&mut cx, |stage, _, cx| {
                     stage.child.as_ref().map(|child| {
-                        child.read(cx).metrics_handle().borrow().frame_app_samples.clone()
+                        child
+                            .read(cx)
+                            .metrics_handle()
+                            .borrow()
+                            .frame_app_samples
+                            .clone()
                     })
                 })
                 .ok()
                 .flatten()
                 .unwrap_or_default();
-            eprintln!("scroll {row}: frame samples {:?}", samples.iter().map(|d| d.as_secs_f64() * 1000.0).collect::<Vec<_>>());
+            eprintln!(
+                "scroll {row}: frame samples {:?}",
+                samples
+                    .iter()
+                    .map(|d| d.as_secs_f64() * 1000.0)
+                    .collect::<Vec<_>>()
+            );
         }
         let image = cx
             .capture_screenshot(handle)
@@ -298,13 +306,22 @@ fn run(args: &Args) -> Result<(), String> {
             stage
                 .child
                 .as_ref()
-                .map(|child| child.read(cx).metrics_handle().borrow().frame_app_samples.clone())
+                .map(|child| {
+                    child
+                        .read(cx)
+                        .metrics_handle()
+                        .borrow()
+                        .frame_app_samples
+                        .clone()
+                })
                 .unwrap_or_default()
         })
         .map_err(|error| error.to_string())?;
     let mut all_samples = final_samples.clone();
     all_samples.sort();
-    let construction_ms = all_samples.last().map_or(0.0, |sample| sample.as_secs_f64() * 1000.0);
+    let construction_ms = all_samples
+        .last()
+        .map_or(0.0, |sample| sample.as_secs_f64() * 1000.0);
     let steady_samples = all_samples
         .split_last()
         .map_or_else(Vec::new, |(_, rest)| rest.to_vec());

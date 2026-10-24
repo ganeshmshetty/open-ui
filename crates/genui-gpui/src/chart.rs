@@ -11,8 +11,8 @@ use crate::{
 };
 use gpui_kit::{
     AnyElement, AnyView, Bounds, Context, Corners, Hsla, InteractiveElement, IntoElement,
-    MouseMoveEvent, ParentElement, Path, PathBuilder, PaintQuad, Pixels, Render, Styled,
-    TextAlign, Window, canvas, div, fill, point, px,
+    MouseMoveEvent, PaintQuad, ParentElement, Path, PathBuilder, Pixels, Render, Styled, TextAlign,
+    Window, canvas, div, fill, point, px,
 };
 use serde_json::Value;
 use std::cell::Cell;

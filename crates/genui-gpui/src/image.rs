@@ -105,10 +105,10 @@ impl ImageCache {
         if self.entries.contains_key(src) {
             return;
         }
-        if self.entries.len() >= MAX_IMAGE_CACHE_ENTRIES {
-            if let Some(first) = self.entries.keys().next().cloned() {
-                self.entries.remove(&first);
-            }
+        if self.entries.len() >= MAX_IMAGE_CACHE_ENTRIES
+            && let Some(first) = self.entries.keys().next().cloned()
+        {
+            self.entries.remove(&first);
         }
         self.entries.insert(src.to_string(), ImageState::Pending);
     }
@@ -131,14 +131,13 @@ impl ImageCache {
         if !self.entries.contains_key(src) && self.entries.len() >= MAX_IMAGE_CACHE_ENTRIES {
             return Err(ImageError::TooManySources);
         }
-        if let Some((width, height)) = dimensions(format, &bytes) {
-            if width > self.limits.max_dimension
+        if let Some((width, height)) = dimensions(format, &bytes)
+            && (width > self.limits.max_dimension
                 || height > self.limits.max_dimension
-                || u64::from(width).saturating_mul(u64::from(height)) > self.limits.max_pixels
-            {
-                self.fail(src);
-                return Err(ImageError::TooManyPixels);
-            }
+                || u64::from(width).saturating_mul(u64::from(height)) > self.limits.max_pixels)
+        {
+            self.fail(src);
+            return Err(ImageError::TooManyPixels);
         }
         let decoded = catch_unwind(AssertUnwindSafe(|| Image::from_bytes(format, bytes)));
         match decoded {
@@ -196,7 +195,9 @@ fn jpeg_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
         }
         let marker = bytes[index + 1];
         if (0xC0..=0xCF).contains(&marker) && marker != 0xC4 && marker != 0xC8 && marker != 0xCC {
-            let height = u32::from(u16::from_be_bytes(bytes[index + 5..index + 7].try_into().ok()?));
+            let height = u32::from(u16::from_be_bytes(
+                bytes[index + 5..index + 7].try_into().ok()?,
+            ));
             let width = u32::from(u16::from_be_bytes(
                 bytes[index + 7..index + 9].try_into().ok()?,
             ));
@@ -289,8 +290,8 @@ mod tests {
             Some((640, 480))
         );
         let jpeg = [
-            0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x04, 0x00, 0x00, 0xFF, 0xC0, 0x00, 0x11, 0x08,
-            0x01, 0xE0, 0x02, 0x80,
+            0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x04, 0x00, 0x00, 0xFF, 0xC0, 0x00, 0x11, 0x08, 0x01,
+            0xE0, 0x02, 0x80,
         ];
         assert_eq!(dimensions(ImageFormat::Jpeg, &jpeg), Some((640, 480)));
         assert_eq!(dimensions(ImageFormat::Png, &[0u8; 4]), None);
@@ -334,7 +335,10 @@ mod tests {
     #[test]
     fn unknown_and_missing_sources_are_pending_not_fetched() {
         let cache = ImageCache::default();
-        assert!(matches!(cache.state("https://example.com/x.png"), ImageState::Pending));
+        assert!(matches!(
+            cache.state("https://example.com/x.png"),
+            ImageState::Pending
+        ));
         assert_eq!(cache.limits().max_bytes, MAX_IMAGE_BYTES);
         assert_eq!(cache.limits().timeout_ms, IMAGE_TIMEOUT_MS);
     }

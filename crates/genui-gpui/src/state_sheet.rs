@@ -42,13 +42,7 @@ impl Scene {
         self.add_in(parent, slot, kind, props)
     }
 
-    fn add_in(
-        &mut self,
-        parent: Option<&str>,
-        slot: &str,
-        kind: &str,
-        props: Value,
-    ) -> String {
+    fn add_in(&mut self, parent: Option<&str>, slot: &str, kind: &str, props: Value) -> String {
         let id = match parent {
             None => "root".to_string(),
             Some(parent) => {
@@ -399,11 +393,7 @@ pub fn build() -> StateSheet {
     overrides.insert(error, VisualState::Error);
 
     // Lists, tables and tabs (M8).
-    let list = scene.add(
-        Some(&data),
-        "List",
-        json!({"ordered": true}),
-    );
+    let list = scene.add(Some(&data), "List", json!({"ordered": true}));
     for text in [
         "Prepare the release notes",
         "Run the acceptance pass",
@@ -442,43 +432,41 @@ pub fn build() -> StateSheet {
         );
     }
     let table_states = scene.add(Some(&data), "Grid", json!({"cols": 3, "gap": space(3)}));
-    let empty_table = scene.add(Some(&table_states), "Table", json!({"rows": [], "empty": "No orders yet"}));
-    for (header, field) in [("Order", "order")] {
-        scene.add_in(
-            Some(&empty_table),
-            "columns",
-            "TableColumn",
-            json!({"header": header, "field": field}),
-        );
-    }
+    let empty_table = scene.add(
+        Some(&table_states),
+        "Table",
+        json!({"rows": [], "empty": "No orders yet"}),
+    );
+    scene.add_in(
+        Some(&empty_table),
+        "columns",
+        "TableColumn",
+        json!({"header": "Order", "field": "order"}),
+    );
     overrides.insert(empty_table, VisualState::Empty);
     let loading_table = scene.add(
         Some(&table_states),
         "Table",
         json!({"rows": [], "status": "requested", "empty": "Loading"}),
     );
-    for (header, field) in [("Order", "order")] {
-        scene.add_in(
-            Some(&loading_table),
-            "columns",
-            "TableColumn",
-            json!({"header": header, "field": field}),
-        );
-    }
+    scene.add_in(
+        Some(&loading_table),
+        "columns",
+        "TableColumn",
+        json!({"header": "Order", "field": "order"}),
+    );
     overrides.insert(loading_table, VisualState::Loading);
     let failed_table = scene.add(
         Some(&table_states),
         "Table",
         json!({"rows": [], "status": "failed", "empty": "Couldn't load data"}),
     );
-    for (header, field) in [("Order", "order")] {
-        scene.add_in(
-            Some(&failed_table),
-            "columns",
-            "TableColumn",
-            json!({"header": header, "field": field}),
-        );
-    }
+    scene.add_in(
+        Some(&failed_table),
+        "columns",
+        "TableColumn",
+        json!({"header": "Order", "field": "order"}),
+    );
     overrides.insert(failed_table, VisualState::Error);
 
     let tabs = scene.add(Some(&data), "Tabs", json!({}));
@@ -493,12 +481,7 @@ pub fn build() -> StateSheet {
         "Text",
         text_props("The selected tab's panel is the only mounted subtree."),
     );
-    let details = scene.add_in(
-        Some(&tabs),
-        "tabs",
-        "Tab",
-        json!({"label": "Details"}),
-    );
+    let details = scene.add_in(Some(&tabs), "tabs", "Tab", json!({"label": "Details"}));
     scene.add(
         Some(&details),
         "Text",

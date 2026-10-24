@@ -229,8 +229,10 @@ version = "0.0.0"
 dependencies = [
  "genui-conformance",
  "genui-core",
+ "genui-prompt",
  "genui-std",
  "libfuzzer-sys",
+ "serde_json",
 ]
 
 [[package]]
@@ -238,6 +240,8 @@ name = "genui-prompt"
 version = "0.1.0"
 dependencies = [
  "genui-core",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

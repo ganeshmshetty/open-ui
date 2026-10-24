@@ -6,3 +6,8 @@ publish.workspace = true
 
 [dependencies]
 genui-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+genui-std.workspace = true

@@ -35,55 +35,81 @@ class QualityTests(unittest.TestCase):
 
 
 class IntegrationTests(unittest.TestCase):
-    def test_each_commit_is_checked_even_if_spec_changes_later(self):
+    def _repo(self):
         from pathlib import Path
         import subprocess
         import tempfile
+        directory = tempfile.TemporaryDirectory()
+        root = Path(directory.name)
+        def git(*args):
+            return subprocess.check_output(["git", "-C", str(root), *args], text=True).strip()
+        git("init", "-q")
+        git("config", "user.name", "Gate Test")
+        git("config", "user.email", "gate@example.invalid")
+        return directory, root, git
+
+    def test_spec_change_may_land_later_in_the_same_push(self):
         from quality import fixtures
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            def git(*args):
-                return subprocess.check_output(["git", "-C", str(root), *args], text=True).strip()
-            git("init", "-q")
-            git("config", "user.name", "Gate Test")
-            git("config", "user.email", "gate@example.invalid")
+        directory, root, git = self._repo()
+        with directory:
+            (root / "want.ir.json").write_text("{}")
+            git("add", ".")
+            git("commit", "-qm", "initial golden")
+            base = git("rev-parse", "HEAD")
+            (root / "want.ir.json").write_text('{"changed":true}')
+            git("add", ".")
+            git("commit", "-qm", "golden change")
+            (root / "spec").mkdir()
+            (root / "spec/SPEC.md").write_text("contract")
+            (root / "spec/CHANGELOG.md").write_text("later")
+            git("add", ".")
+            git("commit", "-qm", "documented")
+            self.assertEqual(fixtures(root, base, "HEAD"), [])
+
+    def test_modified_golden_without_any_spec_change_fails(self):
+        from quality import fixtures
+        directory, root, git = self._repo()
+        with directory:
+            (root / "want.ir.json").write_text("{}")
+            git("add", ".")
+            git("commit", "-qm", "initial golden")
+            base = git("rev-parse", "HEAD")
+            (root / "want.ir.json").write_text('{"changed":true}')
+            git("add", ".")
+            git("commit", "-qm", "unprotected change")
+            bad = git("rev-parse", "HEAD")
+            errors = fixtures(root, base, "HEAD")
+            self.assertEqual(len(errors), 1)
+            self.assertIn(bad, errors[0])
+
+    def test_new_fixture_needs_no_spec_change(self):
+        from quality import fixtures
+        directory, root, git = self._repo()
+        with directory:
             (root / "initial").write_text("base")
             git("add", ".")
             git("commit", "-qm", "base")
             base = git("rev-parse", "HEAD")
             (root / "want.ir.json").write_text("{}")
             git("add", ".")
-            git("commit", "-qm", "unprotected fixture")
-            bad = git("rev-parse", "HEAD")
-            (root / "spec").mkdir()
-            (root / "spec/SPEC.md").write_text("contract")
-            (root / "spec/CHANGELOG.md").write_text("later")
-            git("add", ".")
-            git("commit", "-qm", "too late")
-            errors = fixtures(root, base, "HEAD")
-            self.assertEqual(len(errors), 1)
-            self.assertIn(bad, errors[0])
+            git("commit", "-qm", "new fixture")
+            self.assertEqual(fixtures(root, base, "HEAD"), [])
 
     def test_force_pushed_base_checks_the_new_head(self):
-        from pathlib import Path
-        import subprocess
-        import tempfile
         from quality import fixtures
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            def git(*args):
-                return subprocess.check_output(["git", "-C", str(root), *args], text=True).strip()
-            git("init", "-q")
-            git("config", "user.name", "Gate Test")
-            git("config", "user.email", "gate@example.invalid")
-            (root / "initial").write_text("base")
+        directory, root, git = self._repo()
+        with directory:
+            (root / "want.ir.json").write_text("{}")
             git("add", ".")
-            git("commit", "-qm", "base")
+            git("commit", "-qm", "base golden")
             abandoned = git("rev-parse", "HEAD")
             git("checkout", "-q", "--orphan", "rewritten")
             (root / "want.ir.json").write_text("{}")
             git("add", ".")
-            git("commit", "-qm", "unprotected fixture after force push")
+            git("commit", "-qm", "rewritten base golden")
+            (root / "want.ir.json").write_text('{"changed":true}')
+            git("add", ".")
+            git("commit", "-qm", "unprotected change after force push")
             head = git("rev-parse", "HEAD")
             errors = fixtures(root, abandoned, "HEAD")
             self.assertEqual(len(errors), 1)

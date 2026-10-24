@@ -95,6 +95,36 @@ impl NodeEntry {
                 | "Tab"
         )
     }
+
+    /// Nodes that own interaction state and a focus handle (SPEC §10.1).
+    pub fn is_focusable(&self) -> bool {
+        matches!(
+            self.kind.as_str(),
+            "Input"
+                | "TextArea"
+                | "Select"
+                | "Checkbox"
+                | "CheckboxGroup"
+                | "RadioGroup"
+                | "Switch"
+                | "Button"
+        )
+    }
+
+    /// Depth-first descendants in primary-slot order.
+    pub fn descendants(&self, tree: &RetainedTree) -> Vec<String> {
+        let mut out = Vec::new();
+        let mut stack: Vec<String> = self.primary_children().into_iter().rev().collect();
+        while let Some(id) = stack.pop() {
+            if let Some(entry) = tree.get(&id) {
+                out.push(id.clone());
+                for child in entry.primary_children().into_iter().rev() {
+                    stack.push(child);
+                }
+            }
+        }
+        out
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]

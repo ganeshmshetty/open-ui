@@ -1,0 +1,12 @@
+   Compiling genui-core v0.1.0 (/Users/ganesh/.local/share/opencode/worktree/91ba9b/m7/crates/genui-core)
+   Compiling genui-std v0.1.0 (/Users/ganesh/.local/share/opencode/worktree/91ba9b/m7/crates/genui-std)
+   Compiling genui-gpui v0.1.0 (/Users/ganesh/.local/share/opencode/worktree/91ba9b/m7/crates/genui-gpui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 24.11s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running tests/interaction.rs (/Users/ganesh/dev/open-ui/target/debug/deps/interaction-d70097d10a1ca5e1)
+
+running 1 test
+test keyboard_only_run_reaches_submit ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.56s

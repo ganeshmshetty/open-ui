@@ -171,7 +171,6 @@ evaluation set and transcript measurements remain open in `docs/milestones/M5.md
 - **Debounce base.** The 300 ms timer starts from the virtual clock at the
   dependency change (the clock before the observing `advance_clock`), cancels
   when arguments revert, and applies to queued queries.
-
 ## M6 renderer defaults recorded while implementing DESIGN/§10
 
 | Question | Options | Recommended default / action | Status |
@@ -187,10 +186,22 @@ evaluation set and transcript measurements remain open in `docs/milestones/M5.md
 
 | Question | Options | Recommended default / action | Status |
 | --- | --- | --- | --- |
-| M7 is not on this branch (the M8 base is the M6 tip). How do renderer events reach a session? | Wait for M7 `UiEvent` wiring; path-addressed renderer events with a host adapter; add synthetic NodeIds to every patch | Emit `genui_gpui::RendererEvent { path, prop/value }`; the host resolves with `Session::activate_at` / `edit_at` / `blur_at`. The `UiEvent` core type and patch wire stay unchanged. Inputs/forms remain M7 placeholders. | Adopted; SPEC §10.1/§10.4 note the bridge; M7 should prefer direct `UiEvent` emission |
+| M7 is not on this branch (the M8 base is the M6 tip). How do renderer events reach a session? | Wait for M7 `UiEvent` wiring; path-addressed renderer events with a host adapter; add synthetic NodeIds to every patch | Temporary `RendererEvent` bridge during M8, **superseded at the M7 merge**: the renderer emits the core path-addressed `UiEvent` directly, and `activate_at`/`edit_at`/`blur_at` remain convenience methods for hosts. | Resolved at merge; no renderer-specific event type ships |
 | How is the 50,000-row table virtualized? | Custom scroll math; kit `DataTable`/`TableState`; cap rows below 50k | Use the pinned kit table (sticky header, selection, sorting, resizable columns, uniform row virtualization). Parse rows once into the renderer model, drop the duplicate wire `rows` prop from the retained tree, and key the cache on a `rows_rev` that only changes when `rows` changes. | Adopted; steady frames 0.05 ms p99, construction frame 323 ms reported |
 | How do image bytes reach the renderer? | Renderer fetches; host preloads bytes; host delivers an opaque handle | Host calls `request_image`, fetches under the same URL allowlist as links, then `deliver_image`/`fail_image`. Renderer enforces 8 MiB, 4096 px, 16 MP, 256 sources and catches decode panics. No renderer I/O. | Adopted; SPEC §10.3 contract and ROADMAP item 7 |
 | Screenshot runs caught the 150 ms fade at low opacity | Capture during animation; disable motion for stills; lengthen capture delay | Headless screenshot hosts call `App::set_reduce_motion(true)`, which is the DESIGN §8 host-disabled-motion path. Interactive runs keep the fade. | Adopted; sample-host/gallery screenshot paths |
 | Are the 20 transcripts model evidence? | Label them model runs; label scripted; omit them | Label every file `scripted-fixture`, include the generated prompt and digest, and say "scripted" in every report. No live model was available in the worktree. | Adopted; real-model recording remains open |
 | v0.1 tag and license | Create tag; leave to integrator; choose MIT/Apache-2.0 | Do not tag. The license is ROADMAP item 10, an owner decision; no LICENSE file was added. | Adopted; release checklist records the gap |
 | Restored snapshots with undeclared state names | Drop unknown values; keep them for round-trip | Keep the original snapshot values and overlay live declared state. `state_snapshot()` therefore round-trips host data even when a declaration was removed, while declared values always reflect live state. | Adopted; SPEC §7.9 clarification |
+
+## M7 renderer defaults recorded while implementing inputs/forms (§§7.3–7.4,7.8,10.4,10.10,10.14)
+
+| Question | Options | Recommended default / action | Status |
+| --- | --- | --- | --- |
+| How does a renderer name a node in `UiEvent`? | Keep IR `NodeId`; add a renderer event type; use the patch wire's `NodePath` | Use `NodePath` in the core `UiEvent`; `Session::event` resolves it. This removes a contract mismatch without duplicating the event type. `Session::activate(NodeId, ..)` remains for existing hosts. | Adopted; SPEC §§7.8,13 and CHANGELOG updated |
+| How does the renderer learn bound values and revisions? | Put value/rev in synthetic patch props; add a host-side state API | Add `Session::state_values()` and `UiView::sync_state`. Patches stay unchanged, existing form goldens stay stable, and the view still applies the §10.4 rev/origin rule. | Adopted |
+| How does a submit-only `Button` activate its form? | Require `on_click`; synthesize a button plan; accept the form's `on_submit` handle for that button | Accept the form handle when the node is a `submit: true` button in exactly that form. A button with both props still runs its own plan and then the form plan. | Adopted; core test and SPEC §7.4 |
+| How is Tab traversal implemented when the kit Root consumes Tab? | Rebind Root's actions; let inputs indent; unbind Root/Input Tab and handle it in the view | Unbind `root::Tab`/`root::TabPrev` and `IndentInline`/`OutdentInline`; the view emits `Blur` and calls `Window::focus_next`/`focus_prev`. Notes fields traverse instead of inserting a tab. | Adopted; PINS.md records the pinned behavior |
+| NumberInput, Slider and DateInput are named in the M7 brief but not in the phase-1 std catalog | Add components (new Library Spec hash); map to existing types | Map NumberInput to `Input(kind: "number"|"integer")`; Slider and DateInput are not in §8.8. Adding them would change the M2 library contract and hash, not a renderer milestone. | Not implemented; flagged for an owner-scope decision |
+| How are extensions bounded? | Full child traversal; leaf builders only | Leaf builders only in phase 1. Hosts compose their own data; the IR child pipeline is unchanged. | Adopted; SPEC §10.14; panic containment stays M8 |
+| Accessibility coverage on real platforms | Claim full coverage; measure the pinned projection | Measure the pinned accesskit projection and state that OS coverage is unverified: the test platform has no adapter. | Adopted; SPEC §10.10, PINS.md |

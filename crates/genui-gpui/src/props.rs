@@ -146,8 +146,16 @@ pub fn map_get<'a>(entries: &'a [(String, Value)], key: &str) -> Option<&'a Valu
         .map(|(_, value)| value)
 }
 
-/// A list of string options (`Select`, `RadioGroup` and similar).
-pub fn strings(props: &Props, key: &str) -> Vec<String> {
+/// One `options` entry: the visible label and the committed value.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OptionItem {
+    pub label: String,
+    pub value: String,
+}
+
+/// A list of options (`Select`, `CheckboxGroup`, `RadioGroup`). Strings are
+/// both label and value; `{label, value}` maps use `value` when present.
+pub fn options(props: &Props, key: &str) -> Vec<OptionItem> {
     let Some(Value::Array(items)) = props.get(key) else {
         return Vec::new();
     };
@@ -155,24 +163,85 @@ pub fn strings(props: &Props, key: &str) -> Vec<String> {
         .iter()
         .take(MAX_LIST_ITEMS)
         .filter_map(|item| match item {
-            Value::String(text) => Some(sanitize_text(text)),
-            Value::Object(map) => map
-                .get("map")
-                .and_then(Value::as_array)
-                .and_then(|entries| {
-                    entries.iter().find_map(|entry| {
-                        let pair = entry.as_array()?;
-                        (pair.first()?.as_str()? == "label")
-                            .then(|| pair.get(1)?.as_str().map(sanitize_text))
-                            .flatten()
-                    })
-                }),
+            Value::String(text) => {
+                let text = sanitize_text(text);
+                Some(OptionItem {
+                    label: text.clone(),
+                    value: text,
+                })
+            }
+            Value::Object(map) => {
+                let entries = map.get("map")?.as_array()?;
+                let mut label = None;
+                let mut value = None;
+                for entry in entries {
+                    let pair = entry.as_array()?;
+                    let name = pair.first()?.as_str()?;
+                    let inner = pair.get(1)?;
+                    match name {
+                        "label" => label = inner.as_str().map(sanitize_text),
+                        "value" => value = inner.as_str().map(sanitize_text),
+                        _ => {}
+                    }
+                }
+                let label = label?;
+                Some(OptionItem {
+                    value: value.unwrap_or_else(|| label.clone()),
+                    label,
+                })
+            }
             _ => None,
         })
         .collect()
 }
 
-/// The synthetic `status` wire prop or a nested `{"status":...}` value.
+/// A list of string labels (`Select`, `RadioGroup` and similar).
+pub fn strings(props: &Props, key: &str) -> Vec<String> {
+    options(props, key)
+        .into_iter()
+        .map(|item| item.label)
+        .collect()
+}
+
+/// The plan handle of an `action` prop, when present.
+pub fn action(props: &Props, key: &str) -> Option<String> {
+    let Value::Object(map) = props.get(key)? else {
+        return None;
+    };
+    map.get("action")?.as_str().map(str::to_string)
+}
+
+/// The state name of a `bind` prop, without its leading `$`.
+pub fn binding(props: &Props, key: &str) -> Option<String> {
+    let Value::Object(map) = props.get(key)? else {
+        return None;
+    };
+    let bind = map.get("bind")?.as_str()?;
+    let name = bind.strip_prefix('$').unwrap_or(bind);
+    (!name.is_empty()).then(|| name.to_string())
+}
+
+/// A wire scalar as an editable string. Numbers use their plain form.
+pub fn scalar_text(value: &Value) -> Option<String> {
+    match value {
+        Value::String(text) => Some(sanitize_text(text)),
+        Value::Bool(value) => Some(value.to_string()),
+        Value::Object(map) => map
+            .get("i")
+            .and_then(Value::as_i64)
+            .map(|value| value.to_string())
+            .or_else(|| {
+                map.get("f")
+                    .and_then(Value::as_f64)
+                    .map(|value| format!("{value}"))
+            }),
+        Value::Number(number) => Some(number.to_string()),
+        _ => None,
+    }
+}
+
+/// The synthetic `status` wire prop or a nested `{"status":...}` value
+/// (`{"status":"loading"}`), when present.
 pub fn data_status(props: &Props, key: &str) -> Option<String> {
     if let Some(status) = props.get("status").and_then(Value::as_str) {
         return Some(status.to_string());

@@ -6,16 +6,16 @@
 //! `UiEvent::Edit`, so the host can persist it in state (SPEC §7.8).
 
 use crate::{
-    event::RendererEvent,
     layout::{StateOverrides, VisualState, Widths},
     props::{self, Props},
     theme::{Radius, TextRole, UiTheme},
     tree::RetainedTree,
+    view::EventSink,
 };
 use gpui_kit::{
     AnyElement, AnyView, AppContext, Context, Entity, FocusHandle, FontWeight, InteractiveElement,
     IntoElement, KeyDownEvent, ParentElement, Render, ScrollStrategy, SharedString,
-    StatefulInteractiveElement, Styled, WeakEntity, Window,
+    StatefulInteractiveElement, Styled, Window,
     component::{
         IndexPath,
         list::{List, ListDelegate, ListItem, ListState},
@@ -177,7 +177,7 @@ impl ListDelegate for GenuiListDelegate {
         let id = self.model.items.get(ix.row)?.clone();
         self.factory.widths.set(&id, self.item_width);
         let existed = self.factory.containers.borrow().contains_key(&id);
-        let entity = self.factory.entity(&id, cx)?;
+        let entity = self.factory.entity(&id, _window, cx)?;
         if !existed {
             self.created.set(self.created.get().saturating_add(1));
         }
@@ -432,7 +432,7 @@ pub struct TabsView {
     pub theme: UiTheme,
     pub widths: Widths,
     pub overrides: Rc<StateOverrides>,
-    pub view: Option<WeakEntity<crate::view::UiView>>,
+    pub sink: EventSink,
     pub focus: FocusHandle,
     pub selected: usize,
     pub last_count: usize,
@@ -448,7 +448,7 @@ impl TabsView {
         theme: UiTheme,
         widths: Widths,
         overrides: Rc<StateOverrides>,
-        view: Option<WeakEntity<crate::view::UiView>>,
+        sink: EventSink,
         cx: &mut Context<Self>,
     ) -> Self {
         Self {
@@ -458,7 +458,7 @@ impl TabsView {
             theme,
             widths,
             overrides,
-            view,
+            sink,
             focus: cx.focus_handle().tab_stop(true),
             selected: 0,
             last_count: 0,
@@ -485,16 +485,12 @@ impl TabsView {
             let value = tab_specs(&self.tree.borrow(), &self.tab_ids())
                 .get(next)
                 .map(|tab| tab.value.clone());
-            if let (Some(value), Some(view)) = (value, self.view.as_ref())
+            if let Some(value) = value
                 && let Some(entry) = self.tree.borrow().get(&self.id).cloned()
                 && entry.props.contains_key("bind")
             {
-                let _ = view.update(cx, |_, cx| {
-                    cx.emit(RendererEvent::Edit {
-                        path: self.id.clone(),
-                        value: genui_core::value::Value::from(value),
-                    })
-                });
+                self.sink
+                    .edit(&self.id, genui_core::value::Value::from(value), cx);
             }
             cx.notify();
         }

@@ -1,10 +1,10 @@
 ## 2026-10-24 — M8 data components, panic containment, host loop and stress (DESIGN §7; SPEC §§7.9,10.1,10.3,10.6,10.8,12.6–12.7)
 
-- §10.1 adds the M8 path-addressed `RendererEvent` bridge. M8 starts from the M6
-  tip and M7's input wiring is not present, so the renderer reports
-  `{ path, prop/value }` and the host resolves it with
-  `Session::activate_at` / `edit_at` / `blur_at`. The core `UiEvent` and patch
-  wire are unchanged.
+- §10.1 keeps one renderer event type: the core path-addressed `UiEvent`
+  (`NodePath` + `ActionHandle`, from M7). M8 adds `Session::activate_at` /
+  `edit_at` / `blur_at` convenience entry points for hosts holding a path. A
+  temporary renderer-specific bridge used during M8 development was removed at
+  integration; the patch wire is unchanged.
 - §10.1/§10.3 define the host image loader: `request_image`, `deliver_image` and
   `fail_image`, with 8 MiB / 4096 px / 16 MP / 256-source caps and a 10 s host
   deadline. The renderer still performs no I/O.
@@ -44,6 +44,47 @@
   is deferred; the renderer performs no I/O.
 - The renderer maps the synthetic query/ref `status` prop to loading (requested,
   refreshing) and error (denied, failed) visuals for data components and charts.
+## 2026-10-24 — M7 inputs, forms, focus, accessibility and host extensions (§§7.3–7.4,7.8,10.1,10.3–10.4,10.10,10.14,12.7,14.1; DESIGN §§6.7,7,9)
+
+- **`UiEvent` uses stable node paths.** The renderer only ever sees the patch
+  wire's path identity, while §7.8 previously required an IR `NodeId` hash that
+  no patch carries. `UiEvent::{Activate,Edit,Blur}` now carries `NodePath`;
+  `Session::event` resolves it to the current IR `NodeId` and ignores unknown or
+  removed paths. `Session::activate` remains the IR-id entry point for tests and
+  hosts that already hold one. The epoch-bound `ActionHandle` is unchanged.
+- **Submit-only buttons run the form plan.** A `Button(submit: true)` with no
+  `on_click` has no plan of its own. The renderer sends the enclosing form's
+  `on_submit` handle with the button's path; §7.4 now accepts that handle only
+  for a submit button in exactly that form. A button with both props still runs
+  its own plan and then the form plan.
+- **Renderer state snapshot.** `Session::state_values()` exposes
+  `{value, rev, origin}` per bound slot. `UiView::sync_state` applies the §10.4
+  store-to-widget rule: ignore `User` echoes, keep the focused widget
+  authoritative, and flush a deferred non-user write on blur. Initial bound
+  values reach inputs through the same call.
+- **Focus, Tab and event safety.** `UiView::focus_root` starts a view's tab
+  group. The renderer unbinds the kit Root's global Tab and the input-local
+  indent bindings so Tab/Shift-Tab traverse fields and emit `Blur`; Escape clears
+  focus; clicks name the field they leave. `freeze`/`thaw` implement §7.9's
+  read-only frozen state. `focus_handle_for` exposes a field handle for hosts.
+- **Accessibility is measured.** §10.10 now lists the accesskit role for every
+  control, the label/value source, and the remaining OS-level gap: the pinned
+  test platform has no accessibility adapter, so M7 measures the same
+  `Element::write_a11y_info` projection the controls write. Values and toggles
+  are exposed; visible errors stay text.
+- **Host component extensions.** §10.14 adds `with_extension`/
+  `register_extension`: a host that extends its `Library` registers a leaf
+  builder for the new kind. Nothing changes in the IR or patch protocol. Panic
+  containment for extension builders remains M8.
+- **Mapping audit.** §10.3 records the M7 choices: the DESIGN Form rhythm is
+  drawn directly because kit `form::Field` differs; checkbox, radio and switch
+  use base primitives with DESIGN geometry; Select keeps the kit overlay but
+  draws its shell/chevron because icon assets are not guaranteed headless.
+- **Examples and checks.** Add `examples/25-form-controls.ui` (all M7 inputs),
+  the `form-demo` binary, and eleven scripted headless tests covering every
+  input, validation, submit, focus traversal, streaming/frozen gates, rebuild
+  survival, extensions and accessibility. The gallery state sheet now shows live
+  inputs instead of M7 placeholders.
 
 ## 2026-10-24 — M6 renderer implementation review (DESIGN §§4,10; SPEC §§1.2,10.1,10.3,10.6,10.12–10.13,12.6–12.7,14.1)
 

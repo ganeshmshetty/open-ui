@@ -6,10 +6,10 @@
 //! delivered from bounded sample data; everything else is denied and logged.
 //! The sample chat binary owns the file/terminal integration.
 
-use crate::{event::RendererEvent, table::MAX_TABLE_ROWS};
+use crate::table::MAX_TABLE_ROWS;
 use genui_core::{
     Session, SharedMap,
-    session::{HostError, HostRequest, ReqKind, Update},
+    session::{HostError, HostRequest, ReqKind, UiEvent, Update},
     validate::Options,
     value::Value,
 };
@@ -134,7 +134,7 @@ pub struct SampleHost {
     pub policy: HostPolicy,
     pub data: HostData,
     pub trace: Vec<HostTrace>,
-    pub events: Vec<RendererEvent>,
+    pub events: Vec<UiEvent>,
 }
 
 impl SampleHost {
@@ -288,14 +288,10 @@ impl SampleHost {
         self.policy.url_hosts.contains(host)
     }
 
-    /// Converts a path-addressed renderer event into the core entry point.
-    pub fn event(&mut self, session: &mut Session, event: RendererEvent) -> Update {
+    /// Applies a renderer `UiEvent` through the core path-addressed entry point.
+    pub fn event(&mut self, session: &mut Session, event: UiEvent) -> Update {
         self.events.push(event.clone());
-        match event {
-            RendererEvent::Activate { path, prop } => session.activate_at(&path, &prop),
-            RendererEvent::Edit { path, value } => session.edit_at(&path, value),
-            RendererEvent::Blur { path } => session.blur_at(&path),
-        }
+        session.event(event)
     }
 
     pub fn trace_json(&self) -> Vec<serde_json::Value> {

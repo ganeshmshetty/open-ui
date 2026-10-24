@@ -62,22 +62,24 @@ uses `Session::deliver`, which rejects stale ids and cross-epoch results.
 
 ## 4. Events
 
-`UiView` emits path-addressed `RendererEvent`s:
+`UiView` emits the core path-addressed `UiEvent` directly:
 
 ```rust
-cx.subscribe(&ui, |host, _, event: &RendererEvent, cx| {
-    let update = match event {
-        RendererEvent::Activate { path, prop } => session.activate_at(path, prop),
-        RendererEvent::Edit { path, value } => session.edit_at(path, value.clone()),
-        RendererEvent::Blur { path } => session.blur_at(path),
-    };
-    // Apply update.patches to the same view.
+cx.subscribe(&ui, |host, _, event: &UiEvent, cx| {
+    // The session resolves the stable patch path to its live node id.
+    let update = session.event(event.clone());
+    // Apply update.patches to the same view, then sync bound widgets.
+    view.update(cx, |view, cx| {
+        view.apply(update.patches.unwrap_or_default(), window, cx);
+        view.sync_state(session.state_values(), window, cx);
+    });
 });
 ```
 
-The bridge resolves stable patch paths to live `NodeId`s inside the session.
-Buttons gate on `on_click` and sealed status; Tabs emits `Edit` when bound.
-M7 owns typed inputs and focus.
+Buttons emit `Activate` when sealed, enabled and actionable; inputs and a bound
+Tabs emit `Edit`; focus changes emit `Blur`. `Session::activate_at`, `edit_at`
+and `blur_at` remain as convenience entry points for hosts that already hold a
+path string.
 
 ## 5. Images
 

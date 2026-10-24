@@ -28,6 +28,14 @@ pub const IMPLEMENTED: &[&str] = &[
     "Alert",
     "Image",
     "Button",
+    "Form",
+    "Input",
+    "TextArea",
+    "Select",
+    "Checkbox",
+    "CheckboxGroup",
+    "RadioGroup",
+    "Switch",
     "Stat",
     "Facts",
     "Chart",
@@ -38,13 +46,11 @@ pub const IMPLEMENTED: &[&str] = &[
     "Tab",
 ];
 
-/// A clearly scoped placeholder for a component owned by a later milestone.
-pub fn deferred_milestone(kind: &str) -> Option<&'static str> {
-    match kind {
-        "Form" | "Input" | "TextArea" | "Select" | "Checkbox" | "CheckboxGroup" | "RadioGroup"
-        | "Switch" => Some("M7"),
-        _ => None,
-    }
+/// Phase 1 implements every catalog component; there is no deferred milestone
+/// placeholder left. Unknown host extension kinds still render a labeled
+/// fallback, but no standard component is owned by a later milestone.
+pub fn deferred_milestone(_kind: &str) -> Option<&'static str> {
+    None
 }
 
 pub fn is_implemented(kind: &str) -> bool {
@@ -638,8 +644,8 @@ mod tests {
             "RadioGroup",
             "Switch",
         ] {
-            assert_eq!(deferred_milestone(kind), Some("M7"), "{kind}");
-            assert!(!is_implemented(kind));
+            assert_eq!(deferred_milestone(kind), None, "{kind}");
+            assert!(is_implemented(kind));
         }
         for kind in ["List", "Table", "TableColumn", "Tabs", "Tab"] {
             assert_eq!(deferred_milestone(kind), None, "{kind}");

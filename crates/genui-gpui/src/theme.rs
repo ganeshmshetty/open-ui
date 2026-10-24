@@ -657,6 +657,73 @@ impl UiTheme {
         self.space(2)
     }
 
+    /// Form layout (DESIGN §6 rule 7).
+    pub fn form_field_gap(&self) -> Pixels {
+        self.space(3)
+    }
+
+    pub fn form_label_gap(&self) -> Pixels {
+        px(6.)
+    }
+
+    pub fn form_error_gap(&self) -> Pixels {
+        self.space(1)
+    }
+
+    pub fn form_submit_gap(&self) -> Pixels {
+        self.space(4)
+    }
+
+    /// Input anatomy (DESIGN §7). A control's own internal padding is fixed.
+    pub fn input_padding_x(&self) -> Pixels {
+        px(10.)
+    }
+
+    /// TextArea: `rows × 20 + 12` (DESIGN §7).
+    pub fn textarea_row_height(&self) -> Pixels {
+        px(20.)
+    }
+
+    pub fn textarea_vertical_padding(&self) -> Pixels {
+        px(6.)
+    }
+
+    /// Checkbox, radio and switch geometry (DESIGN §5, §7).
+    pub fn checkbox_size(&self) -> Pixels {
+        px(16.)
+    }
+
+    pub fn radio_dot_size(&self) -> Pixels {
+        px(6.)
+    }
+
+    pub fn switch_size(&self) -> Size<Pixels> {
+        size(px(32.), px(18.))
+    }
+
+    pub fn switch_thumb_size(&self) -> Pixels {
+        px(14.)
+    }
+
+    pub fn switch_inset(&self) -> Pixels {
+        px(2.)
+    }
+
+    /// The minimum click target (DESIGN §9).
+    pub fn min_click_target(&self) -> Pixels {
+        px(24.)
+    }
+
+    /// Select anatomy: the trailing chevron is drawn, not loaded from an icon
+    /// asset, so it is present in headless captures too (DESIGN §7).
+    pub fn select_chevron_size(&self) -> Pixels {
+        px(10.)
+    }
+
+    pub fn select_chevron_stroke(&self) -> Pixels {
+        px(1.5)
+    }
+
     /// Badge anatomy (DESIGN §7).
     pub fn badge_height(&self) -> Pixels {
         px(20.)

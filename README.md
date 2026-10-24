@@ -4,15 +4,15 @@ A clean-room implementation of [SPEC.md](spec/SPEC.md), using the temporary
 `genui` crate prefix. See [PROGRESS.md](PROGRESS.md) for milestone status,
 [ROADMAP.md](ROADMAP.md) for future work, and [AGENTS.md](AGENTS.md) for the quality bar.
 
-M3 completes the streaming parser, retained patches and replay. M4 adds the
-runtime, state, actions, queries and refs; M5 adds prompts, feedback and stored
-messages; M6 adds the GPUI renderer skeleton, gallery and streaming dashboard.
-M8 adds the data components (List, virtualized Table, Tabs, chart tooltips and
-the host image loader), panic containment, the scripted sample host, 20 recorded
-transcripts and the 50,000-row stress. M7 (inputs/forms, focus and accessibility)
-is not implemented on this branch; its placeholders remain labeled and the M8
-sample host uses host chrome plus button/Tabs events. See PROGRESS.md and
-`docs/release/v0.1-checklist.md` for the exact boundary and open owner decisions.
+M3 completes the streaming parser, retained patches and replay; M4 the runtime
+(state, actions, queries, refs, events and forms); M5 prompts, feedback and stored
+messages; M6 the GPUI renderer skeleton, gallery and streaming dashboard; M7
+inputs/forms, focus/keyboard handling, `UiEvent` delivery, accessibility, host
+extensions, the form demo and scripted GPUI interaction tests; M8 the data
+components (virtualized List/Table, Tabs, chart tooltips, host image loader),
+panic containment, the scripted sample host, 20 recorded transcripts and the
+50,000-row stress. See PROGRESS.md and `docs/release/v0.1-checklist.md` for the
+exact boundary and open owner decisions.
 
 ```sh
 cargo fmt --all -- --check
@@ -24,7 +24,7 @@ cargo run --locked -p genui-cli -- spec-check
 
 `fixtures [directory]` and `spec-check [SPEC.md]` accept optional paths. Default
 paths are rooted at the source workspace, independent of the current directory.
-`spec-check` validates SPEC examples and all 24 exemplars against genui-std.
+`spec-check` validates SPEC examples and all 25 exemplars against genui-std.
 `tree <file.ui>` prints the static IR, typed props, identity paths, deferred plans
 and diagnostics. It uses the default empty tool/ref catalog, so examples requiring
 host data will report missing catalogs. Warning+ diagnostics exit nonzero.
@@ -38,7 +38,8 @@ python3 scripts/quality.py fixtures --base main --head HEAD
 python3 scripts/mutation.py --output /tmp/genui-mutations  # cargo-mutants 27.1.0
 ```
 
-M6/M8 renderer demos (macOS local verification; the screenshot feature is
+M6/M7/M8 renderer demos (macOS local verification; the screenshot feature is
+M6/M7/M8 renderer demos (macOS local verification; the screenshot feature is
 test-support and dev-only):
 
 ```sh
@@ -50,6 +51,12 @@ cargo run -p genui-gpui --features screenshot --bin gallery -- --self-test-panic
 cargo run -p genui-gpui --features screenshot --bin dashboard -- \
   --file examples/01-sales-dashboard.ui --chunk 5 --headless \
   --screenshot /tmp/dashboard.png --patch-log /tmp/patches.jsonl
+
+# M7 form demo: prints ui-events/requests/model events; keyboard-only self-test
+cargo run -p genui-gpui --features screenshot --bin form-demo -- \
+  --screenshot /tmp/genui-form --mode both
+cargo run -p genui-gpui --features screenshot --bin form-demo -- --self-test
+cargo test -p genui-gpui --test interaction keyboard_only_run_reaches_submit
 ```
 
 M8 scripted host, transcripts and table stress:

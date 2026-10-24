@@ -1,0 +1,21 @@
+// A complete form exercising every M7 input. The demo host turns this into the
+// runnable `form-demo` window and the scripted keyboard-only test.
+root=Column([Heading("Create your account",level:1),Text("Every control below is live: type, choose, toggle, then submit.",size:"lg",tone:"neutral"),form])
+$name="Ada Lovelace"
+$email=""
+$team="Platform"
+$topics=["Releases"]
+$speed="Express"
+$updates=true
+$notify=false
+$notes=""
+form=Form([name,email,team,speed,updates,topics,notify,notes,save],on_submit:say("Create account",{name:$name,email:$email,team:$team,speed:$speed,updates:$updates,topics:$topics,notify:$notify,notes:$notes}))
+name=Input("Full name",bind:$name,required:true,max_len:60)
+email=Input("Work email",bind:$email,kind:"email",required:true,placeholder:"you@company.com")
+team=Select("Team",["Platform","Product","Operations"],bind:$team,required:true)
+speed=RadioGroup("Delivery updates",["Standard","Express"],bind:$speed,required:true)
+updates=Checkbox("Email me product updates",bind:$updates)
+topics=CheckboxGroup("Topics",["Releases","Incidents","Research"],bind:$topics)
+notify=Switch("Desktop notifications",bind:$notify)
+notes=TextArea("Anything else we should know?",bind:$notes,rows:3,max_len:200)
+save=Button("Create account",tone:"primary",submit:true)

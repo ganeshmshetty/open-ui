@@ -12,10 +12,11 @@
 pub mod capabilities;
 pub mod chart;
 pub mod components;
+pub mod controls;
 pub mod data;
 pub mod demo;
-pub mod event;
 pub mod examples;
+pub mod extensions;
 pub mod format;
 pub mod host;
 pub mod image;
@@ -32,7 +33,6 @@ pub mod tree;
 pub mod view;
 
 pub use capabilities::Capabilities;
-pub use event::RendererEvent;
 pub use image::{ImageError, ImageLimits, ImageState};
 pub use theme::{ThemeMode, UiTheme};
 pub use tree::{ApplyReport, NodeEntry, RetainedTree};

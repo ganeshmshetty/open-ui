@@ -142,6 +142,7 @@ struct Item {
     deferred: Vec<String>,
     warnings: usize,
     state_sheet: bool,
+    state: std::collections::BTreeMap<String, genui_core::runtime::StateValue>,
 }
 
 fn items(args: &Args) -> Result<Vec<Item>, String> {
@@ -196,6 +197,7 @@ fn item_from_loaded(name: String, loaded: LoadedProgram) -> Item {
         deferred: loaded.deferred,
         warnings,
         state_sheet: false,
+        state: loaded.state,
     }
 }
 
@@ -211,6 +213,7 @@ fn state_sheet_item() -> Item {
         deferred: Vec::new(),
         warnings: 0,
         state_sheet: true,
+        state: sheet.state.clone(),
     }
 }
 
@@ -272,6 +275,9 @@ fn make_ui(
     for batch in &item.batches {
         ui.update(cx, |view, cx| view.apply(batch.clone(), window, cx));
     }
+    ui.update(cx, |view, cx| {
+        view.sync_state(item.state.clone(), window, cx);
+    });
     ui
 }
 

@@ -41,3 +41,18 @@ Rust 1.99.0 and Xcode:
 
 The upstream `block 0.1.6` future-incompatibility advisory remains; builds and
 Clippy pass without suppression. No pin changed.
+
+## M8 data/host verification — 2026-10-24
+
+The pins are unchanged. New surfaces checked against the pinned sources:
+
+| Surface | API / difference recorded |
+| --- | --- |
+| gpui-component 0.8.0 `table::DataTable` | `DataTable::new(&Entity<TableState<D>>)` owns sizing, borders, header height and scrollbar visibility. `sortable`, `row_selectable`, `col_resizable`, `col_movable` and `row_header` live on `TableState`, not on `DataTable`; a new state needs `&mut Window`. `TableState::refresh` is required after delegate column/row changes, and `scroll_to_row` only needs the state context. |
+| gpui-component 0.8.0 `TableDelegate` | `render_td`/`render_th`/`render_empty`/`render_loading` return `impl IntoElement`; the delegate receives `&mut Context<TableState<Self>>`, so model updates must go through `delegate_mut()` and `refresh`. `loading()` receives `&App`. |
+| gpui-component 0.8.0 `Column` | `sortable()`, `text_right()`, `width/min_width/max_width`, `paddings(Edges)` and `resizable(bool)` are the supported builder surface; `Edges::symmetric` does not exist in the pinned geometry API. |
+| gpui-pre 0.3.9 animation | `AnimationExt::with_animation` automatically renders the static end state for a oneshot animation and the static **start** state for a repeating animation when `App::reduce_motion` is set. Repeating skeletons therefore start at full opacity, not at their low point. `App::set_reduce_motion(true)` is public and is what the screenshot hosts use. |
+| gpui-pre 0.3.9 headless capture | `HeadlessAppContext` and `Window::render_to_image` must be created on the process main thread; integration tests invoke the gallery self-tests in a child process. `WindowHandle<T>` is `Copy`; `AnyWindowHandle::from(window)` does not need a clone. |
+| gpui-pre 0.3.9 `on_mouse_move` | The event position is window-relative. Chart hover stores the canvas paint bounds in a `Cell<Bounds<Pixels>>` and subtracts the origin; there is no local-coordinate variant in the fluent listener. |
+| gpui-component 0.8.0 `TextTooltip`/tooltip | `.tooltip(builder)` is on `StatefulInteractiveElement`; the builder receives `&mut App` (not a `Context`), so the tooltip entity is created with `AppContext::new`. A cell needs an `id` before attaching a tooltip. |
+| `genui-core` M8 additions | `Session::preload_ref`, `state_snapshot`, `freeze`, `node_id_at`, `action_handle_at`, `activate_at`, `edit_at`, `blur_at` are core APIs and are covered by core tests; the renderer uses only the path-addressed methods. |

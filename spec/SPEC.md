@@ -1889,7 +1889,7 @@ The phase-1 library has no modals and no free-positioned overlays: no dialogs, s
 A message can contain prose before the program, and prose that becomes `Segment::Markdown` (2.9). The prose is not part of the IR or the patch stream.
 
 - **Core side.** `Update` carries `prose: Vec<ProseDelta>`, where `ProseDelta { segment: u32, append: String }` appends text to the markdown segment with that index. A new index starts a new segment. The program's position in the message is the `Segment::Program` slot.
-- **Sanitizing.** Prose goes through the same character stripping as model text props (11): bidi controls and zero-width characters are removed. Raw HTML is shown as text. Markdown images are rendered as their alt text with a link. Links follow URL policy (7.6) with `Model` provenance.
+- **Sanitizing.** Prose goes through the same character stripping as model text props (11): bidi controls and zero-width characters are removed. Raw HTML is shown as text. Markdown images are rendered as their alt text. Model-written Markdown and Code links are inert in the v0.1 renderer (no `App::open_url` fallback); a host URL policy hook is deferred, so untrusted content cannot open a URL directly (10.12, 11).
 - **GPUI side.** `UiView` renders the whole message in segment order. Each markdown segment is a kit `TextView` over an `Entity<TextViewState>`, grown with `push_str` as deltas arrive. The program's tree mounts at its segment position.
 - **Fallback text** (4.7) includes the prose segments in order.
 

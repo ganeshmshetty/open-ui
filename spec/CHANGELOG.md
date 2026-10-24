@@ -1,5 +1,13 @@
 # Spec changelog
 
+## 2026-10-24 — M6 review integration: inert links, status visuals (§§10.7,10.12)
+
+- Model-written Markdown/Code links are inert in the pinned `TextView` instead of
+  falling back to `App::open_url`, closing a URL-policy bypass. A host policy hook
+  is deferred; the renderer performs no I/O.
+- The renderer maps the synthetic query/ref `status` prop to loading (requested,
+  refreshing) and error (denied, failed) visuals for data components and charts.
+
 ## 2026-10-24 — M6 renderer implementation review (DESIGN §§4,10; SPEC §§1.2,10.1,10.3,10.6,10.12–10.13,12.6–12.7,14.1)
 
 - DESIGN 0.3 raises the light `danger` text to `#c81e1e`: the documented
